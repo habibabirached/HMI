@@ -1,1 +1,0 @@
- docker stop dcs-ui 
