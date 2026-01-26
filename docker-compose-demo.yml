@@ -1,0 +1,67 @@
+
+
+# virtual networks
+networks:
+  dcs_network:    
+    driver: bridge
+  # jenkins_network:
+  #   driver: bridge
+
+services:
+
+  dcs-cicd:
+    image: dtr.research.ge.com/data_center_simulator/dcs-cicd:latest
+    build: 
+      context: ./dcs-cicd
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+    #user: "1007:1008" # obtain it by running id -u and id -g from within the EC2 instance
+    networks:
+      dcs_network:
+        aliases:
+          - dcs_cicd
+    volumes:
+      - "~/.ssh:/root/.ssh" # so we can access git repos with ssh keys
+      #- "/home/de336564/.ssh:/root/.ssh"
+      - "./:/app" # mount root project folder in the container /app folder
+      - "./poll-git.sh:/app/command.sh" # to override the default command in the Dockerfile
+
+
+  dcs-ui:
+    image: dtr.research.ge.com/data_center_simulator/dcs-ui:latest
+    build:
+      context: ./dcs-ui
+      dockerfile: Dockerfile
+      args:
+        DOCKER_DEFAULT_PLATFORM: ${DOCKER_DEFAULT_PLATFORM}
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY} # from .env file
+      - SERVER_HOSTNAME=host.docker.internal
+      #- SERVER_HOSTNAME=bdc_srv
+    ports:
+      - "3000:3000"
+
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      dcs_network:
+        aliases:
+          - dcs_ui
+    ulimits: # Fix for podman compose running out of file descriptors
+      nproc: 65535
+      nofile: 65536
+    volumes:
+      - "./dcs-ui/src:/app/src"
+      - "./dcs-ui/public:/app/public"
+
+      
+
+  
+

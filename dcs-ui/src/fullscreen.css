@@ -1,0 +1,41 @@
+/* Fullscreen mode styling */
+:fullscreen {
+  overflow: auto !important;
+}
+
+:-webkit-full-screen {
+  overflow: auto !important;
+}
+
+:-moz-full-screen {
+  overflow: auto !important;
+}
+
+:-ms-fullscreen {
+  overflow: auto !important;
+}
+
+/* Smooth scrolling for triple screen navigation */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for better UX when scrolling between virtual screens */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+

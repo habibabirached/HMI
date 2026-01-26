@@ -1,0 +1,10 @@
+appBar {
+    top: auto;
+    bottom: 0;
+    text-align: center;
+}
+
+footer {
+    display: flex;
+    justify-content: center;
+}
