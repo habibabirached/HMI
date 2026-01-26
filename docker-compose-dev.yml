@@ -5,6 +5,25 @@ networks:
     driver: bridge
 
 services:
+  dcs-cicd:
+    image: dtr.research.ge.com/data_center_simulator/dcs-cicd:latest
+    build: 
+      context: ./dcs-cicd
+      dockerfile: Dockerfile
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY}
+    networks:
+      dcs_network:
+        aliases:
+          - dcs_cicd
+    volumes:
+      - "~/.ssh:/root/.ssh"  # so we can access git repos with ssh keys
+      - "./:/app"  # mount root project folder in the container /app folder
+      - "./poll-git.sh:/app/command.sh"  # to override the default command in the Dockerfile
+      - "/var/run/docker.sock:/var/run/docker.sock"  # allow CI/CD container to control docker
+
   dcs-ui:
     image: dtr.research.ge.com/data_center_simulator/dcs-ui:latest
     build:
@@ -18,7 +37,7 @@ services:
       - no_proxy=${NO_PROXY}
       - SERVER_HOSTNAME=host.docker.internal
     ports:
-      - "3000:3000"
+      - "3001:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
