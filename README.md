@@ -20,7 +20,7 @@ A minimal React application with automated CI/CD deployment system.
 ./docker-dev-run.sh
 ```
 
-The application will be available at **http://localhost:3001/**
+The application will be available at **http://localhost:3000/**
 
 3. Stop the application:
 ```bash
