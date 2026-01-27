@@ -37,7 +37,7 @@ services:
       - no_proxy=${NO_PROXY}
       - SERVER_HOSTNAME=host.docker.internal
     ports:
-      - "3001:3000"
+      - "3000:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
