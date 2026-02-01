@@ -1,0 +1,37 @@
+.simulation-controls {
+  width: 320px;
+  background: #1a1a1a;
+  border-left: 2px solid #333;
+  border-top: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+}
+
+.controls-header {
+  padding: 20px;
+  border-bottom: 1px solid #333;
+}
+
+.controls-header h3 {
+  font-size: 15px;
+  color: #4caf50;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.controls-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.controls-placeholder {
+  color: #666;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  padding: 20px 0;
+}

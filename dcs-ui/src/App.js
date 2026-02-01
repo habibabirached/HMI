@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import ComponentLibrary from './components/ComponentLibrary';
 import Canvas from './components/Canvas';
 import PropertyPanel from './components/PropertyPanel';
+import SimulationControls from './components/SimulationControls';
 import Toolbar from './components/Toolbar';
 import './styles/App.css';
 
@@ -184,6 +185,11 @@ function App() {
             setSelectedConnection(null);
           }}
           disabled={mode === 'simulation'}
+        />
+
+        <SimulationControls
+          mode={mode}
+          selectedComponent={selectedComponent}
         />
       </div>
     </div>

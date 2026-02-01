@@ -43,6 +43,11 @@ body {
   overflow: hidden;
 }
 
+.app-main > aside:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Utility classes */
 .readonly {
   background: #1a1a1a !important;
