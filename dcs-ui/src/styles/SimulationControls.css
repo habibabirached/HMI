@@ -35,3 +35,81 @@
   text-align: center;
   padding: 20px 0;
 }
+
+/* Component controls */
+.component-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.selected-component-label {
+  padding: 12px;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.selected-component-label strong {
+  color: #4caf50;
+  margin-right: 8px;
+}
+
+.control-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Control button base styles */
+.control-btn {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.control-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.control-btn:active {
+  transform: translateY(0);
+}
+
+/* Button variants */
+.control-btn-danger {
+  background: #d32f2f;
+  color: white;
+}
+
+.control-btn-danger:hover {
+  background: #f44336;
+}
+
+.control-btn-success {
+  background: #388e3c;
+  color: white;
+}
+
+.control-btn-success:hover {
+  background: #4caf50;
+}
+
+.control-btn-warning {
+  background: #f57c00;
+  color: white;
+}
+
+.control-btn-warning:hover {
+  background: #ff9800;
+}
