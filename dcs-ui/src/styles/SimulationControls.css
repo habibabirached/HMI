@@ -1,115 +1,189 @@
+/* ============================================================================
+   SIMULATION CONTROLS PANEL STYLES
+   ============================================================================
+   This stylesheet makes the Simulation Controls panel look professional
+   and industrial. It defines the layout, colors, and button styles.
+   
+   COLOR SCHEME:
+   - Background: Dark grey/black (#1a1a1a, #0d0d0d)
+   - Borders: Medium grey (#333)
+   - Headers: Green (#4caf50) for that "system active" feeling
+   - Buttons: Red (danger), Green (success), Orange (warning)
+============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   MAIN PANEL CONTAINER
+   ----------------------------------------------------------------------------
+   This is the outer box that contains the entire control panel.
+   It appears on the right side of the screen below the Property Panel. */
 .simulation-controls {
-  width: 320px;
-  background: #1a1a1a;
-  border-left: 2px solid #333;
-  border-top: 1px solid #333;
-  display: flex;
-  flex-direction: column;
-  max-height: 400px;
+  width: 320px;                    /* Fixed width - same as Property Panel */
+  background: #1a1a1a;             /* Dark grey background */
+  border-left: 2px solid #333;     /* Separator line from canvas */
+  border-top: 1px solid #333;      /* Top border for definition */
+  display: flex;                   /* Use flexbox layout */
+  flex-direction: column;          /* Stack header and body vertically */
+  max-height: 400px;               /* Limit height so it doesn't get too tall */
 }
 
+/* ----------------------------------------------------------------------------
+   HEADER SECTION
+   ----------------------------------------------------------------------------
+   The green title bar at the top that says "Simulation Controls" */
 .controls-header {
-  padding: 20px;
-  border-bottom: 1px solid #333;
+  padding: 20px;                   /* Space around the title */
+  border-bottom: 1px solid #333;   /* Line separating header from body */
 }
 
+/* The "Simulation Controls" title text */
 .controls-header h3 {
-  font-size: 15px;
-  color: #4caf50;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 600;
+  font-size: 15px;                 /* Slightly larger than body text */
+  color: #4caf50;                  /* Green - indicates active system */
+  text-transform: uppercase;       /* ALL CAPS for industrial look */
+  letter-spacing: 1px;             /* Space out letters for readability */
+  font-weight: 600;                /* Semi-bold weight */
 }
 
+/* ----------------------------------------------------------------------------
+   BODY SECTION
+   ----------------------------------------------------------------------------
+   The main area where buttons and content appear */
 .controls-body {
-  padding: 20px;
-  flex: 1;
-  overflow-y: auto;
+  padding: 20px;                   /* Space around content */
+  flex: 1;                         /* Take up remaining vertical space */
+  overflow-y: auto;                /* Scroll if content is too tall */
 }
 
+/* ----------------------------------------------------------------------------
+   PLACEHOLDER TEXT
+   ----------------------------------------------------------------------------
+   The grey italic text shown when nothing is selected */
 .controls-placeholder {
-  color: #666;
-  font-style: italic;
-  font-size: 13px;
-  line-height: 1.6;
-  text-align: center;
-  padding: 20px 0;
+  color: #666;                     /* Medium grey - less prominent */
+  font-style: italic;              /* Italic to show it's a hint */
+  font-size: 13px;                 /* Smaller than normal text */
+  line-height: 1.6;                /* Space between lines */
+  text-align: center;              /* Center the text */
+  padding: 20px 0;                 /* Vertical spacing */
 }
 
-/* Component controls */
+/* ============================================================================
+   COMPONENT CONTROLS LAYOUT
+   ============================================================================
+   When a component is selected, this controls how the label and buttons
+   are arranged vertically. */
 .component-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: flex;                   /* Use flexbox */
+  flex-direction: column;          /* Stack items vertically */
+  gap: 16px;                       /* Space between label and buttons */
 }
 
+/* ----------------------------------------------------------------------------
+   SELECTED COMPONENT LABEL
+   ----------------------------------------------------------------------------
+   The box that shows "Selected: LM2500" */
 .selected-component-label {
-  padding: 12px;
-  background: #0d0d0d;
-  border: 1px solid #333;
-  border-radius: 4px;
-  color: #aaa;
-  font-size: 13px;
+  padding: 12px;                   /* Space inside the box */
+  background: #0d0d0d;             /* Darker than panel background */
+  border: 1px solid #333;          /* Subtle border */
+  border-radius: 4px;              /* Slightly rounded corners */
+  color: #aaa;                     /* Light grey text */
+  font-size: 13px;                 /* Standard size */
 }
 
+/* The word "Selected:" in green */
 .selected-component-label strong {
-  color: #4caf50;
-  margin-right: 8px;
+  color: #4caf50;                  /* Green to match header */
+  margin-right: 8px;               /* Space before component name */
 }
 
+/* ----------------------------------------------------------------------------
+   BUTTON CONTAINER
+   ----------------------------------------------------------------------------
+   Holds all the action buttons in a vertical stack */
 .control-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: flex;                   /* Use flexbox */
+  flex-direction: column;          /* Stack buttons vertically */
+  gap: 10px;                       /* Space between each button */
 }
 
-/* Control button base styles */
+/* ============================================================================
+   CONTROL BUTTON BASE STYLES
+   ============================================================================
+   These styles apply to ALL buttons, regardless of color.
+   Individual button types (danger/success/warning) add their own colors. */
 .control-btn {
-  padding: 12px 16px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
+  padding: 12px 16px;              /* Comfortable click area */
+  border: none;                    /* No border - solid buttons */
+  border-radius: 4px;              /* Slightly rounded corners */
+  font-size: 13px;                 /* Standard button text size */
+  font-weight: 600;                /* Semi-bold for readability */
+  text-transform: uppercase;       /* ALL CAPS for industrial feel */
+  letter-spacing: 0.5px;           /* Slight spacing for clarity */
+  cursor: pointer;                 /* Show hand cursor on hover */
+  transition: all 0.2s ease;       /* Smooth hover effects */
+  font-family: inherit;            /* Use same font as rest of app */
 }
 
+/* HOVER EFFECT - When mouse is over a button
+   Makes the button lift up slightly for a tactile feel */
 .control-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);     /* Lift up 1 pixel */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);  /* Add shadow underneath */
 }
 
+/* CLICK EFFECT - When button is being pressed
+   Pushes the button back down to give tactile feedback */
 .control-btn:active {
-  transform: translateY(0);
+  transform: translateY(0);        /* Return to normal position */
 }
 
-/* Button variants */
+/* ============================================================================
+   BUTTON COLOR VARIANTS
+   ============================================================================
+   Each type of button gets a different color to show its purpose:
+   - DANGER (red): destructive actions like "Trip" or "Fail"
+   - SUCCESS (green): restorative actions like "Restart" or "Enable"
+   - WARNING (orange): operational changes like "Open Breaker" */
+
+/* ----------------------------------------------------------------------------
+   DANGER BUTTON - Red
+   ----------------------------------------------------------------------------
+   Used for: Trip Turbine, Battery Failure, Take Offline, Trip Breaker */
 .control-btn-danger {
-  background: #d32f2f;
-  color: white;
+  background: #d32f2f;             /* Dark red base color */
+  color: white;                    /* White text for contrast */
 }
 
+/* Lighter red when hovering */
 .control-btn-danger:hover {
-  background: #f44336;
+  background: #f44336;             /* Brighter red on hover */
 }
 
+/* ----------------------------------------------------------------------------
+   SUCCESS BUTTON - Green
+   ----------------------------------------------------------------------------
+   Used for: Restart Turbine, Enable Battery, Bring Online, Close Breaker */
 .control-btn-success {
-  background: #388e3c;
-  color: white;
+  background: #388e3c;             /* Dark green base color */
+  color: white;                    /* White text for contrast */
 }
 
+/* Lighter green when hovering */
 .control-btn-success:hover {
-  background: #4caf50;
+  background: #4caf50;             /* Brighter green on hover */
 }
 
+/* ----------------------------------------------------------------------------
+   WARNING BUTTON - Orange
+   ----------------------------------------------------------------------------
+   Used for: Open Breaker (operational change, not quite destructive) */
 .control-btn-warning {
-  background: #f57c00;
-  color: white;
+  background: #f57c00;             /* Dark orange base color */
+  color: white;                    /* White text for contrast */
 }
 
+/* Lighter orange when hovering */
 .control-btn-warning:hover {
-  background: #ff9800;
+  background: #ff9800;             /* Brighter orange on hover */
 }
