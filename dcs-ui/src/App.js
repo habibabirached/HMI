@@ -129,6 +129,52 @@ function App() {
     setSimulationRunning(false);
   };
 
+  // ========================================================================
+  // FUNCTION: handleTripComponent
+  // ========================================================================
+  // This function makes a component "trip" or "fail" - like when a turbine
+  // breaks down or goes offline.
+  //
+  // HOW IT WORKS (Step by step):
+  // 1. Find the component with the matching ID
+  // 2. Change its status from 'normal' to 'offline'
+  // 3. Set its power output to 0 (because it's not working anymore)
+  //
+  // REACT CONCEPT - useCallback:
+  // We wrap this function in useCallback() which tells React:
+  // "Don't recreate this function every time the component re-renders,
+  //  keep using the same function." This makes the app faster.
+  //
+  // REACT CONCEPT - setCanvasComponents:
+  // This is a "state setter" function from useState(). When we call it,
+  // React updates the state AND automatically re-renders the screen.
+  //
+  // REACT CONCEPT - Immutability:
+  // We don't change the existing array directly (that would be mutation).
+  // Instead, we create a NEW array with .map() where one component is changed.
+  // This is how React knows something changed and needs to update the screen.
+  const handleTripComponent = useCallback((componentId) => {
+    // Update the canvasComponents state
+    setCanvasComponents(prev => 
+      // 'prev' is the current state (the old array of components)
+      // We use .map() to create a new array with one component modified
+      prev.map(comp => 
+        // Check: Is this the component we want to trip?
+        comp.id === componentId 
+          ? { 
+              // YES - This is the one! Create a new object with changes
+              ...comp,                          // Copy all existing properties
+              status: 'offline',                // Change status to offline
+              state: { 
+                ...comp.state,                  // Copy existing state properties
+                power: 0                        // Set power to zero (not producing)
+              }
+            } 
+          : comp  // NO - Not this one, keep it unchanged
+      )
+    );
+  }, []); // Empty array means: never recreate this function
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -187,9 +233,34 @@ function App() {
           disabled={mode === 'simulation'}
         />
 
+        {/* ================================================================
+            SIMULATION CONTROLS PANEL
+            ================================================================
+            This is the control panel on the right side that shows buttons
+            for triggering failures (like "Trip Turbine").
+            
+            PROPS WE'RE PASSING:
+            - mode: Tells it if we're in 'design' or 'simulation' mode
+            - selectedComponent: Which component the user clicked on
+            - onTripComponent: A FUNCTION we're passing down (called a callback)
+            
+            REACT CONCEPT - Passing Functions as Props:
+            We pass handleTripComponent as a prop called "onTripComponent".
+            This lets the child component (SimulationControls) call our
+            function when the user clicks a button. It's like giving the
+            child a phone number to call back to the parent.
+            
+            When the user clicks "Trip Turbine", this chain happens:
+            1. SimulationControls calls onTripComponent(turbineId)
+            2. That calls our handleTripComponent function here in App.js
+            3. handleTripComponent updates the state
+            4. React re-renders everything with the new state
+            5. The turbine appears red on screen!
+        ================================================================ */}
         <SimulationControls
           mode={mode}
           selectedComponent={selectedComponent}
+          onTripComponent={handleTripComponent}
         />
       </div>
     </div>

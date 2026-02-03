@@ -13,11 +13,22 @@ import '../styles/SimulationControls.css';
  * - For example: turbines get "Trip" and "Restart" buttons
  * - For example: breakers get "Open", "Close", "Trip" buttons
  * 
- * PROPS IT RECEIVES:
+ * PROPS IT RECEIVES (like function parameters):
  * - mode: string - either 'design' or 'simulation'
  * - selectedComponent: object - the component the user clicked on the canvas
+ * - onTripComponent: function - a callback we can call to trip/fail a component
+ * 
+ * REACT CONCEPT - Props:
+ * Props are like inputs to a component. The parent (App.js) passes data
+ * and functions down to this child component. We receive them in the
+ * curly braces { mode, selectedComponent, onTripComponent }.
+ * 
+ * REACT CONCEPT - Callbacks:
+ * onTripComponent is a FUNCTION passed from the parent. When we call it,
+ * we're basically telling the parent "Hey, the user clicked this button,
+ * do something about it!" The parent then updates the state.
  */
-const SimulationControls = ({ mode, selectedComponent }) => {
+const SimulationControls = ({ mode, selectedComponent, onTripComponent }) => {
   // ========================================================================
   // VISIBILITY CHECK
   // ========================================================================
@@ -91,12 +102,40 @@ const SimulationControls = ({ mode, selectedComponent }) => {
     if (type.includes('gas-turbine') || type.includes('turbine')) {
       return (
         <>
-          {/* RED BUTTON: Simulates a turbine failure/trip */}
-          <button className="control-btn control-btn-danger">
+          {/* ===============================================================
+              RED BUTTON: Trip Turbine
+              ===============================================================
+              This button simulates a turbine failure/trip.
+              
+              WHAT HAPPENS WHEN CLICKED:
+              1. onClick event fires (user clicked the button)
+              2. We call onTripComponent() with the selected component's ID
+              3. This calls the handleTripComponent function in App.js
+              4. App.js updates the component's status to 'offline'
+              5. React re-renders the canvas with the turbine in red
+              
+              JAVASCRIPT CONCEPT - Arrow Function:
+              onClick={() => onTripComponent(selectedComponent.id)}
+                      ^^^^
+              This creates a small anonymous function that runs when clicked.
+              We need this because we want to CALL onTripComponent WITH
+              an argument (the ID). If we wrote onClick={onTripComponent},
+              it would call the function immediately without an ID.
+              
+              JAVASCRIPT CONCEPT - Optional Chaining:
+              selectedComponent?.id means "if selectedComponent exists,
+              get its id property, otherwise return undefined".
+              The ? prevents errors if selectedComponent is null.
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-danger"
+            onClick={() => onTripComponent(selectedComponent.id)}
+          >
             Trip Turbine
           </button>
           
-          {/* GREEN BUTTON: Brings the turbine back online */}
+          {/* GREEN BUTTON: Brings the turbine back online 
+              NOTE: This button doesn't work yet - that's Step 4! */}
           <button className="control-btn control-btn-success">
             Restart Turbine
           </button>

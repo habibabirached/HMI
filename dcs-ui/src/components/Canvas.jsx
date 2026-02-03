@@ -224,12 +224,48 @@ const Canvas = forwardRef(({
                 className={`canvas-component ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
                 style={{ cursor: mode === 'design' ? 'move' : 'pointer' }}
               >
-                {/* Component box */}
+                {/* ========================================================
+                    COMPONENT BOX (THE RECTANGLE)
+                    ========================================================
+                    This is the visual rectangle that represents the component
+                    on the canvas. It's an SVG rect element.
+                    
+                    DYNAMIC STYLING BASED ON STATUS:
+                    The stroke (border) color changes based on two things:
+                    1. Is this component selected? → Cyan border
+                    2. Is this component offline? → Red border
+                    3. Otherwise → Grey border
+                    
+                    HOW THE COLOR LOGIC WORKS:
+                    We use a "ternary operator" (? :) which is like a
+                    mini if-else statement in JavaScript.
+                    
+                    Format: condition ? valueIfTrue : valueIfFalse
+                    
+                    We nest two ternary operators:
+                    - First check: Is it selected?
+                      - YES → cyan (#00bcd4)
+                      - NO → Check second condition
+                    - Second check: Is status 'offline'?
+                      - YES → red (#d32f2f)
+                      - NO → grey (#444)
+                    
+                    REACT CONCEPT - Dynamic Attributes:
+                    stroke={...} means we're setting the stroke attribute
+                    to a JavaScript value (not a static string). React
+                    evaluates the expression and sets the result.
+                ======================================================== */}
                 <rect
                   width="80"
                   height="60"
                   fill="#1a1a1a"
-                  stroke={isSelected ? '#00bcd4' : '#444'}
+                  stroke={
+                    isSelected 
+                      ? '#00bcd4'              // Cyan if selected
+                      : component.status === 'offline'
+                        ? '#d32f2f'            // Red if offline
+                        : '#444'               // Grey if normal
+                  }
                   strokeWidth={isSelected ? 3 : 2}
                   rx="4"
                 />
