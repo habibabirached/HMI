@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import '../styles/PropertyPanel.css';
+import './PropertyPanel.css';
 
 const PropertyPanel = ({
   selectedComponent,

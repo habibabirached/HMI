@@ -1,5 +1,5 @@
 import React from 'react';
-import '../styles/Toolbar.css';
+import './Toolbar.css';
 
 const Toolbar = ({
   mode,

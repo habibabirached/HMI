@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
-import '../styles/Canvas.css';
+import './Canvas.css';
 
 const Canvas = forwardRef(({
   components,

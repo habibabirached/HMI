@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { COMPONENT_LIBRARY } from '../data/componentLibrary';
-import '../styles/ComponentLibrary.css';
+import './ComponentLibrary.css';
 
 const ComponentLibrary = ({ onAddComponent, disabled }) => {
   const [expandedCategories, setExpandedCategories] = useState({});
