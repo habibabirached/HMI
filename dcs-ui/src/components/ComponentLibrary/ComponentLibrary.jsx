@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { COMPONENT_LIBRARY } from '../data/componentLibrary';
+import { COMPONENT_LIBRARY } from '../../data/componentLibrary';
 import './ComponentLibrary.css';
 
 const ComponentLibrary = ({ onAddComponent, disabled }) => {
