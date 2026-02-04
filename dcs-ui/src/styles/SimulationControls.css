@@ -23,7 +23,7 @@
   border-top: 1px solid #333;      /* Top border for definition */
   display: flex;                   /* Use flexbox layout */
   flex-direction: column;          /* Stack header and body vertically */
-  max-height: 400px;               /* Limit height so it doesn't get too tall */
+  max-height: 1900px;               /* Increased from 400px to accommodate all controls */
 }
 
 /* ----------------------------------------------------------------------------
@@ -186,4 +186,60 @@
 /* Lighter orange when hovering */
 .control-btn-warning:hover {
   background: #ff9800;             /* Brighter orange on hover */
+}
+
+/* ============================================================================
+   QUICK SCENARIOS SECTION
+   ============================================================================
+   This section appears below component-specific controls and provides
+   one-click scenario buttons for quick testing. */
+
+.quick-scenarios-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid #333;
+}
+
+.scenarios-title {
+  font-size: 13px;
+  color: #ff9800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* Quick scenario buttons are slightly smaller than component buttons */
+.quick-scenarios-section .control-btn {
+  font-size: 12px;
+  padding: 10px 14px;
+}
+
+/* ============================================================================
+   RESET SYSTEM SECTION & BUTTON
+   ============================================================================
+   The Reset button is visually distinct from failure scenario buttons.
+   It uses a blue/grey color scheme instead of red/orange to indicate
+   it's a restorative action, not a failure action. */
+
+.reset-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #444;
+}
+
+/* Reset button - Blue/grey color scheme */
+.control-btn-reset {
+  background: #546e7a;             /* Blue-grey base color */
+  color: white;
+  width: 100%;                     /* Full width to make it prominent */
+  font-weight: 700;                /* Extra bold */
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.control-btn-reset:hover {
+  background: #607d8b;             /* Brighter blue-grey on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(96, 125, 139, 0.4);
 }

@@ -35,6 +35,50 @@
   stroke-width: 4px;
 }
 
+/* ============================================================================
+   POWER FLOW ANIMATION - Flowing Electricity Effect
+   ============================================================================
+   This creates an animated "flowing" effect on energized power lines.
+   
+   HOW IT WORKS:
+   - We use a dashed line pattern (stroke-dasharray)
+   - We animate the stroke-dashoffset property
+   - This makes the dashes appear to move along the line
+   - The movement direction shows power flowing from source to load
+   
+   VISUAL EFFECT:
+   Green lines will have animated "pulses" moving along them, making it
+   look like electricity is flowing through the wires!
+============================================================================ */
+
+/* Keyframe animation - moves the dash pattern */
+@keyframes power-flow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 20;  /* Move 20 pixels over 2 seconds */
+  }
+}
+
+/* Apply animation to energized lines */
+.connection-line.energized {
+  /* Create a dash pattern: 10px line, 10px gap */
+  stroke-dasharray: 10, 10;
+  
+  /* Animate the dash offset to create flowing effect */
+  animation: power-flow 2s linear infinite;
+  
+  /* Make energized lines slightly thicker and brighter */
+  filter: drop-shadow(0 0 3px #4caf50);
+}
+
+/* De-energized lines (no animation, just static dashes) */
+.connection-line.de-energized {
+  stroke-dasharray: 5, 5;
+  opacity: 0.5;
+}
+
 .canvas-info {
   position: absolute;
   bottom: 20px;

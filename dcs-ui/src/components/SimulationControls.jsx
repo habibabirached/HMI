@@ -17,18 +17,34 @@ import '../styles/SimulationControls.css';
  * - mode: string - either 'design' or 'simulation'
  * - selectedComponent: object - the component the user clicked on the canvas
  * - onTripComponent: function - a callback we can call to trip/fail a component
+ * - onRestartComponent: function - NEW! a callback to bring component back online
  * 
  * REACT CONCEPT - Props:
  * Props are like inputs to a component. The parent (App.js) passes data
  * and functions down to this child component. We receive them in the
- * curly braces { mode, selectedComponent, onTripComponent }.
+ * curly braces { mode, selectedComponent, onTripComponent, onRestartComponent }.
  * 
  * REACT CONCEPT - Callbacks:
  * onTripComponent is a FUNCTION passed from the parent. When we call it,
  * we're basically telling the parent "Hey, the user clicked this button,
  * do something about it!" The parent then updates the state.
+ * 
+ * onRestartComponent works the same way but for bringing components online.
  */
-const SimulationControls = ({ mode, selectedComponent, onTripComponent }) => {
+const SimulationControls = ({ 
+  mode, 
+  selectedComponent, 
+  onTripComponent, 
+  onRestartComponent,
+  onOpenBreaker,
+  onCloseBreaker,
+  onTripBreaker,
+  onTripRandomTurbine,
+  onTripAllTurbines,
+  onGridLoss,
+  onOpenAllBreakers,
+  onResetSystem
+}) => {
   // ========================================================================
   // VISIBILITY CHECK
   // ========================================================================
@@ -129,14 +145,35 @@ const SimulationControls = ({ mode, selectedComponent, onTripComponent }) => {
           =============================================================== */}
           <button 
             className="control-btn control-btn-danger"
-            onClick={() => onTripComponent(selectedComponent.id)}
+            onClick={() => {
+              console.log('🔴 Trip Turbine clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onTripComponent(selectedComponent.id);
+            }}
           >
             Trip Turbine
           </button>
           
-          {/* GREEN BUTTON: Brings the turbine back online 
-              NOTE: This button doesn't work yet - that's Step 4! */}
-          <button className="control-btn control-btn-success">
+          {/* ===============================================================
+              GREEN BUTTON: Restart Turbine
+              ===============================================================
+              This button brings a tripped turbine back online.
+              
+              WHAT HAPPENS WHEN CLICKED:
+              1. onClick event fires (user clicked the button)
+              2. We call onRestartComponent() with the selected component's ID
+              3. This calls the handleRestartComponent function in App.js
+              4. App.js updates the component's status to 'normal'
+              5. React re-renders the canvas with the turbine in grey/normal
+              
+              OPPOSITE OF TRIP: This reverses what "Trip Turbine" did.
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-success"
+            onClick={() => {
+              console.log('🟢 Restart Turbine clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onRestartComponent(selectedComponent.id);
+            }}
+          >
             Restart Turbine
           </button>
         </>
@@ -151,18 +188,58 @@ const SimulationControls = ({ mode, selectedComponent, onTripComponent }) => {
     if (type.includes('breaker')) {
       return (
         <>
-          {/* ORANGE BUTTON: Manually open the breaker (normal operation) */}
-          <button className="control-btn control-btn-warning">
+          {/* ===============================================================
+              ORANGE BUTTON: Open Breaker
+              ===============================================================
+              Manually opens the breaker to disconnect the circuit.
+              This is a NORMAL operation, not a failure.
+              
+              USE CASE: Operators open breakers to isolate sections of the
+              power system for maintenance or reconfiguration.
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-warning"
+            onClick={() => {
+              console.log('🟠 Open Breaker clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onOpenBreaker(selectedComponent.id);
+            }}
+          >
             Open Breaker
           </button>
           
-          {/* GREEN BUTTON: Close the breaker (restore connection) */}
-          <button className="control-btn control-btn-success">
+          {/* ===============================================================
+              GREEN BUTTON: Close Breaker
+              ===============================================================
+              Closes the breaker to reconnect the circuit.
+              Restores normal operation after manual opening.
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-success"
+            onClick={() => {
+              console.log('🟢 Close Breaker clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onCloseBreaker(selectedComponent.id);
+            }}
+          >
             Close Breaker
           </button>
           
-          {/* RED BUTTON: Simulate a protection trip (fault condition) */}
-          <button className="control-btn control-btn-danger">
+          {/* ===============================================================
+              RED BUTTON: Trip Breaker
+              ===============================================================
+              Simulates a protection fault (overcurrent, short circuit, etc.)
+              The breaker automatically opens due to a fault condition.
+              
+              DIFFERENCE FROM "OPEN":
+              - Open = Manual operation by operator
+              - Trip = Automatic safety response to a fault
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-danger"
+            onClick={() => {
+              console.log('🔴 Trip Breaker clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onTripBreaker(selectedComponent.id);
+            }}
+          >
             Trip Breaker
           </button>
         </>
@@ -197,13 +274,39 @@ const SimulationControls = ({ mode, selectedComponent, onTripComponent }) => {
     // Give them simple offline/online controls
     return (
       <>
-        {/* RED BUTTON: Take the component offline */}
-        <button className="control-btn control-btn-danger">
+        {/* ===============================================================
+            RED BUTTON: Take Offline (Generic)
+            ===============================================================
+            This button works the same as "Trip Turbine" but for any
+            component type (transformers, loads, etc.)
+            
+            DEBUG: Added console.log to see when this is clicked
+        =============================================================== */}
+        <button 
+          className="control-btn control-btn-danger"
+          onClick={() => {
+            console.log('🔴 Take Offline clicked for:', selectedComponent?.name, selectedComponent?.id);
+            onTripComponent(selectedComponent.id);
+          }}
+        >
           Take Offline
         </button>
         
-        {/* GREEN BUTTON: Bring the component online */}
-        <button className="control-btn control-btn-success">
+        {/* ===============================================================
+            GREEN BUTTON: Bring Online (Generic)
+            ===============================================================
+            This button works the same as "Restart Turbine" but for any
+            component type (transformers, loads, etc.)
+            
+            DEBUG: Added console.log to see when this is clicked
+        =============================================================== */}
+        <button 
+          className="control-btn control-btn-success"
+          onClick={() => {
+            console.log('🟢 Bring Online clicked for:', selectedComponent?.name, selectedComponent?.id);
+            onRestartComponent(selectedComponent.id);
+          }}
+        >
           Bring Online
         </button>
       </>
@@ -225,6 +328,94 @@ const SimulationControls = ({ mode, selectedComponent, onTripComponent }) => {
       <div className="controls-body">
         {/* Call our function to fill this area with the right content */}
         {renderComponentControls()}
+
+        {/* ================================================================
+            QUICK SCENARIOS SECTION
+            ================================================================
+            This section shows pre-built scenario buttons that work
+            WITHOUT needing to select a specific component.
+            
+            These are always visible (when in simulation mode) and let
+            you quickly test common failure scenarios with one click.
+        ================================================================ */}
+        <div className="quick-scenarios-section">
+          <h4 className="scenarios-title">Quick Scenarios</h4>
+          
+          <div className="control-buttons">
+            {/* Trip Random Turbine - Tests unexpected single turbine failure */}
+            <button 
+              className="control-btn control-btn-danger"
+              onClick={() => {
+                console.log('🎲 Quick Scenario: Trip Random Turbine');
+                onTripRandomTurbine();
+              }}
+              title="Randomly trips one turbine to test system response"
+            >
+              🎲 Trip Random Turbine
+            </button>
+
+            {/* Trip All Turbines - Total generation loss scenario */}
+            <button 
+              className="control-btn control-btn-danger"
+              onClick={() => {
+                console.log('💥 Quick Scenario: Trip All Turbines');
+                onTripAllTurbines();
+              }}
+              title="Trips all turbines - worst case blackout scenario"
+            >
+              💥 Trip All Turbines
+            </button>
+
+            {/* Grid Loss - Utility grid disconnection */}
+            <button 
+              className="control-btn control-btn-danger"
+              onClick={() => {
+                console.log('⚡ Quick Scenario: Grid Loss');
+                onGridLoss();
+              }}
+              title="Simulates losing utility grid connection"
+            >
+              ⚡ Grid Loss
+            </button>
+
+            {/* Open All Breakers - System sectioning */}
+            <button 
+              className="control-btn control-btn-warning"
+              onClick={() => {
+                console.log('🟠 Quick Scenario: Open All Breakers');
+                onOpenAllBreakers();
+              }}
+              title="Opens all breakers - complete system isolation"
+            >
+              🔌 Open All Breakers
+            </button>
+          </div>
+
+          {/* ================================================================
+              RESET SYSTEM BUTTON
+              ================================================================
+              This button appears separately at the bottom of the Quick
+              Scenarios section. It's styled differently (blue/grey) to
+              distinguish it from failure scenarios.
+              
+              PURPOSE:
+              After running multiple failure scenarios, this provides a
+              quick way to return everything to normal without having to
+              manually restart each component.
+          ================================================================ */}
+          <div className="reset-section">
+            <button 
+              className="control-btn control-btn-reset"
+              onClick={() => {
+                console.log('🔄 Reset System button clicked');
+                onResetSystem();
+              }}
+              title="Reset all components back to normal state"
+            >
+              🔄 Reset System
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
