@@ -45,7 +45,10 @@ const SimulationControls = ({
   onTripAllTurbines,
   onGridLoss,
   onOpenAllBreakers,
-  onResetSystem
+  onResetSystem,
+  simulationTime,
+  simulationSpeed,
+  onSetSimulationSpeed
 }) => {
   // ========================================================================
   // VISIBILITY CHECK
@@ -358,6 +361,61 @@ const SimulationControls = ({
       <div className="controls-body">
         {/* Call our function to fill this area with the right content */}
         {renderComponentControls()}
+
+        {/* ================================================================
+            SIMULATION SPEED CONTROLS
+            ================================================================
+            Shows current simulation time and speed multiplier controls.
+            Only visible when simulation is running.
+        ================================================================ */}
+        {simulationRunning && (
+          <div className="simulation-speed-section">
+            <h4 className="scenarios-title">Simulation Speed</h4>
+            
+            <div className="simulation-time-display">
+              <div className="time-label">Simulation Time:</div>
+              <div className="time-value">{simulationTime?.toFixed(1) || '0.0'} seconds</div>
+            </div>
+            
+            <div className="speed-buttons">
+              <button
+                className={`speed-btn ${simulationSpeed === 1 ? 'active' : ''}`}
+                onClick={() => onSetSimulationSpeed && onSetSimulationSpeed(1)}
+                title="Real-time speed"
+              >
+                1×
+              </button>
+              <button
+                className={`speed-btn ${simulationSpeed === 10 ? 'active' : ''}`}
+                onClick={() => onSetSimulationSpeed && onSetSimulationSpeed(10)}
+                title="10× speed"
+              >
+                10×
+              </button>
+              <button
+                className={`speed-btn ${simulationSpeed === 100 ? 'active' : ''}`}
+                onClick={() => onSetSimulationSpeed && onSetSimulationSpeed(100)}
+                title="100× speed"
+              >
+                100×
+              </button>
+              <button
+                className={`speed-btn ${simulationSpeed === 1000 ? 'active' : ''}`}
+                onClick={() => onSetSimulationSpeed && onSetSimulationSpeed(1000)}
+                title="1000× speed"
+              >
+                1000×
+              </button>
+              <button
+                className={`speed-btn ${simulationSpeed === 10000 ? 'active' : ''}`}
+                onClick={() => onSetSimulationSpeed && onSetSimulationSpeed(10000)}
+                title="10000× speed"
+              >
+                10000×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ================================================================
             QUICK SCENARIOS SECTION

@@ -15,7 +15,7 @@ import './ChartPanel.css';
  * - height: Current panel height in pixels
  * - onHeightChange: Function to update panel height
  */
-const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange }) => {
+const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, simulationTime, simulationRunning }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartY, setResizeStartY] = useState(0);
   const [resizeStartHeight, setResizeStartHeight] = useState(0);
@@ -68,12 +68,24 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange }) 
 
   /**
    * Generate Plotly configuration for professional scientific charts
+   * Filters data based on simulation time if simulation is running
    */
   const generatePlotlyData = (chart, data) => {
     if (!data || data.length === 0) return [];
 
-    const xValues = data.map(row => row[chart.xColumn]);
-    const yValues = data.map(row => row[chart.yColumn]);
+    // Filter data based on simulation time if simulation is running
+    let filteredData = data;
+    if (simulationRunning && simulationTime !== undefined) {
+      // Assume X column is time in seconds
+      // Only show data points where X <= simulationTime
+      filteredData = data.filter(row => {
+        const xValue = parseFloat(row[chart.xColumn]);
+        return !isNaN(xValue) && xValue <= simulationTime;
+      });
+    }
+
+    const xValues = filteredData.map(row => row[chart.xColumn]);
+    const yValues = filteredData.map(row => row[chart.yColumn]);
 
     switch (chart.chartType) {
       case '2d':

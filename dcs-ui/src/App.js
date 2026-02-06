@@ -35,6 +35,9 @@ function App() {
   // Simulation state
   const [simulationRunning, setSimulationRunning] = useState(false);
   const [systemState, setSystemState] = useState({});
+  const [simulationTime, setSimulationTime] = useState(0); // Current simulation time in seconds
+  const [simulationSpeed, setSimulationSpeed] = useState(1); // Speed multiplier: 1x, 10x, 100x, 1000x
+  const simulationIntervalRef = useRef(null); // Interval for advancing simulation time
   
   // Save/Load dialog state
   const [showDialog, setShowDialog] = useState(false);
@@ -148,6 +151,7 @@ function App() {
   // Start simulation
   const handleStartSimulation = () => {
     setSimulationRunning(true);
+    setSimulationTime(0); // Reset simulation time to 0
     
     // Turn on all components when simulation starts
     // Loop through each component and set status to 'online' and isTripped to false
@@ -168,12 +172,57 @@ function App() {
       };
     });
     setSystemState(initialState);
+    
+    // Start simulation time advancement
+    startSimulationClock();
   };
 
   // Stop simulation
   const handleStopSimulation = () => {
     setSimulationRunning(false);
+    stopSimulationClock();
   };
+  
+  // Simulation clock advancement
+  const startSimulationClock = (speed) => {
+    // Use the speed parameter if provided, otherwise use state
+    const currentSpeed = speed !== undefined ? speed : simulationSpeed;
+    
+    // Clear any existing interval
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current);
+    }
+    
+    // Advance simulation time every 100ms (10 FPS)
+    // Time increment = (100ms / 1000) * speed = 0.1 * speed seconds per frame
+    simulationIntervalRef.current = setInterval(() => {
+      setSimulationTime(prev => prev + (0.1 * currentSpeed));
+    }, 100);
+  };
+  
+  const stopSimulationClock = () => {
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current);
+      simulationIntervalRef.current = null;
+    }
+  };
+  
+  // Update simulation speed
+  const handleSetSimulationSpeed = (speed) => {
+    setSimulationSpeed(speed);
+    if (simulationRunning) {
+      startSimulationClock(speed); // Pass speed directly to avoid stale closure
+    }
+  };
+  
+  // Clean up interval on unmount
+  React.useEffect(() => {
+    return () => {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current);
+      }
+    };
+  }, []);
 
   // ========================================================================
   // FUNCTION: handleTripComponent
@@ -986,6 +1035,9 @@ function App() {
           onGridLoss={handleGridLoss}
           onOpenAllBreakers={handleOpenAllBreakers}
           onResetSystem={handleResetSystem}
+          simulationTime={simulationTime}
+          simulationSpeed={simulationSpeed}
+          onSetSimulationSpeed={handleSetSimulationSpeed}
         />
       </div>
 
@@ -1037,6 +1089,8 @@ function App() {
           onRemoveChart={handleRemoveChart}
           height={chartPanelHeight}
           onHeightChange={setChartPanelHeight}
+          simulationTime={simulationTime}
+          simulationRunning={simulationRunning}
         />
       )}
 
