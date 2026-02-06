@@ -89,8 +89,8 @@ export const COMPONENT_VISUAL_CONFIG = {
     shape: 'rounded-rect'
   },
   'gas-turbine-10mw': {
-    width: 130,
-    height: 75,
+    width: 140,
+    height: 100,
     icon: '⚙️',
     color: '#ff9800',
     shape: 'rounded-rect'
@@ -358,7 +358,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     shape: 'rect'
   },
   'breaker-lv': {
-    width: 50,
+    width: 65,
     height: 60,
     icon: '⏚',
     color: '#ff9800',

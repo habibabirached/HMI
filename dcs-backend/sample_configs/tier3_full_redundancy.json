@@ -211,7 +211,12 @@
           "voltage": 4.16,
           "unit": "kV"
         },
-        "state": { "power": 0, "voltage": 4.16, "current": 0, "frequency": 60 }
+        "state": { "power": 0, "voltage": 4.16, "current": 0, "frequency": 60 },
+        "visualOverrides": {
+          "width": 540,
+          "height": 40,
+          "rotation": 90
+        }
       },
       {
         "id": "comp-ups-1",

@@ -204,14 +204,18 @@
         "type": "bus-mv",
         "name": "MV Bus",
         "fullName": "Medium Voltage Bus",
-        "position": { "x": 550, "y": 450 },
+        "position": { "x": 600, "y": 100 },
         "status": "normal",
         "properties": {
           "rating": 0,
           "voltage": 4.16,
           "unit": "kV"
         },
-        "state": { "power": 0, "voltage": 4.16, "current": 0, "frequency": 60 }
+        "state": { "power": 0, "voltage": 4.16, "current": 0, "frequency": 60 },
+        "visualOverrides": {
+          "width": 40,
+          "height": 540
+        }
       },
       {
         "id": "comp-ups-1",

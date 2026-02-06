@@ -100,6 +100,11 @@ const Canvas = forwardRef(({
   const handleComponentMouseDown = (e, component) => {
     e.stopPropagation();
     
+    // If context menu is open, ignore all mouse events
+    if (contextMenu) {
+      return;
+    }
+    
     // IN SIMULATION MODE: Only allow selection, nothing else
     if (mode === 'simulation') {
       console.log('🖱️ Clicked in simulation mode:', component.name);
@@ -133,6 +138,11 @@ const Canvas = forwardRef(({
     e.stopPropagation();
     
     console.log('🖱️ Right-click on component:', component.name);
+    
+    // CRITICAL: Clear any dragging state when context menu opens
+    setDraggingComponent(null);
+    setConnecting(null);
+    setConnectingTo(null);
     
     setContextMenu({
       component,
@@ -171,6 +181,11 @@ const Canvas = forwardRef(({
   };
 
   const handleCanvasMouseMove = (e) => {
+    // If context menu is open, block all mouse move behavior
+    if (contextMenu) {
+      return;
+    }
+    
     if (draggingComponent) {
       const rect = canvasRef.current.getBoundingClientRect();
       
@@ -283,13 +298,19 @@ const Canvas = forwardRef(({
             if (!fromComp || !toComp) return null;
 
             // Get component dimensions for proper centering
+            // IMPORTANT: Use overrides if they exist, otherwise use defaults
             const fromVisual = getComponentVisualConfig(fromComp.type);
             const toVisual = getComponentVisualConfig(toComp.type);
             
-            const fromCenterX = fromComp.position.x + (fromVisual.width / 2);
-            const fromCenterY = fromComp.position.y + (fromVisual.height / 2);
-            const toCenterX = toComp.position.x + (toVisual.width / 2);
-            const toCenterY = toComp.position.y + (toVisual.height / 2);
+            const fromWidth = fromComp.visualOverrides?.width || fromVisual.width;
+            const fromHeight = fromComp.visualOverrides?.height || fromVisual.height;
+            const toWidth = toComp.visualOverrides?.width || toVisual.width;
+            const toHeight = toComp.visualOverrides?.height || toVisual.height;
+            
+            const fromCenterX = fromComp.position.x + (fromWidth / 2);
+            const fromCenterY = fromComp.position.y + (fromHeight / 2);
+            const toCenterX = toComp.position.x + (toWidth / 2);
+            const toCenterY = toComp.position.y + (toHeight / 2);
 
             // Check if this connection is currently selected by the user
             const isSelected = selectedConnection?.id === conn.id;
@@ -347,8 +368,10 @@ const Canvas = forwardRef(({
             if (!fromComp) return null;
             
             const fromVisual = getComponentVisualConfig(fromComp.type);
-            const fromCenterX = fromComp.position.x + (fromVisual.width / 2);
-            const fromCenterY = fromComp.position.y + (fromVisual.height / 2);
+            const fromWidth = fromComp.visualOverrides?.width || fromVisual.width;
+            const fromHeight = fromComp.visualOverrides?.height || fromVisual.height;
+            const fromCenterX = fromComp.position.x + (fromWidth / 2);
+            const fromCenterY = fromComp.position.y + (fromHeight / 2);
             
             return (
               <line
@@ -371,7 +394,12 @@ const Canvas = forwardRef(({
             
             // Get visual configuration for this component type
             const visualConfig = getComponentVisualConfig(component.type);
-            const { width, height } = visualConfig;
+            
+            // Allow per-instance overrides for width, height, and rotation
+            const width = component.visualOverrides?.width || visualConfig.width;
+            const height = component.visualOverrides?.height || visualConfig.height;
+            const rotation = component.visualOverrides?.rotation || 0; // degrees
+            
             const centerX = width / 2;
             const centerY = height / 2;
 
@@ -385,8 +413,10 @@ const Canvas = forwardRef(({
                 className={`canvas-component ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
                 style={{ cursor: mode === 'design' ? 'move' : 'pointer' }}
               >
+                {/* Wrapper group for rotation */}
+                <g transform={`rotate(${rotation} ${centerX} ${centerY})`}>
                 {/* ========================================================
-                    COMPONENT BOX - Dynamic size based on type
+                    COMPONENT BOX - Dynamic size based on type + overrides
                 ======================================================== */}
                 <rect
                   width={width}
@@ -528,6 +558,7 @@ const Canvas = forwardRef(({
                     })}
                   </g>
                 )}
+                </g> {/* Close rotation wrapper */}
               </g>
             );
           })}
