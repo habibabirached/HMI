@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { COMPONENT_LIBRARY } from '../../data/componentLibrary';
+import { getComponentVisualConfig } from '../../data/componentVisuals';
 import './ComponentLibrary.css';
 
 const ComponentLibrary = ({ onAddComponent, disabled }) => {
@@ -60,26 +61,33 @@ const ComponentLibrary = ({ onAddComponent, disabled }) => {
 
             {expandedCategories[categoryGroup.category] && (
               <div className="component-list">
-                {categoryGroup.components.map((component) => (
-                  <div
-                    key={component.id}
-                    className="component-item"
-                    draggable={!disabled}
-                    onDragStart={(e) => handleDragStart(e, component)}
-                    title={component.fullName}
-                  >
-                    <div className="component-icon">
-                      {getComponentIcon(component.type)}
-                    </div>
-                    <div className="component-info">
-                      <div className="component-name">{component.name}</div>
-                      <div className="component-specs">
-                        {component.rating > 0 && `${component.rating} ${component.unit}`}
-                        {component.voltage > 0 && ` @ ${component.voltage} kV`}
+                {categoryGroup.components.map((component) => {
+                  const visualConfig = getComponentVisualConfig(component.type);
+                  
+                  return (
+                    <div
+                      key={component.id}
+                      className="component-item"
+                      draggable={!disabled}
+                      onDragStart={(e) => handleDragStart(e, component)}
+                      title={`${component.fullName}\nDimensions: ${visualConfig.width} × ${visualConfig.height}`}
+                    >
+                      <div className="component-icon" style={{ color: visualConfig.color }}>
+                        {visualConfig.icon}
+                      </div>
+                      <div className="component-info">
+                        <div className="component-name">{component.name}</div>
+                        <div className="component-specs">
+                          {component.properties?.rating > 0 && `${component.properties.rating} ${component.properties.unit}`}
+                          {component.properties?.voltage > 0 && ` @ ${component.properties.voltage} kV`}
+                        </div>
+                        <div className="component-dimensions">
+                          {visualConfig.width} × {visualConfig.height}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -95,84 +103,6 @@ const ComponentLibrary = ({ onAddComponent, disabled }) => {
       )}
     </div>
   );
-};
-
-// Simple icon representation for each component type
-const getComponentIcon = (type) => {
-  const iconMap = {
-    'aeroderivative': '⚡',
-    'heavy-duty': '⚡⚡',
-    'steam': '♨',
-    'diesel': '🔋',
-    'reciprocating': '⚙',
-    'fuel-cell': '🔬',
-    'wind': '💨',
-    'solar': '☀',
-    'microturbine': '⚙',
-    'generator': '⚙',
-    'motor': '⚙',
-    'shaft': '—',
-    'battery': '🔋',
-    'flywheel': '⭕',
-    'capacitor': '⚡',
-    'hydrogen': 'H₂',
-    'thermal': '♨',
-    'ups': '⚡',
-    'rectifier': '➡',
-    'inverter': '⬅',
-    'sst': '⚡',
-    'dcdc': '⟷',
-    'acdc': '➡',
-    'dcac': '⬅',
-    'gsu': '🔺',
-    'stepdown': '🔻',
-    'isolation': '🔲',
-    'auto': '🔲',
-    'distribution': '🔻',
-    'breaker-hv': '⊗',
-    'breaker-mv': '⊗',
-    'breaker-lv': '⊗',
-    'disconnect': '⊘',
-    'bus-tie': '⊗',
-    'recloser': '↻',
-    'relay': '⚡',
-    'fuse': '╋',
-    'ct': '⊙',
-    'vt': '⊙',
-    'meter': '📊',
-    'freq-meter': '〜',
-    'pmu': '📡',
-    'bus-hv': '━',
-    'bus-mv': '━',
-    'bus-lv': '━',
-    'bus-dc': '━',
-    'bus-ring': '⭕',
-    'bus-sectional': '━',
-    'utility': '⚡',
-    'backup': '⚡',
-    'island': '🏝',
-    'pcc': '⊕',
-    'microgrid-ctrl': '🎛',
-    'datacenter': '🖥',
-    'data-hall': '🖥',
-    'it-load': '💻',
-    'cooling': '❄',
-    'auxiliary': '⚙',
-    'critical': '⚠',
-    'non-critical': '○',
-    'plant-ctrl': '🎛',
-    'ems': '🎛',
-    'load-shed': '🎛',
-    'black-start': '🎛',
-    'protection': '🛡',
-    'power-block': '▭',
-    'substation': '▭',
-    'boundary': '┌─┐',
-    'dc-boundary': '┌─┐',
-    'container': '□'
-  };
-  
-  return iconMap[type] || '◇';
 };
 
 export default ComponentLibrary;

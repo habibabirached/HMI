@@ -143,6 +143,13 @@
   margin-top: 2px;
 }
 
+.component-dimensions {
+  font-size: 9px;
+  color: #666;
+  margin-top: 2px;
+  font-family: 'Courier New', monospace;
+}
+
 .library-overlay {
   position: absolute;
   top: 0;

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
+import ChartContextMenu from '../ChartContextMenu/ChartContextMenu';
+import { getComponentVisualConfig, getComponentDimensions } from '../../data/componentVisuals';
 import './Canvas.css';
 
 const Canvas = forwardRef(({
@@ -11,10 +13,13 @@ const Canvas = forwardRef(({
   onMoveComponent,
   onAddComponent,
   onAddConnection,
+  onAssociateChart,
+  onOpenChart,
   zoom,
   pan,
   onPan,
   mode,
+  viewMode,
   simulationRunning,
   systemState
 }, ref) => {
@@ -25,6 +30,7 @@ const Canvas = forwardRef(({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [connecting, setConnecting] = useState(null);
   const [connectingTo, setConnectingTo] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null); // { component, position }
 
   // ========================================================================
   // HELPER FUNCTION: snapToGrid
@@ -117,6 +123,39 @@ const Canvas = forwardRef(({
       y: (e.clientY - rect.top - pan.y) / zoom - component.position.y
     });
     onSelectComponent(component);
+  };
+
+  /**
+   * Handle right-click on component to show chart association menu
+   */
+  const handleComponentContextMenu = (e, component) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🖱️ Right-click on component:', component.name);
+    
+    setContextMenu({
+      component,
+      position: {
+        x: e.clientX,
+        y: e.clientY
+      }
+    });
+  };
+
+  /**
+   * Handle chart type selection from context menu
+   */
+  const handleChartTypeSelected = (chartType) => {
+    if (contextMenu && contextMenu.component) {
+      console.log('📊 Selected chart type:', chartType, 'for', contextMenu.component.name);
+      
+      // Call parent handler to open CSV picker
+      if (onAssociateChart) {
+        onAssociateChart(contextMenu.component, chartType);
+      }
+    }
+    setContextMenu(null);
   };
 
   const handleCanvasMouseDown = (e) => {
@@ -243,29 +282,20 @@ const Canvas = forwardRef(({
             // If either component doesn't exist, skip this connection
             if (!fromComp || !toComp) return null;
 
+            // Get component dimensions for proper centering
+            const fromVisual = getComponentVisualConfig(fromComp.type);
+            const toVisual = getComponentVisualConfig(toComp.type);
+            
+            const fromCenterX = fromComp.position.x + (fromVisual.width / 2);
+            const fromCenterY = fromComp.position.y + (fromVisual.height / 2);
+            const toCenterX = toComp.position.x + (toVisual.width / 2);
+            const toCenterY = toComp.position.y + (toVisual.height / 2);
+
             // Check if this connection is currently selected by the user
             const isSelected = selectedConnection?.id === conn.id;
             
-            // ============================================================
-            // POWER FLOW LOGIC - Is power flowing through this connection?
-            // ============================================================
-            // Power flows IF the upstream component (fromComp) is operational.
-            // 
-            // A component is operational when its status is 'normal':
-            // - Turbine is online and generating
-            // - Breaker is closed (not open or tripped)
-            // - Transformer is operating
-            // - etc.
-            //
-            // A component is NOT operational when status is:
-            // - 'offline' (tripped turbine, failed equipment)
-            // - 'tripped' (breaker fault)
-            // - 'open' (manually opened breaker)
-            //
-            // In real power systems, this would be more complex (considering
-            // multiple sources, parallel paths, etc.), but for our simulation
-            // this simple rule works well.
-            const isEnergized = fromComp.status === 'normal';
+            // Power flow logic
+            const isEnergized = fromComp.status === 'normal' || fromComp.status === 'online';
             
             // DEBUG: Log power flow status when hovering
             const handleConnectionHover = () => {
@@ -277,25 +307,15 @@ const Canvas = forwardRef(({
 
             return (
               <g key={conn.id}>
-                {/* ========================================================
-                    THE CONNECTION LINE WITH POWER FLOW ANIMATION
-                    ========================================================
-                    This line gets CSS classes based on energization state:
-                    - 'energized' class → animated flowing effect
-                    - 'de-energized' class → static dashed line
-                    
-                    The CSS animation makes the dash pattern move, creating
-                    a visual effect of electricity flowing from source to load!
-                ======================================================== */}
                 <line
-                  x1={fromComp.position.x + 40}
-                  y1={fromComp.position.y + 30}
-                  x2={toComp.position.x + 40}
-                  y2={toComp.position.y + 30}
+                  x1={fromCenterX}
+                  y1={fromCenterY}
+                  x2={toCenterX}
+                  y2={toCenterY}
                   stroke={
                     isEnergized 
-                      ? '#4caf50'        // GREEN if power is flowing
-                      : '#666'           // GREY if no power
+                      ? '#4caf50'
+                      : '#666'
                   }
                   strokeWidth={isSelected ? 4 : 2}
                   className={`connection-line ${isEnergized ? 'energized' : 'de-energized'}`}
@@ -308,8 +328,8 @@ const Canvas = forwardRef(({
                 />
                 {/* Connection voltage label */}
                 <text
-                  x={(fromComp.position.x + toComp.position.x) / 2 + 40}
-                  y={(fromComp.position.y + toComp.position.y) / 2 + 20}
+                  x={(fromCenterX + toCenterX) / 2}
+                  y={(fromCenterY + toCenterY) / 2 + 15}
                   fill="#ff9800"
                   fontSize="10"
                   textAnchor="middle"
@@ -322,23 +342,38 @@ const Canvas = forwardRef(({
           })}
 
           {/* Temporary connection line while connecting */}
-          {connecting && connectingTo && (
-            <line
-              x1={components.find(c => c.id === connecting)?.position.x + 40}
-              y1={components.find(c => c.id === connecting)?.position.y + 30}
-              x2={connectingTo.x}
-              y2={connectingTo.y}
-              stroke="#00bcd4"
-              strokeWidth="2"
-              strokeDasharray="5,5"
-              pointerEvents="none"
-            />
-          )}
+          {connecting && connectingTo && (() => {
+            const fromComp = components.find(c => c.id === connecting);
+            if (!fromComp) return null;
+            
+            const fromVisual = getComponentVisualConfig(fromComp.type);
+            const fromCenterX = fromComp.position.x + (fromVisual.width / 2);
+            const fromCenterY = fromComp.position.y + (fromVisual.height / 2);
+            
+            return (
+              <line
+                x1={fromCenterX}
+                y1={fromCenterY}
+                x2={connectingTo.x}
+                y2={connectingTo.y}
+                stroke="#00bcd4"
+                strokeWidth="2"
+                strokeDasharray="5,5"
+                pointerEvents="none"
+              />
+            );
+          })()}
 
           {/* Render components */}
           {components.map(component => {
             const isSelected = selectedComponent?.id === component.id;
             const isDragging = draggingComponent === component.id;
+            
+            // Get visual configuration for this component type
+            const visualConfig = getComponentVisualConfig(component.type);
+            const { width, height } = visualConfig;
+            const centerX = width / 2;
+            const centerY = height / 2;
 
             return (
               <g
@@ -346,76 +381,58 @@ const Canvas = forwardRef(({
                 transform={`translate(${component.position.x},${component.position.y})`}
                 onMouseDown={(e) => handleComponentMouseDown(e, component)}
                 onMouseUp={(e) => handleComponentMouseUp(e, component)}
+                onContextMenu={(e) => handleComponentContextMenu(e, component)}
                 className={`canvas-component ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
                 style={{ cursor: mode === 'design' ? 'move' : 'pointer' }}
               >
                 {/* ========================================================
-                    COMPONENT BOX (THE RECTANGLE)
-                    ========================================================
-                    This is the visual rectangle that represents the component
-                    on the canvas. It's an SVG rect element.
-                    
-                    DYNAMIC STYLING BASED ON STATUS:
-                    The stroke (border) color changes based on two things:
-                    1. Is this component selected? → Cyan border
-                    2. Is this component offline? → Red border
-                    3. Otherwise → Grey border
-                    
-                    HOW THE COLOR LOGIC WORKS:
-                    We use a "ternary operator" (? :) which is like a
-                    mini if-else statement in JavaScript.
-                    
-                    Format: condition ? valueIfTrue : valueIfFalse
-                    
-                    We nest two ternary operators:
-                    - First check: Is it selected?
-                      - YES → cyan (#00bcd4)
-                      - NO → Check second condition
-                    - Second check: Is status 'offline'?
-                      - YES → red (#d32f2f)
-                      - NO → grey (#444)
-                    
-                    REACT CONCEPT - Dynamic Attributes:
-                    stroke={...} means we're setting the stroke attribute
-                    to a JavaScript value (not a static string). React
-                    evaluates the expression and sets the result.
-                    
-                    BUG FIX: Made offline components have THICK bright red
-                    borders so you can't miss them. Offline overrides selected.
+                    COMPONENT BOX - Dynamic size based on type
                 ======================================================== */}
                 <rect
-                  width="80"
-                  height="60"
+                  width={width}
+                  height={height}
                   fill="#1a1a1a"
                   stroke={
-                    component.status === 'offline'
-                      ? '#ff0000'              // BRIGHT RED if offline (priority!)
+                    component.status === 'idle'
+                      ? '#666'
+                      : component.status === 'offline'
+                      ? '#ff0000'
                       : component.status === 'tripped'
-                        ? '#ff0000'            // BRIGHT RED if tripped (breaker fault)
+                        ? '#ff0000'
                       : component.status === 'open'
-                        ? '#ff9800'            // ORANGE if open (breaker manually opened)
+                        ? '#ff9800'
                       : isSelected 
-                        ? '#00bcd4'            // Cyan if selected
-                        : '#444'               // Grey if normal
+                        ? '#00bcd4'
+                        : '#444'
                   }
                   strokeWidth={
                     component.status === 'offline' || component.status === 'tripped'
-                      ? 4                      // THICK border for failures
+                      ? 4
                       : component.status === 'open'
-                        ? 3                    // MEDIUM border for open breaker
-                      : isSelected ? 3 : 2     // Normal borders
+                        ? 3
+                      : isSelected ? 3 : 2
                   }
-                  // DEBUG: Log component status when rendering
-                  onMouseEnter={() => console.log('🖱️ Component:', component.name, 'Status:', component.status, 'Stroke:', 
-                    component.status === 'offline' || component.status === 'tripped' ? 'RED 4px' : 
-                    component.status === 'open' ? 'ORANGE 3px' : 'normal')}
                   rx="4"
                 />
                 
+                {/* Component icon - Large, prominent */}
+                <text
+                  x={centerX}
+                  y={height * 0.28}
+                  textAnchor="middle"
+                  fill={visualConfig.color}
+                  fontSize="24"
+                  fontWeight="400"
+                  pointerEvents="none"
+                  opacity="0.9"
+                >
+                  {visualConfig.icon}
+                </text>
+                
                 {/* Component name */}
                 <text
-                  x="40"
-                  y="25"
+                  x={centerX}
+                  y={height * 0.52}
                   textAnchor="middle"
                   fill="#e0e0e0"
                   fontSize="11"
@@ -427,34 +444,89 @@ const Canvas = forwardRef(({
                 
                 {/* Component rating */}
                 <text
-                  x="40"
-                  y="40"
+                  x={centerX}
+                  y={height * 0.68}
                   textAnchor="middle"
                   fill="#999"
-                  fontSize="9"
+                  fontSize="10"
                   pointerEvents="none"
                 >
-                  {component.rating > 0 ? `${component.rating} ${component.unit}` : ''}
+                  {component.properties.rating > 0 ? `${component.properties.rating} ${component.properties.unit}` : ''}
                 </text>
                 
-                {/* Status indicator dot (top-right corner)
-                    Shows during simulation:
-                    - RED: offline, tripped, or open (no power flowing)
-                    - GREEN: normal (power flowing)
-                */}
+                {/* Status indicator dot (top-right corner) */}
                 {simulationRunning && (
                   <circle
-                    cx="70"
+                    cx={width - 10}
                     cy="10"
                     r="4"
                     fill={
-                      component.status === 'offline' || 
+                      component.status === 'idle'
+                        ? '#666'
+                      : component.status === 'offline' || 
                       component.status === 'tripped' || 
                       component.status === 'open' 
-                        ? '#f44336'    // Red for any non-operational state
-                        : '#4caf50'    // Green for normal
+                        ? '#f44336'
+                        : '#4caf50'
                     }
                   />
+                )}
+
+                {/* Chart Buttons - Show if component has associated charts */}
+                {component.charts && component.charts.length > 0 && (
+                  <g>
+                    {component.charts.map((chart, index) => {
+                      const buttonY = height - 12 - ((component.charts.length - 1 - index) * 12);
+                      const chartLabels = {
+                        '2d': '2D',
+                        'histogram': 'Hist',
+                        'pie': 'Pie',
+                        'bar': 'Bar',
+                        '3d': '3D',
+                        'heatmap': 'Heat',
+                        'box': 'Box'
+                      };
+                      const label = chartLabels[chart.chartType] || chart.chartType;
+                      
+                      return (
+                        <g 
+                          key={chart.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenChart) {
+                              onOpenChart(component, chart);
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {/* Chart button background */}
+                          <rect
+                            x="4"
+                            y={buttonY}
+                            width="28"
+                            height="10"
+                            fill="rgba(255, 152, 0, 0.2)"
+                            stroke="#ff9800"
+                            strokeWidth="1"
+                            rx="2"
+                            className="chart-button"
+                          />
+                          {/* Chart button label */}
+                          <text
+                            x="18"
+                            y={buttonY + 7}
+                            textAnchor="middle"
+                            fill="#ff9800"
+                            fontSize="7"
+                            fontWeight="700"
+                            pointerEvents="none"
+                          >
+                            {label}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </g>
                 )}
               </g>
             );
@@ -467,12 +539,22 @@ const Canvas = forwardRef(({
         <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
         <div>Components: {components.length}</div>
         <div>Connections: {connections.length}</div>
-        {mode === 'design' && (
+        {mode === 'design' && viewMode === 'designer' && (
           <div className="canvas-hint">
             💡 Drag components from library | Shift+Click to connect | Alt+Drag to pan
           </div>
         )}
       </div>
+
+      {/* Chart Context Menu */}
+      {contextMenu && (
+        <ChartContextMenu
+          position={contextMenu.position}
+          componentName={contextMenu.component.name}
+          onClose={() => setContextMenu(null)}
+          onSelectChartType={handleChartTypeSelected}
+        />
+      )}
     </div>
   );
 });
