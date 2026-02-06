@@ -50,3 +50,43 @@ services:
     volumes:
       - "./dcs-ui/src:/app/src"
       - "./dcs-ui/public:/app/public"
+
+  # ==========================================================================
+  # BACKEND SERVICE - Python FastAPI Server
+  # ==========================================================================
+  # This is the backend API server that handles saving/loading configurations.
+  # 
+  # WHAT IT DOES:
+  # - Provides REST API endpoints (save, load, list)
+  # - Manages database storage
+  # - Saves configuration files to disk
+  # - Communicates with frontend (dcs-ui)
+  #
+  # ACCESS:
+  # - API: http://localhost:5000
+  # - Health check: http://localhost:5000/health
+  # - API docs: http://localhost:5000/docs
+  # ==========================================================================
+  dcs-backend:
+    image: dtr.research.ge.com/data_center_simulator/dcs-backend:latest
+    build:
+      context: ./dcs-backend
+      dockerfile: Dockerfile
+    environment:
+      - https_proxy=${HTTPS_PROXY}
+      - http_proxy=${HTTP_PROXY}
+      - no_proxy=${NO_PROXY}
+      - DATABASE_URL=sqlite:///./datacenter.db
+      - ENVIRONMENT=development
+    ports:
+      - "5000:5000"                        # Backend API port
+    networks:
+      dcs_network:
+        aliases:
+          - dcs_backend
+    volumes:
+      - "./dcs-backend:/app"               # Mount backend code (live reload)
+      - "./dcs-backend/saved_configs:/app/saved_configs"  # Persist saved configs
+    depends_on:
+      - dcs-ui                             # Start UI first
+

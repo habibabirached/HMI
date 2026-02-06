@@ -33,6 +33,8 @@ import './SimulationControls.css';
  */
 const SimulationControls = ({ 
   mode, 
+  viewMode,
+  simulationRunning,
   selectedComponent, 
   onTripComponent, 
   onRestartComponent,
@@ -48,10 +50,12 @@ const SimulationControls = ({
   // ========================================================================
   // VISIBILITY CHECK
   // ========================================================================
-  // This entire panel should ONLY appear when we're in simulation mode.
-  // If we're in design mode, return null (which means "don't show anything").
-  // This keeps the interface clean when you're just building your system.
-  if (mode !== 'simulation') {
+  // EARLY RETURN: Only show panel in simulation or customer view
+  // ========================================================================
+  // Show panel when:
+  // 1. In simulation mode (for designer view)
+  // 2. In customer view (always available for customers)
+  if (mode !== 'simulation' && viewMode !== 'customer') {
     return null;
   }
 
@@ -254,13 +258,39 @@ const SimulationControls = ({
     if (type.includes('bess') || type.includes('battery')) {
       return (
         <>
-          {/* RED BUTTON: Simulate battery failure/offline */}
-          <button className="control-btn control-btn-danger">
+          {/* ===============================================================
+              RED BUTTON: Battery Failure
+              ===============================================================
+              Simulates a battery failure or taking BESS offline.
+              This could represent:
+              - Battery cell failure
+              - Thermal runaway protection
+              - BMS (Battery Management System) fault
+              - Inverter/converter failure
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-danger"
+            onClick={() => {
+              console.log('🔴 Battery Failure clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onTripComponent(selectedComponent.id);
+            }}
+          >
             Battery Failure
           </button>
           
-          {/* GREEN BUTTON: Enable the battery */}
-          <button className="control-btn control-btn-success">
+          {/* ===============================================================
+              GREEN BUTTON: Enable Battery
+              ===============================================================
+              Brings the BESS back online after a failure.
+              Restores normal battery operation.
+          =============================================================== */}
+          <button 
+            className="control-btn control-btn-success"
+            onClick={() => {
+              console.log('🟢 Enable Battery clicked for:', selectedComponent?.name, selectedComponent?.id);
+              onRestartComponent(selectedComponent.id);
+            }}
+          >
             Enable Battery
           </button>
         </>

@@ -16,8 +16,9 @@ const PropertyPanel = ({
     if (selectedComponent) {
       setEditedProps({
         name: selectedComponent.name,
-        rating: selectedComponent.rating,
-        voltage: selectedComponent.voltage,
+        rating: selectedComponent.properties?.rating,
+        voltage: selectedComponent.properties?.voltage,
+        unit: selectedComponent.properties?.unit,
         status: selectedComponent.status
       });
     }
@@ -39,7 +40,17 @@ const PropertyPanel = ({
 
   const handleSave = () => {
     if (selectedComponent) {
-      onUpdateComponent(selectedComponent.id, editedProps);
+      // Update properties object for rating and voltage
+      const updates = {
+        name: editedProps.name,
+        status: editedProps.status,
+        properties: {
+          ...selectedComponent.properties,
+          rating: editedProps.rating,
+          voltage: editedProps.voltage
+        }
+      };
+      onUpdateComponent(selectedComponent.id, updates);
     }
   };
 
@@ -133,9 +144,9 @@ const PropertyPanel = ({
         <div className="prop-section">
           <h4>Electrical Properties</h4>
 
-          {selectedComponent.rating !== undefined && (
+          {selectedComponent.properties?.rating !== undefined && (
             <div className="prop-group">
-              <label>Rating ({selectedComponent.unit})</label>
+              <label>Rating ({selectedComponent.properties.unit})</label>
               <input
                 type="number"
                 value={editedProps.rating || 0}
@@ -146,7 +157,7 @@ const PropertyPanel = ({
             </div>
           )}
 
-          {selectedComponent.voltage !== undefined && (
+          {selectedComponent.properties?.voltage !== undefined && (
             <div className="prop-group">
               <label>Voltage (kV)</label>
               <input

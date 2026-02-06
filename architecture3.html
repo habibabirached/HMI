@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Center Power System Designer - Unified Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .architecture-container {
+            width: 100%;
+            max-width: 1600px;
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+            padding: 50px;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .diagram {
+            position: relative;
+            width: 100%;
+            height: 800px;
+            margin: 40px 0;
+        }
+
+        /* Animated connection lines */
+        .connection-line {
+            position: absolute;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 1;
+        }
+
+        .connection-line.vertical {
+            width: 4px;
+            height: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: growVertical 1s ease-out forwards;
+        }
+
+        .connection-line.horizontal {
+            height: 4px;
+            width: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: growHorizontal 1s ease-out forwards;
+        }
+
+        .connection-line.diagonal {
+            width: 4px;
+            height: 0;
+            transform-origin: top;
+            animation: growDiagonal 1s ease-out forwards;
+        }
+
+        @keyframes growVertical {
+            to { height: 100%; }
+        }
+
+        @keyframes growHorizontal {
+            to { width: 100%; }
+        }
+
+        @keyframes growDiagonal {
+            to { height: 100%; }
+        }
+
+        /* Flowing data particles */
+        .data-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #4CAF50;
+            animation: flow 3s linear infinite;
+        }
+
+        @keyframes flow {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+        /* Component boxes */
+        .component-box {
+            position: absolute;
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border: 3px solid #e0e0e0;
+            transition: all 0.3s ease;
+            z-index: 10;
+            min-width: 200px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .component-box:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+            border-color: #667eea;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .component-box.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .component-box.secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-color: #f093fb;
+        }
+
+        .component-box.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-color: #4facfe;
+        }
+
+        .component-box.accent {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            border-color: #43e97b;
+        }
+
+        .component-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .component-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .component-tech {
+            text-align: center;
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+
+        .tech-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.3);
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin: 3px;
+        }
+
+        /* Logo images */
+        .tech-logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            margin: 5px;
+            filter: brightness(0) invert(1);
+        }
+
+        .component-box:not(.primary):not(.secondary):not(.success):not(.accent) .tech-logo {
+            filter: none;
+        }
+
+        /* Positioning classes */
+        .top-center {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .middle-left {
+            top: 50%;
+            left: 80px;
+            transform: translateY(-50%);
+        }
+
+        .middle-right {
+            top: 50%;
+            right: 80px;
+            transform: translateY(-50%);
+        }
+
+        .center {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .bottom-center {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .top-left {
+            top: 100px;
+            left: 150px;
+        }
+
+        .top-right {
+            top: 100px;
+            right: 150px;
+        }
+
+        .bottom-left {
+            bottom: 100px;
+            left: 150px;
+        }
+
+        .bottom-right {
+            bottom: 100px;
+            right: 150px;
+        }
+
+        /* Central hub */
+        .central-hub {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 280px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+            z-index: 15;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+            }
+            50% {
+                box-shadow: 0 20px 80px rgba(102, 126, 234, 0.6);
+            }
+        }
+
+        .central-hub .hub-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .central-hub .hub-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .central-hub .hub-subtitle {
+            font-size: 0.9em;
+            opacity: 0.9;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        /* Orbital rings */
+        .orbit-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px dashed rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            z-index: 5;
+        }
+
+        .orbit-ring.inner {
+            width: 400px;
+            height: 400px;
+            animation: rotate 20s linear infinite;
+        }
+
+        .orbit-ring.middle {
+            width: 600px;
+            height: 600px;
+            animation: rotate 30s linear infinite reverse;
+        }
+
+        .orbit-ring.outer {
+            width: 800px;
+            height: 800px;
+            animation: rotate 40s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Modality badges */
+        .modality-badges {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 20;
+        }
+
+        .modality-badge {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 0.85em;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .modality-badge:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        /* Connection arrows */
+        .arrow {
+            position: absolute;
+            font-size: 2em;
+            color: #667eea;
+            z-index: 2;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Info panel */
+        .info-panel {
+            margin-top: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .info-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .info-card .label {
+            color: #555;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 1200px) {
+            .architecture-container {
+                padding: 30px;
+            }
+            .diagram {
+                height: 600px;
+            }
+            .component-box {
+                min-width: 150px;
+                padding: 15px;
+                font-size: 0.9em;
+            }
+            .central-hub {
+                width: 200px;
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="architecture-container">
+        <div class="header">
+            <h1>⚡ Data Center Power System Designer</h1>
+            <p class="subtitle">Unified Software Architecture - All Components Connected</p>
+        </div>
+
+        <div class="diagram">
+            <!-- Orbital rings for visual effect -->
+            <div class="orbit-ring inner"></div>
+            <div class="orbit-ring middle"></div>
+            <div class="orbit-ring outer"></div>
+
+            <!-- Central Hub -->
+            <div class="central-hub">
+                <div class="hub-icon">🔋</div>
+                <div class="hub-title">HMI Core</div>
+                <div class="hub-subtitle">Interactive Power System Designer</div>
+            </div>
+
+            <!-- Frontend Components (Top) -->
+            <div class="component-box primary top-left" style="animation-delay: 0.1s;">
+                <div class="component-icon">🎨</div>
+                <div class="component-title">Design Mode</div>
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="React" class="tech-logo">
+                <div class="component-tech">
+                    <span class="tech-badge">Drag & Drop</span>
+                    <span class="tech-badge">Canvas</span>
+                </div>
+            </div>
+
+            <div class="component-box primary top-center" style="animation-delay: 0.2s;">
+                <div class="component-icon">🖥️</div>
+                <div class="component-title">React Frontend</div>
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="React" class="tech-logo">
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg" alt="JS" class="tech-logo">
+                <div class="component-tech">
+                    <span class="tech-badge">HTML5/CSS3</span>
+                    <span class="tech-badge">WebGL</span>
+                </div>
+            </div>
+
+            <div class="component-box primary top-right" style="animation-delay: 0.3s;">
+                <div class="component-icon">🎮</div>
+                <div class="component-title">Simulation Mode</div>
+                <div class="component-tech">
+                    <span class="tech-badge">Real-time</span>
+                    <span class="tech-badge">Interactive</span>
+                </div>
+            </div>
+
+            <!-- Backend Components (Middle Left & Right) -->
+            <div class="component-box success middle-left" style="animation-delay: 0.4s;">
+                <div class="component-icon">⚙️</div>
+                <div class="component-title">FastAPI Backend</div>
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="Python" class="tech-logo">
+                <div class="component-tech">
+                    <span class="tech-badge">REST API</span>
+                    <span class="tech-badge">Async</span>
+                </div>
+            </div>
+
+            <div class="component-box secondary middle-right" style="animation-delay: 0.5s;">
+                <div class="component-icon">🔬</div>
+                <div class="component-title">PSCAD Engine</div>
+                <div class="component-tech">
+                    <span class="tech-badge">FlexSim</span>
+                    <span class="tech-badge">Python API</span>
+                </div>
+            </div>
+
+            <!-- Database (Bottom) -->
+            <div class="component-box accent bottom-center" style="animation-delay: 0.6s;">
+                <div class="component-icon">💾</div>
+                <div class="component-title">PostgreSQL</div>
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" alt="PostgreSQL" class="tech-logo">
+                <div class="component-tech">
+                    <span class="tech-badge">Configs</span>
+                    <span class="tech-badge">Results</span>
+                    <span class="tech-badge">Components</span>
+                </div>
+            </div>
+
+            <!-- Integration Points (Corners) -->
+            <div class="component-box bottom-left" style="animation-delay: 0.7s;">
+                <div class="component-icon">📁</div>
+                <div class="component-title">CSV Upload</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 8px;">Modality 1</div>
+            </div>
+
+            <div class="component-box bottom-right" style="animation-delay: 0.8s;">
+                <div class="component-icon">🗄️</div>
+                <div class="component-title">Database Sync</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 8px;">Modality 2</div>
+            </div>
+
+            <!-- Connection arrows -->
+            <div class="arrow" style="top: 180px; left: 50%; transform: translateX(-50%);">↓</div>
+            <div class="arrow" style="top: 50%; left: 260px;">→</div>
+            <div class="arrow" style="top: 50%; right: 260px;">←</div>
+            <div class="arrow" style="bottom: 180px; left: 50%; transform: translateX(-50%);">↑</div>
+
+            <!-- Modality badges at bottom -->
+            <div class="modality-badges">
+                <div class="modality-badge">📁 CSV Upload</div>
+                <div class="modality-badge">🗄️ Database</div>
+                <div class="modality-badge">🚀 API Integration</div>
+                <div class="modality-badge">⚙️ HIL/SCADA</div>
+            </div>
+        </div>
+
+        <!-- Info panel -->
+        <div class="info-panel">
+            <div class="info-card">
+                <div class="number">3</div>
+                <div class="label">Architectural Layers</div>
+            </div>
+            <div class="info-card">
+                <div class="number">4</div>
+                <div class="label">Integration Modalities</div>
+            </div>
+            <div class="info-card">
+                <div class="number">6</div>
+                <div class="label">Core Technologies</div>
+            </div>
+            <div class="info-card">
+                <div class="number">∞</div>
+                <div class="label">Configurations</div>
+            </div>
+        </div>
+
+        <!-- Technology stack footer -->
+        <div style="margin-top: 40px; text-align: center; padding: 30px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 20px;">
+            <div style="font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 20px;">
+                🛠️ Powered By Industry-Leading Technologies
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 30px; flex-wrap: wrap;">
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="React" style="width: 50px; height: 50px;">
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="Python" style="width: 50px; height: 50px;">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg" alt="FastAPI" style="width: 50px; height: 50px;">
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" alt="PostgreSQL" style="width: 50px; height: 50px;">
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" alt="Docker" style="width: 50px; height: 50px;">
+                <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg" alt="JavaScript" style="width: 50px; height: 50px;">
+            </div>
+            <div style="margin-top: 20px; color: #666; font-size: 0.9em;">
+                <strong>Deployment:</strong> Bultown Customer Experience Center • 18ft x 10ft Interactive Display • On-Premise Servers
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; color: #999; font-size: 0.9em;">
+            <p><strong>GE Vernova</strong> | Data Center Power System Designer | Version 1.0 | February 2026</p>
+            <p style="margin-top: 5px;">Developed by Habib • Integrated with Megan's FlexSim • PSCAD Simulation Engine</p>
+        </div>
+    </div>
+
+    <script>
+        // Create flowing data particles
+        function createParticle() {
+            const diagram = document.querySelector('.diagram');
+            const particle = document.createElement('div');
+            particle.className = 'data-particle';
+            
+            // Random starting position
+            const startX = Math.random() * 100;
+            const startY = Math.random() * 100;
+            particle.style.left = startX + '%';
+            particle.style.top = startY + '%';
+            
+            diagram.appendChild(particle);
+            
+            // Remove after animation
+            setTimeout(() => particle.remove(), 3000);
+        }
+
+        // Create particles periodically
+        setInterval(createParticle, 500);
+
+        // Add hover glow effect to central hub
+        const centralHub = document.querySelector('.central-hub');
+        centralHub.addEventListener('mouseenter', function() {
+            this.style.transform = 'translate(-50%, -50%) scale(1.1)';
+        });
+        centralHub.addEventListener('mouseleave', function() {
+            this.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
+
+        // Animate component boxes on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.component-box').forEach(box => {
+            observer.observe(box);
+        });
+    </script>
+</body>
+</html>

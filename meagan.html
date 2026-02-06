@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Data Center Power Architecture</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: #f7f9fb;
+    }
+    svg {
+      width: 100vw;
+      height: 100vh;
+    }
+    .bus { stroke: #111; stroke-width: 6; }
+    .line { stroke: #333; stroke-width: 2; fill: none; }
+    .ac { stroke-dasharray: 6 4; }
+    .dc { stroke: #0b7285; }
+    .label {
+      font-size: 14px;
+      fill: #222;
+    }
+    .block {
+      fill: white;
+      stroke: #333;
+      stroke-width: 1.5;
+      rx: 6;
+    }
+    .power-flow {
+      stroke: #2ecc71;
+      stroke-width: 3;
+      animation: flow 2s linear infinite;
+      stroke-dasharray: 8 6;
+    }
+    @keyframes flow {
+      to { stroke-dashoffset: -28; }
+    }
+  </style>
+</head>
+
+<body>
+<svg viewBox="0 0 1600 900">
+
+  <!-- ===== MV BUS ===== -->
+  <line x1="300" y1="100" x2="300" y2="700" class="bus"/>
+  <text x="260" y="80" class="label">MV Bus (34.5 kV)</text>
+
+  <!-- ===== GENERATORS ===== -->
+  <rect x="80" y="150" width="180" height="70" class="block"/>
+  <text x="95" y="190" class="label">LM2500 + GSU</text>
+  <line x1="260" y1="185" x2="300" y2="185" class="line ac"/>
+
+  <rect x="80" y="260" width="180" height="70" class="block"/>
+  <text x="95" y="300" class="label">LM2500 + GSU</text>
+  <line x1="260" y1="295" x2="300" y2="295" class="line ac"/>
+
+  <rect x="80" y="370" width="180" height="70" class="block"/>
+  <text x="95" y="410" class="label">BESS 50 MW</text>
+  <line x1="260" y1="405" x2="300" y2="405" class="line dc"/>
+
+  <!-- ===== FACILITY CONVERSION ===== -->
+  <rect x="380" y="220" width="220" height="100" class="block"/>
+  <text x="400" y="255" class="label">AFE / Rectifier</text>
+  <text x="400" y="275" class="label">34.5 kV → 800 Vdc</text>
+  <line x1="300" y1="270" x2="380" y2="270" class="line ac"/>
+
+  <!-- ===== DC BUS ===== -->
+  <line x1="650" y1="180" x2="650" y2="500" class="bus"/>
+  <text x="620" y="160" class="label">DC Bus (400–800 Vdc)</text>
+
+  <line x1="600" y1="270" x2="650" y2="270" class="line dc power-flow"/>
+
+  <!-- ===== UPS / STORAGE ===== -->
+  <rect x="700" y="230" width="220" height="80" class="block"/>
+  <text x="720" y="270" class="label">DC UPS / Battery</text>
+
+  <line x1="650" y1="270" x2="700" y2="270" class="line dc"/>
+
+  <!-- ===== RACK POWER ===== -->
+  <rect x="1000" y="240" width="260" height="100" class="block"/>
+  <text x="1020" y="270" class="label">Rack DC/DC</text>
+  <text x="1020" y="290" class="label">800 → 48 / 12 Vdc</text>
+
+  <line x1="920" y1="270" x2="1000" y2="270" class="line dc power-flow"/>
+
+  <!-- ===== IT LOAD ===== -->
+  <rect x="1320" y="250" width="200" height="80" class="block"/>
+  <text x="1340" y="290" class="label">IT Racks</text>
+
+  <line x1="1260" y1="270" x2="1320" y2="270" class="line dc"/>
+
+</svg>
+</body>
+</html>

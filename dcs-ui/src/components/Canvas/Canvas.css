@@ -27,6 +27,32 @@
   opacity: 0.7;
 }
 
+/* Chart Buttons */
+.chart-button {
+  transition: all 0.2s;
+}
+
+.chart-button:hover {
+  fill: rgba(255, 152, 0, 0.4);
+  filter: drop-shadow(0 0 4px #ff9800);
+}
+
+.chart-button.active {
+  fill: rgba(255, 193, 7, 0.3);
+  stroke: #ffc107;
+  filter: drop-shadow(0 0 6px #ffc107);
+  animation: chart-button-glow 2s ease-in-out infinite;
+}
+
+@keyframes chart-button-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px #ffc107);
+  }
+  50% {
+    filter: drop-shadow(0 0 8px #ffc107);
+  }
+}
+
 .connection-line {
   transition: stroke 0.3s, stroke-width 0.2s;
 }

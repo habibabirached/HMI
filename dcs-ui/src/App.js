@@ -4,12 +4,23 @@ import Canvas from './components/Canvas';
 import PropertyPanel from './components/PropertyPanel';
 import SimulationControls from './components/SimulationControls';
 import Toolbar from './components/Toolbar';
+import SaveLoadDialog from './components/SaveLoadDialog';
+import CSVUploadDialog from './components/CSVUploadDialog/CSVUploadDialog';
+import CSVPickerDialog from './components/CSVPickerDialog/CSVPickerDialog';
+import ColumnPickerDialog from './components/ColumnPickerDialog/ColumnPickerDialog';
+import ChartPanel from './components/ChartPanel/ChartPanel';
 import * as Scenarios from './scenarios/quickScenarios';
 import './styles/App.css';
+
+// Backend API URL
+const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
   // Application mode: 'design' or 'simulation'
   const [mode, setMode] = useState('design');
+  
+  // View mode: 'designer' or 'customer'
+  const [viewMode, setViewMode] = useState('designer');
   
   // Canvas state
   const [canvasComponents, setCanvasComponents] = useState([]);
@@ -25,6 +36,29 @@ function App() {
   const [simulationRunning, setSimulationRunning] = useState(false);
   const [systemState, setSystemState] = useState({});
   
+  // Save/Load dialog state
+  const [showDialog, setShowDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState(null); // 'save' or 'load'
+  
+  // Save state
+  const [currentConfigName, setCurrentConfigName] = useState(null); // Track current config name for "Save"
+  const [isSaving, setIsSaving] = useState(false); // Saving spinner state
+  
+  // CSV Upload dialog state
+  const [showCSVDialog, setShowCSVDialog] = useState(false);
+  
+  // CSV Picker dialog state
+  const [showCSVPicker, setShowCSVPicker] = useState(false);
+  const [csvPickerContext, setCsvPickerContext] = useState(null); // { component, chartType }
+  
+  // Column Picker dialog state
+  const [showColumnPicker, setShowColumnPicker] = useState(false);
+  const [columnPickerContext, setColumnPickerContext] = useState(null); // { component, chartType, csvData }
+  
+  // Chart Panel state
+  const [openCharts, setOpenCharts] = useState([]); // Charts currently displayed in bottom panel
+  const [chartPanelHeight, setChartPanelHeight] = useState(300);
+  
   const canvasRef = useRef(null);
 
   // Add component to canvas
@@ -34,10 +68,10 @@ function App() {
       type: componentDef.id,
       ...componentDef,
       position: position || { x: 100, y: 100 },
-      status: 'normal',
+      status: 'idle', // Start components as idle (gray) until simulation starts
       state: {
         power: 0,
-        voltage: componentDef.voltage || 0,
+        voltage: componentDef.properties?.voltage || 0,
         current: 0,
         frequency: 60
       }
@@ -114,12 +148,23 @@ function App() {
   // Start simulation
   const handleStartSimulation = () => {
     setSimulationRunning(true);
+    
+    // Turn on all components when simulation starts
+    // Loop through each component and set status to 'online' and isTripped to false
+    setCanvasComponents(prev => 
+      prev.map(comp => ({
+        ...comp,
+        status: 'online',
+        isTripped: false
+      }))
+    );
+    
     // Initialize system state
     const initialState = {};
     canvasComponents.forEach(comp => {
       initialState[comp.id] = {
         ...comp.state,
-        status: comp.status
+        status: 'online' // Set status to 'online' in system state as well
       };
     });
     setSystemState(initialState);
@@ -462,13 +507,376 @@ function App() {
     console.log('✅ System reset complete');
   }, [canvasComponents]);
 
+  /**
+   * Toggle view mode (designer vs customer)
+   */
+  const handleToggleViewMode = () => {
+    const newViewMode = viewMode === 'designer' ? 'customer' : 'designer';
+    setViewMode(newViewMode);
+    
+    // When switching to designer view, stop simulation
+    if (newViewMode === 'designer') {
+      setSimulationRunning(false);
+    }
+  };
+
+  // ============================================================================
+  // SAVE/LOAD CONFIGURATION HANDLERS
+  // ============================================================================
+  
+  /**
+   * Open Save Dialog (Save As - always ask for name)
+   */
+  const handleOpenSaveDialog = () => {
+    setDialogMode('save');
+    setShowDialog(true);
+  };
+
+  /**
+   * Quick Save (if config name exists, save without dialog)
+   */
+  const handleQuickSave = async () => {
+    if (!currentConfigName) {
+      // No config name, open Save As dialog
+      handleOpenSaveDialog();
+      return;
+    }
+
+    // Quick save to existing config
+    setIsSaving(true);
+    const saveStartTime = Date.now();
+
+    try {
+      const configData = {
+        name: currentConfigName,
+        description: null, // Keep existing description
+        data: getCurrentConfiguration()
+      };
+
+      console.log('💾 Quick saving configuration:', currentConfigName);
+
+      const response = await fetch(`${API_BASE_URL}/api/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(configData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const savedConfig = await response.json();
+
+      // Ensure minimum 3-second spinner display
+      const elapsed = Date.now() - saveStartTime;
+      const remainingTime = Math.max(0, 3000 - elapsed);
+
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+
+      console.log(`✅ Configuration saved: ${savedConfig.name}`);
+      alert(`✅ Configuration "${savedConfig.name}" saved successfully!`);
+
+    } catch (error) {
+      console.error('❌ Error saving configuration:', error);
+      alert(`❌ Failed to save: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * Open Load Dialog
+   */
+  const handleOpenLoadDialog = () => {
+    setDialogMode('load');
+    setShowDialog(true);
+  };
+
+  /**
+   * Close Dialog
+   */
+  const handleCloseDialog = () => {
+    setShowDialog(false);
+    setDialogMode(null);
+  };
+
+  /**
+   * Open CSV Upload Dialog
+   */
+  const handleOpenCSVDialog = () => {
+    setShowCSVDialog(true);
+  };
+
+  /**
+   * Close CSV Upload Dialog
+   */
+  const handleCloseCSVDialog = () => {
+    setShowCSVDialog(false);
+  };
+
+  /**
+   * Handle CSV Upload Complete
+   * Called when CSV files are successfully uploaded
+   */
+  const handleCSVUploadComplete = () => {
+    console.log('✅ CSV upload complete');
+    // Future: Refresh CSV list in chart association dialog
+  };
+
+  /**
+   * Handle Chart Association Request
+   * Called when user selects a chart type from context menu
+   */
+  const handleAssociateChart = (component, chartType) => {
+    console.log('📊 Associate chart:', chartType, 'to', component.name);
+    
+    // Store context and open CSV picker
+    setCsvPickerContext({ component, chartType });
+    setShowCSVPicker(true);
+  };
+
+  /**
+   * Handle CSV selection from picker
+   */
+  const handleCSVSelected = (csvData) => {
+    console.log('✅ CSV selected:', csvData.name);
+    console.log('📋 Context:', csvPickerContext);
+    
+    // Close CSV picker and open column picker
+    setShowCSVPicker(false);
+    setColumnPickerContext({
+      component: csvPickerContext.component,
+      chartType: csvPickerContext.chartType,
+      csvData
+    });
+    setShowColumnPicker(true);
+  };
+
+  /**
+   * Handle column selection confirmation
+   */
+  const handleColumnsConfirmed = (selection) => {
+    console.log('✅ Columns confirmed:', selection);
+    
+    const { xColumn, yColumn, csvData } = selection;
+    const { component, chartType } = columnPickerContext;
+    
+    // Create chart association object
+    const chartAssociation = {
+      id: `chart-${Date.now()}`,
+      chartType,
+      csvName: csvData.name,
+      xColumn,
+      yColumn,
+      created: new Date().toISOString()
+    };
+    
+    // Update component with new chart association
+    setCanvasComponents(prev => prev.map(comp => {
+      if (comp.id === component.id) {
+        // Add or update charts array in component
+        const existingCharts = comp.charts || [];
+        
+        // Check if this chart type already exists
+        const existingIndex = existingCharts.findIndex(c => c.chartType === chartType);
+        
+        let updatedCharts;
+        if (existingIndex >= 0) {
+          // Replace existing chart of this type
+          updatedCharts = [...existingCharts];
+          updatedCharts[existingIndex] = chartAssociation;
+          console.log(`🔄 Updated existing ${chartType} chart for ${comp.name}`);
+        } else {
+          // Add new chart
+          updatedCharts = [...existingCharts, chartAssociation];
+          console.log(`✨ Added new ${chartType} chart to ${comp.name}`);
+        }
+        
+        return {
+          ...comp,
+          charts: updatedCharts
+        };
+      }
+      return comp;
+    }));
+    
+    console.log('📊 Chart associated successfully:', {
+      component: component.name,
+      chartType,
+      csv: csvData.name,
+      xColumn,
+      yColumn
+    });
+    
+    setShowColumnPicker(false);
+  };
+
+  /**
+   * Handle opening a chart in the bottom panel
+   */
+  const handleOpenChart = (component, chart) => {
+    console.log('📊 Opening chart:', chart.chartType, 'for', component.name);
+    
+    // Check if chart is already open
+    const isAlreadyOpen = openCharts.some(c => 
+      c.componentId === component.id && c.chartId === chart.id
+    );
+    
+    if (isAlreadyOpen) {
+      console.log('⚠️  Chart already open');
+      return;
+    }
+    
+    // Add chart to open charts
+    const openChart = {
+      id: `open-${Date.now()}`,
+      componentId: component.id,
+      componentName: component.name,
+      chartId: chart.id,
+      chartType: chart.chartType,
+      csvName: chart.csvName,
+      xColumn: chart.xColumn,
+      yColumn: chart.yColumn
+    };
+    
+    setOpenCharts(prev => [...prev, openChart]);
+  };
+
+  /**
+   * Handle removing a chart from the bottom panel
+   */
+  const handleRemoveChart = (openChartId) => {
+    console.log('🗑️  Removing chart:', openChartId);
+    setOpenCharts(prev => prev.filter(c => c.id !== openChartId));
+  };
+
+  /**
+   * Handle closing the entire chart panel
+   */
+  const handleCloseChartPanel = () => {
+    console.log('❌ Closing chart panel');
+    setOpenCharts([]);
+  };
+
+  /**
+   * Handle Load - Apply loaded configuration to the app
+   */
+  const handleConfigurationLoaded = (loadedConfig) => {
+    console.log('✅ Loading configuration:', loadedConfig.name);
+    
+    // Save the configuration name for future quick saves
+    setCurrentConfigName(loadedConfig.name);
+    
+    // Extract data from the loaded configuration
+    const { data } = loadedConfig;
+    
+    // Apply the loaded state to the application
+    if (data.canvasComponents) {
+      // Set all components to 'idle' status initially when loaded
+      // They will turn 'online' when user presses "Start Simulation"
+      const componentsWithIdleStatus = data.canvasComponents.map(comp => ({
+        ...comp,
+        status: 'idle',
+        isTripped: false
+      }));
+      setCanvasComponents(componentsWithIdleStatus);
+    }
+    
+    if (data.connections) {
+      setConnections(data.connections);
+    }
+    
+    if (data.systemState) {
+      setSystemState(data.systemState);
+      
+      // Apply zoom and pan if they exist
+      if (data.systemState.zoom !== undefined) {
+        setZoom(data.systemState.zoom);
+      }
+      if (data.systemState.pan) {
+        setPan(data.systemState.pan);
+      }
+      if (data.systemState.simulationRunning !== undefined) {
+        setSimulationRunning(data.systemState.simulationRunning);
+      }
+    }
+    
+    // Restore chart panel state if it exists
+    if (data.chartPanelState) {
+      if (data.chartPanelState.openCharts) {
+        setOpenCharts(data.chartPanelState.openCharts);
+      }
+      if (data.chartPanelState.panelHeight) {
+        setChartPanelHeight(data.chartPanelState.panelHeight);
+      }
+    } else {
+      // Clear chart panel if no state saved
+      setOpenCharts([]);
+    }
+    
+    // Reset selection
+    setSelectedComponent(null);
+    setSelectedConnection(null);
+    
+    console.log('✅ Configuration loaded and applied');
+  };
+
+  /**
+   * Handle Save - Update current config name after save
+   */
+  const handleConfigurationSaved = (savedConfig) => {
+    console.log('✅ Configuration saved:', savedConfig.name);
+    
+    // Update current config name for future quick saves
+    setCurrentConfigName(savedConfig.name);
+  };
+
+  /**
+   * Get current configuration for saving
+   */
+  const getCurrentConfiguration = () => {
+    return {
+      canvasComponents,
+      connections,
+      systemState: {
+        simulationRunning,
+        zoom,
+        pan,
+        mode
+      },
+      chartPanelState: {
+        openCharts,
+        panelHeight: chartPanelHeight
+      }
+    };
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Data Center Power System Designer</h1>
+        <div className="header-left">
+          <h1>Data Center Power System Designer</h1>
+          <div className="view-mode-toggle">
+            <span className={`view-badge view-${viewMode}`}>
+              {viewMode === 'designer' ? '🔧 DESIGNER' : '👤 CUSTOMER'}
+            </span>
+            <label className="toggle-switch" title={viewMode === 'designer' ? 'Switch to Customer View' : 'Switch to Designer View'}>
+              <input 
+                type="checkbox" 
+                checked={viewMode === 'customer'} 
+                onChange={handleToggleViewMode}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
         <Toolbar
           mode={mode}
           onToggleMode={handleToggleMode}
+          viewMode={viewMode}
           simulationRunning={simulationRunning}
           onStartSimulation={handleStartSimulation}
           onStopSimulation={handleStopSimulation}
@@ -479,14 +887,22 @@ function App() {
             setZoom(1);
             setPan({ x: 0, y: 0 });
           }}
+          onSave={handleQuickSave}
+          onSaveAs={handleOpenSaveDialog}
+          onLoad={handleOpenLoadDialog}
+          onLoadCSV={handleOpenCSVDialog}
+          hasComponents={canvasComponents.length > 0}
+          canSave={currentConfigName !== null}
         />
       </header>
 
       <div className="app-main">
-        <ComponentLibrary
-          onAddComponent={handleAddComponent}
-          disabled={mode === 'simulation'}
-        />
+        {viewMode === 'designer' && (
+          <ComponentLibrary
+            onAddComponent={handleAddComponent}
+            disabled={mode === 'simulation'}
+          />
+        )}
 
         <Canvas
           ref={canvasRef}
@@ -499,10 +915,13 @@ function App() {
           onMoveComponent={handleMoveComponent}
           onAddComponent={handleAddComponent}
           onAddConnection={handleAddConnection}
+          onAssociateChart={handleAssociateChart}
+          onOpenChart={handleOpenChart}
           zoom={zoom}
           pan={pan}
           onPan={setPan}
           mode={mode}
+          viewMode={viewMode}
           simulationRunning={simulationRunning}
           systemState={systemState}
         />
@@ -554,6 +973,8 @@ function App() {
         ================================================================ */}
         <SimulationControls
           mode={mode}
+          viewMode={viewMode}
+          simulationRunning={simulationRunning}
           selectedComponent={selectedComponent}
           onTripComponent={handleTripComponent}
           onRestartComponent={handleRestartComponent}
@@ -567,6 +988,68 @@ function App() {
           onResetSystem={handleResetSystem}
         />
       </div>
+
+      {/* Save/Load Dialog */}
+      {showDialog && (
+        <SaveLoadDialog
+          mode={dialogMode}
+          onClose={handleCloseDialog}
+          onSave={handleConfigurationSaved}
+          onLoad={handleConfigurationLoaded}
+          currentConfiguration={getCurrentConfiguration()}
+        />
+      )}
+
+      {/* CSV Upload Dialog */}
+      {showCSVDialog && (
+        <CSVUploadDialog
+          onClose={handleCloseCSVDialog}
+          onUploadComplete={handleCSVUploadComplete}
+        />
+      )}
+
+      {/* CSV Picker Dialog */}
+      {showCSVPicker && csvPickerContext && (
+        <CSVPickerDialog
+          onClose={() => setShowCSVPicker(false)}
+          onSelectCSV={handleCSVSelected}
+          componentName={csvPickerContext.component.name}
+          chartType={csvPickerContext.chartType}
+        />
+      )}
+
+      {/* Column Picker Dialog */}
+      {showColumnPicker && columnPickerContext && (
+        <ColumnPickerDialog
+          onClose={() => setShowColumnPicker(false)}
+          onConfirm={handleColumnsConfirmed}
+          csvData={columnPickerContext.csvData}
+          componentName={columnPickerContext.component.name}
+          chartType={columnPickerContext.chartType}
+        />
+      )}
+
+      {/* Chart Panel */}
+      {openCharts.length > 0 && (
+        <ChartPanel
+          charts={openCharts}
+          onClose={handleCloseChartPanel}
+          onRemoveChart={handleRemoveChart}
+          height={chartPanelHeight}
+          onHeightChange={setChartPanelHeight}
+        />
+      )}
+
+      {/* Saving Spinner Overlay */}
+      {isSaving && (
+        <div className="saving-overlay">
+          <div className="saving-spinner-container">
+            <div className="saving-spinner"></div>
+            <div className="saving-text">Saving Configuration...</div>
+            <div className="saving-subtext">Please wait</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

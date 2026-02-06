@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Center Power System Designer - Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .architecture-layer {
+            margin-bottom: 40px;
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .layer-header {
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 20px 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 20px rgba(240, 147, 251, 0.3);
+        }
+
+        .layer-header h2 {
+            color: white;
+            font-size: 1.8em;
+            flex: 1;
+        }
+
+        .layer-header .layer-icon {
+            font-size: 2.5em;
+            margin-right: 15px;
+        }
+
+        .layer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 0 10px;
+        }
+
+        .component-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .component-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+
+        .component-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .component-logo {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+            object-fit: contain;
+        }
+
+        .component-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .component-features {
+            list-style: none;
+            padding: 0;
+        }
+
+        .component-features li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .component-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .connection-arrow {
+            text-align: center;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .connection-arrow:before {
+            content: "";
+            display: block;
+            width: 3px;
+            height: 50px;
+            background: linear-gradient(to bottom, #667eea, #764ba2);
+            margin: 0 auto 10px;
+            border-radius: 2px;
+        }
+
+        .connection-arrow:after {
+            content: "⬇";
+            font-size: 2em;
+            color: #764ba2;
+            display: block;
+        }
+
+        .connection-label {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .modalities-section {
+            margin-top: 60px;
+            padding: 40px;
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            border-radius: 20px;
+        }
+
+        .modalities-section h2 {
+            color: white;
+            text-align: center;
+            font-size: 2.2em;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .modalities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .modality-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+        }
+
+        .modality-card:hover {
+            transform: scale(1.05);
+        }
+
+        .modality-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .modality-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .modality-card p {
+            color: #666;
+            line-height: 1.6;
+            font-size: 0.95em;
+        }
+
+        .tech-stack {
+            margin-top: 60px;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 20px;
+        }
+
+        .tech-stack h2 {
+            text-align: center;
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 40px;
+        }
+
+        .tech-logos {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+
+        .tech-item {
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .tech-item:hover {
+            transform: scale(1.1);
+        }
+
+        .tech-logo-large {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 10px;
+        }
+
+        .tech-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            margin-top: 40px;
+            color: #666;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            .layer-content {
+                grid-template-columns: 1fr;
+            }
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔋 Data Center Power System Designer</h1>
+            <p>Enterprise-Grade Software Architecture</p>
+            <div style="margin-top: 20px;">
+                <span class="badge">React Frontend</span>
+                <span class="badge">Python Backend</span>
+                <span class="badge">PostgreSQL</span>
+                <span class="badge">Docker</span>
+                <span class="badge">PSCAD Integration</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- PRESENTATION LAYER -->
+            <div class="architecture-layer">
+                <div class="layer-header">
+                    <div class="layer-icon">🖥️</div>
+                    <h2>Presentation Layer (Frontend)</h2>
+                </div>
+                <div class="layer-content">
+                    <div class="component-card">
+                        <div class="component-header">
+                            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="React" class="component-logo">
+                            <div class="component-title">React HMI</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Interactive Canvas Editor</li>
+                            <li>Drag & Drop Components</li>
+                            <li>Real-time Updates</li>
+                            <li>Responsive Design</li>
+                            <li>Component Library</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">⚡</div>
+                            <div class="component-title">Design Mode</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Visual Circuit Builder</li>
+                            <li>Property Editing Panel</li>
+                            <li>Connection Management</li>
+                            <li>Save/Load Configurations</li>
+                            <li>Multi-Customer Support</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">🎮</div>
+                            <div class="component-title">Simulation Mode</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Interactive Controls</li>
+                            <li>Trip/Restart Components</li>
+                            <li>Quick Scenarios</li>
+                            <li>Real-time Monitoring</li>
+                            <li>Customer-Friendly UI</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg" alt="D3.js" class="component-logo">
+                            <div class="component-title">Data Visualization</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>2D/3D Plots</li>
+                            <li>Dynamic Histograms</li>
+                            <li>Real-time Gauges</li>
+                            <li>Time Series Charts</li>
+                            <li>Interactive Animations</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="connection-arrow">
+                <div class="connection-label">HTTPS/REST API</div>
+            </div>
+
+            <!-- APPLICATION LAYER -->
+            <div class="architecture-layer">
+                <div class="layer-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <div class="layer-icon">⚙️</div>
+                    <h2>Application Layer (Backend)</h2>
+                </div>
+                <div class="layer-content">
+                    <div class="component-card">
+                        <div class="component-header">
+                            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="Python" class="component-logo">
+                            <div class="component-title">FastAPI Server</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>RESTful API Endpoints</li>
+                            <li>Async Request Handling</li>
+                            <li>Pydantic Validation</li>
+                            <li>Auto-Generated Docs</li>
+                            <li>CORS Middleware</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">🧠</div>
+                            <div class="component-title">Business Logic</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Configuration Management</li>
+                            <li>Component Validation</li>
+                            <li>Simulation Orchestration</li>
+                            <li>User Authentication</li>
+                            <li>Role-Based Access</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">📊</div>
+                            <div class="component-title">Data Processing</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>CSV Parser</li>
+                            <li>Pickle Deserialization</li>
+                            <li>Data Transformation</li>
+                            <li>Result Aggregation</li>
+                            <li>JSON Serialization</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">🔗</div>
+                            <div class="component-title">FlexSim Bridge</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>PSCAD API Integration</li>
+                            <li>Automation Scripts</li>
+                            <li>Parameter Management</li>
+                            <li>Results Post-Processing</li>
+                            <li>Batch Simulation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="connection-arrow">
+                <div class="connection-label">SQLAlchemy ORM</div>
+            </div>
+
+            <!-- DATA PERSISTENCE LAYER -->
+            <div class="architecture-layer">
+                <div class="layer-header" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <div class="layer-icon">💾</div>
+                    <h2>Data Persistence Layer</h2>
+                </div>
+                <div class="layer-content">
+                    <div class="component-card">
+                        <div class="component-header">
+                            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" alt="PostgreSQL" class="component-logo">
+                            <div class="component-title">PostgreSQL Database</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>ACID Compliance</li>
+                            <li>JSON Native Support</li>
+                            <li>Advanced Indexing</li>
+                            <li>Full-Text Search</li>
+                            <li>Concurrent Transactions</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">📋</div>
+                            <div class="component-title">Configurations</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Canvas Layouts</li>
+                            <li>Component Connections</li>
+                            <li>System State</li>
+                            <li>Customer Metadata</li>
+                            <li>Version History</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">🔧</div>
+                            <div class="component-title">Component Library</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Properties & Specs</li>
+                            <li>Default Parameters</li>
+                            <li>Component Metadata</li>
+                            <li>Category Organization</li>
+                            <li>Custom Extensions</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">📈</div>
+                            <div class="component-title">Simulation Results</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>Time Series Data</li>
+                            <li>State History</li>
+                            <li>Results Cache</li>
+                            <li>Performance Metrics</li>
+                            <li>Event Logs</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PSCAD INTEGRATION MODALITIES -->
+            <div class="modalities-section">
+                <h2>🔗 PSCAD Integration: Four Modalities</h2>
+                <div class="modalities-grid">
+                    <div class="modality-card">
+                        <div class="modality-number">1</div>
+                        <h3>📁 CSV Upload</h3>
+                        <p>Engineers upload pre-computed simulation results through web interface. Perfect for demos and quick presentations. No PSCAD integration required.</p>
+                    </div>
+
+                    <div class="modality-card">
+                        <div class="modality-number">2</div>
+                        <h3>🗄️ Database Connection</h3>
+                        <p>Direct connection to PSCAD result databases. Enables batch processing and automated scenario libraries with scheduled jobs.</p>
+                    </div>
+
+                    <div class="modality-card">
+                        <div class="modality-number">3</div>
+                        <h3>🚀 API Integration</h3>
+                        <p>Real-time PSCAD execution via Python API and FlexSim. Interactive on-demand simulations responding to customer "what-if" questions instantly.</p>
+                    </div>
+
+                    <div class="modality-card">
+                        <div class="modality-number">4</div>
+                        <h3>⚙️ Hardware-in-the-Loop</h3>
+                        <p>Live SCADA/DCS integration with OPC UA, Modbus, DNP3. Real-time operational monitoring, training, and digital twin capabilities.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TECHNOLOGY STACK -->
+            <div class="tech-stack">
+                <h2>🛠️ Technology Stack</h2>
+                <div class="tech-logos">
+                    <div class="tech-item">
+                        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="React" class="tech-logo-large">
+                        <div class="tech-name">React 18+</div>
+                    </div>
+                    <div class="tech-item">
+                        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="Python" class="tech-logo-large">
+                        <div class="tech-name">Python</div>
+                    </div>
+                    <div class="tech-item">
+                        <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg" alt="FastAPI" class="tech-logo-large">
+                        <div class="tech-name">FastAPI</div>
+                    </div>
+                    <div class="tech-item">
+                        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" alt="PostgreSQL" class="tech-logo-large">
+                        <div class="tech-name">PostgreSQL</div>
+                    </div>
+                    <div class="tech-item">
+                        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" alt="Docker" class="tech-logo-large">
+                        <div class="tech-name">Docker</div>
+                    </div>
+                    <div class="tech-item">
+                        <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/javascript/javascript-original.svg" alt="JavaScript" class="tech-logo-large">
+                        <div class="tech-name">JavaScript</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEPLOYMENT -->
+            <div class="architecture-layer" style="margin-top: 60px;">
+                <div class="layer-header" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                    <div class="layer-icon">🏢</div>
+                    <h2>Deployment @ Bultown Campus</h2>
+                </div>
+                <div class="layer-content">
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">🖼️</div>
+                            <div class="component-title">Customer Experience</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>18ft x 10ft Display</li>
+                            <li>Interactive Touchscreen</li>
+                            <li>High Bay Installation</li>
+                            <li>Professional Iconography</li>
+                            <li>Executive-Ready Demos</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/docker/docker-original.svg" alt="Docker" class="component-logo">
+                            <div class="component-title">Infrastructure</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>On-Premise Servers</li>
+                            <li>Docker Containerization</li>
+                            <li>Secure VLAN</li>
+                            <li>UPS Backup</li>
+                            <li>Low-Latency Network</li>
+                        </ul>
+                    </div>
+
+                    <div class="component-card">
+                        <div class="component-header">
+                            <div style="font-size: 2.5em; margin-right: 15px;">🔒</div>
+                            <div class="component-title">Security</div>
+                        </div>
+                        <ul class="component-features">
+                            <li>HTTPS/TLS Encryption</li>
+                            <li>JWT Authentication</li>
+                            <li>Role-Based Access</li>
+                            <li>Audit Logging</li>
+                            <li>Input Validation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Data Center Power System Designer</strong></p>
+            <p>Version 1.0 • February 2026 • GE Vernova</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                Developed by Habib • Integrated with Megan's FlexSim • PSCAD Simulation Engine
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth scroll animations
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.component-card, .modality-card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '0';
+                        entry.target.style.transform = 'translateY(20px)';
+                        
+                        setTimeout(() => {
+                            entry.target.style.transition = 'all 0.6s ease';
+                            entry.target.style.opacity = '1';
+                            entry.target.style.transform = 'translateY(0)';
+                        }, 100);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            cards.forEach(card => observer.observe(card));
+        });
+    </script>
+</body>
+</html>

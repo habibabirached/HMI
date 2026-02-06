@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Database files (SQLite)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Environment variables (contains sensitive data)
+.env
+
+# Saved configurations (user data - don't commit)
+saved_configs/*.json
+saved_configs/**/*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

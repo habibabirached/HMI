@@ -1,0 +1,55 @@
+# ============================================================================
+# PYTHON BACKEND REQUIREMENTS
+# ============================================================================
+# This file lists all Python packages (libraries) that the backend needs.
+# 
+# HOW TO INSTALL:
+#   pip install -r requirements.txt
+# 
+# DOCKER: The Dockerfile automatically installs these when building the container.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# WEB FRAMEWORK
+# ----------------------------------------------------------------------------
+# FastAPI - Modern, fast web framework for building APIs
+# Includes automatic API documentation at /docs
+fastapi==0.109.0
+
+# Uvicorn - ASGI server that runs FastAPI applications
+# This is what actually listens on port 5000 and handles HTTP requests
+uvicorn[standard]==0.27.0
+
+# ----------------------------------------------------------------------------
+# DATABASE
+# ----------------------------------------------------------------------------
+# SQLAlchemy - Database ORM (Object-Relational Mapping)
+# Lets us work with databases using Python objects instead of SQL strings
+sqlalchemy==2.0.25
+
+# Alembic - Database migration tool (for schema changes over time)
+# Optional but useful for tracking database structure changes
+alembic==1.13.1
+
+# ----------------------------------------------------------------------------
+# DATA VALIDATION
+# ----------------------------------------------------------------------------
+# Pydantic - Data validation and settings management
+# FastAPI uses this automatically for request/response validation
+pydantic==2.5.3
+
+# ----------------------------------------------------------------------------
+# UTILITIES
+# ----------------------------------------------------------------------------
+# python-dotenv - Load environment variables from .env file
+# Useful for database connection strings and configuration
+python-dotenv==1.0.0
+
+# python-multipart - Required for file uploads (for import feature)
+python-multipart==0.0.6
+
+# ----------------------------------------------------------------------------
+# DATE/TIME
+# ----------------------------------------------------------------------------
+# python-dateutil - Better date/time parsing and formatting
+python-dateutil==2.8.2

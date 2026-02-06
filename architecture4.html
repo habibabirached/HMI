@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Center Power System Designer - Flow Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.5);
+            padding: 50px;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 2.8em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+        }
+
+        .header .subtitle {
+            color: #666;
+            font-size: 1.3em;
+            font-weight: 500;
+        }
+
+        /* Main flow container */
+        .flow-container {
+            position: relative;
+            padding: 40px 0;
+        }
+
+        /* Component boxes */
+        .box {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+            border: 3px solid #e0e0e0;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+        }
+
+        .box-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .box-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .box-title-container {
+            flex: 1;
+        }
+
+        .box-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .box-subtitle {
+            font-size: 1em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Nested items */
+        .nested-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .nested-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .nested-item-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nested-item-content {
+            font-size: 0.85em;
+            line-height: 1.7;
+            opacity: 0.95;
+        }
+
+        /* Arrow containers */
+        .arrow-section {
+            text-align: center;
+            margin: 40px 0;
+            position: relative;
+        }
+
+        .arrow-visual {
+            width: 4px;
+            height: 80px;
+            background: linear-gradient(to bottom, #667eea, #764ba2);
+            margin: 0 auto;
+            position: relative;
+            animation: flow 2s ease-in-out infinite;
+        }
+
+        @keyframes flow {
+            0%, 100% {
+                opacity: 0.6;
+                box-shadow: 0 0 10px rgba(102, 126, 234, 0.4);
+            }
+            50% {
+                opacity: 1;
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+            }
+        }
+
+        .arrow-visual:after {
+            content: '▼';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2em;
+            color: #764ba2;
+        }
+
+        .arrow-label {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1em;
+            margin-top: 10px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .arrow-description {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+
+        /* Multi-arrow section for PSCAD */
+        .multi-arrow-section {
+            margin: 60px 0;
+            position: relative;
+        }
+
+        .multi-arrow-container {
+            display: flex;
+            justify-content: space-around;
+            position: relative;
+            margin-top: 40px;
+        }
+
+        .arrow-branch {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .arrow-branch:before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            width: 3px;
+            height: 60px;
+            background: linear-gradient(to bottom, #fa709a, #fee140);
+            transform: translateX(-50%);
+        }
+
+        .arrow-branch:after {
+            content: '▼';
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.5em;
+            color: #fa709a;
+        }
+
+        .branch-label {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            box-shadow: 0 5px 15px rgba(250, 112, 154, 0.4);
+            margin-bottom: 20px;
+            margin-top: 50px;
+        }
+
+        /* Modality cards */
+        .modality-box {
+            background: white;
+            border: 3px solid #fa709a;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            min-height: 200px;
+        }
+
+        .modality-box:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 35px rgba(250, 112, 154, 0.3);
+            border-color: #f5576c;
+        }
+
+        .modality-header {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modality-number {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .modality-how {
+            font-size: 0.85em;
+            color: #666;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .modality-how strong {
+            color: #fa709a;
+        }
+
+        /* Color coding */
+        .box.frontend {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+        }
+
+        .box.backend {
+            border-color: #4facfe;
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.03) 0%, rgba(0, 242, 254, 0.03) 100%);
+        }
+
+        .box.database {
+            border-color: #43e97b;
+            background: linear-gradient(135deg, rgba(67, 233, 123, 0.03) 0%, rgba(56, 249, 215, 0.03) 100%);
+        }
+
+        .box.pscad {
+            border-color: #fa709a;
+            background: linear-gradient(135deg, rgba(250, 112, 154, 0.03) 0%, rgba(254, 225, 64, 0.03) 100%);
+        }
+
+        /* Tech badges */
+        .tech-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .tech-badge {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        /* API endpoint list */
+        .api-list {
+            margin-top: 15px;
+        }
+
+        .api-item {
+            padding: 10px 15px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-left: 4px solid #4facfe;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .api-method {
+            color: #4facfe;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        /* Database tables */
+        .db-tables {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .db-table {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            padding: 18px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(67, 233, 123, 0.3);
+        }
+
+        .db-table-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .db-table-fields {
+            font-size: 0.85em;
+            line-height: 1.7;
+            opacity: 0.95;
+        }
+
+        /* FlexSim box */
+        .flexsim-box {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin: 30px 0;
+            box-shadow: 0 10px 40px rgba(250, 112, 154, 0.4);
+        }
+
+        .flexsim-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .flexsim-logo {
+            width: 60px;
+            height: 60px;
+            filter: brightness(0) invert(1);
+        }
+
+        .flexsim-title {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .flexsim-subtitle {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        .flexsim-functions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .flexsim-function {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.9em;
+        }
+
+        /* Legend */
+        .legend-box {
+            background: #f5f7fa;
+            padding: 25px;
+            border-radius: 20px;
+            margin-top: 40px;
+        }
+
+        .legend-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .legend-color-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .legend-color-box.purple {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .legend-color-box.blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .legend-color-box.green {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .legend-color-box.orange {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .relationship-note {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-size: 0.95em;
+            margin: 10px 0;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .highlight-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            color: #856404;
+        }
+
+        .highlight-box strong {
+            color: #664d03;
+        }
+
+        @media (max-width: 1200px) {
+            .nested-grid, .db-tables, .flexsim-functions, .legend-items {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Data Center Power System Designer</h1>
+            <p class="subtitle">Complete Data Flow & Relationship Architecture</p>
+        </div>
+
+        <div class="flow-container">
+            
+            <!-- LAYER 1: FRONTEND -->
+            <div class="box frontend">
+                <div class="box-header">
+                    <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" class="box-logo">
+                    <div class="box-title-container">
+                        <div class="box-title">🖥️ Layer 1: React Frontend</div>
+                        <div class="box-subtitle">User Interface (Runs in Browser) • HTML5 • CSS3 • JavaScript ES6+</div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>🔍 Key Relationship:</strong> Design Mode, Simulation Mode, and Data Visualization are all <strong>React Components</strong> written in JSX. They are rendered by the main React app and share state through React Hooks (useState, useCallback).
+                </div>
+
+                <div class="nested-grid">
+                    <div class="nested-item">
+                        <div class="nested-item-title">
+                            <span>🎨</span> Design Mode Component
+                        </div>
+                        <div class="nested-item-content">
+                            <strong>Written in:</strong> React (JSX)<br>
+                            <strong>Renders:</strong><br>
+                            • Canvas.jsx - SVG drawing area<br>
+                            • ComponentLibrary.jsx<br>
+                            • PropertyPanel.jsx<br>
+                            • Toolbar.jsx<br><br>
+                            <strong>Calls Backend:</strong> POST /api/save
+                        </div>
+                    </div>
+
+                    <div class="nested-item">
+                        <div class="nested-item-title">
+                            <span>🎮</span> Simulation Mode Component
+                        </div>
+                        <div class="nested-item-content">
+                            <strong>Written in:</strong> React (JSX)<br>
+                            <strong>Renders:</strong><br>
+                            • SimulationControls.jsx<br>
+                            • Canvas.jsx (view mode)<br>
+                            • PropertyPanel.jsx (read-only)<br><br>
+                            <strong>Calls Backend:</strong> GET /api/load<br>
+                            POST /api/simulate
+                        </div>
+                    </div>
+
+                    <div class="nested-item">
+                        <div class="nested-item-title">
+                            <span>📊</span> Data Viz Component
+                        </div>
+                        <div class="nested-item-content">
+                            <strong>Written in:</strong> React + D3.js<br>
+                            <strong>Renders:</strong><br>
+                            • Line charts (time series)<br>
+                            • Histograms (power distribution)<br>
+                            • Gauges (frequency, voltage)<br><br>
+                            <strong>Data Source:</strong> Backend API responses
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tech-badges">
+                    <span class="tech-badge">React 18+</span>
+                    <span class="tech-badge">React Hooks</span>
+                    <span class="tech-badge">SVG Canvas</span>
+                    <span class="tech-badge">D3.js</span>
+                    <span class="tech-badge">Fetch API</span>
+                    <span class="tech-badge">WebSockets</span>
+                </div>
+            </div>
+
+            <!-- ARROW: Frontend → Backend -->
+            <div class="arrow-section">
+                <div class="arrow-visual"></div>
+                <div class="arrow-label">📡 HTTPS/REST API Calls</div>
+                <div class="arrow-description">
+                    React sends HTTP requests (GET, POST, DELETE) with JSON payloads<br>
+                    Backend responds with JSON data
+                </div>
+            </div>
+
+            <!-- LAYER 2: BACKEND -->
+            <div class="box backend">
+                <div class="box-header">
+                    <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" class="box-logo">
+                    <div class="box-title-container">
+                        <div class="box-title">⚙️ Layer 2: Python Backend</div>
+                        <div class="box-subtitle">FastAPI Application Server • Python 3.10+ • Async/Await</div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>🔍 Key Relationship:</strong> FastAPI endpoints (app.py) call Business Logic modules (database.py, models.py, schemas.py). Business Logic calls SQLAlchemy which calls PostgreSQL. Backend also orchestrates FlexSim for PSCAD integration.
+                </div>
+
+                <div class="api-list">
+                    <div class="api-item">
+                        <span class="api-method">POST</span> /api/save
+                        <span style="color: #666; margin-left: 20px;">→ Saves configuration to PostgreSQL via SQLAlchemy</span>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method">GET</span> /api/load/{id}
+                        <span style="color: #666; margin-left: 20px;">→ Queries PostgreSQL, returns configuration JSON</span>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method">GET</span> /api/configs
+                        <span style="color: #666; margin-left: 20px;">→ Lists all configurations from database</span>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method">DELETE</span> /api/configs/{id}
+                        <span style="color: #666; margin-left: 20px;">→ Deletes from PostgreSQL + disk backup</span>
+                    </div>
+                    <div class="api-item">
+                        <span class="api-method">POST</span> /api/simulate
+                        <span style="color: #666; margin-left: 20px;">→ Calls FlexSim → PSCAD → Returns results</span>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 25px;">
+                    <div style="background: rgba(79, 172, 254, 0.1); padding: 20px; border-radius: 12px; border: 2px solid #4facfe;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 1.1em;">
+                            📦 Core Python Modules
+                        </div>
+                        <div style="font-size: 0.9em; color: #555; line-height: 1.7;">
+                            • <strong>app.py</strong> - FastAPI routes<br>
+                            • <strong>database.py</strong> - DB connection<br>
+                            • <strong>models.py</strong> - SQLAlchemy ORM<br>
+                            • <strong>schemas.py</strong> - Pydantic validation<br>
+                            • <strong>utils.py</strong> - Data processing
+                        </div>
+                    </div>
+                    <div style="background: rgba(79, 172, 254, 0.1); padding: 20px; border-radius: 12px; border: 2px solid #4facfe;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 1.1em;">
+                            🔧 Processing Functions
+                        </div>
+                        <div style="font-size: 0.9em; color: #555; line-height: 1.7;">
+                            • CSV parser (Pandas)<br>
+                            • Pickle deserializer (Python)<br>
+                            • JSON transformer<br>
+                            • Data validator (Pydantic)<br>
+                            • Result aggregator
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tech-badges">
+                    <span class="tech-badge">FastAPI</span>
+                    <span class="tech-badge">Pydantic</span>
+                    <span class="tech-badge">SQLAlchemy</span>
+                    <span class="tech-badge">Uvicorn</span>
+                    <span class="tech-badge">Pandas</span>
+                    <span class="tech-badge">NumPy</span>
+                </div>
+            </div>
+
+            <!-- ARROW: Backend → Database -->
+            <div class="arrow-section">
+                <div class="arrow-visual" style="background: linear-gradient(to bottom, #43e97b, #38f9d7);"></div>
+                <div class="arrow-label" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">💾 SQLAlchemy ORM</div>
+                <div class="arrow-description">
+                    Python backend uses SQLAlchemy to execute SQL queries<br>
+                    PostgreSQL responds with query results
+                </div>
+            </div>
+
+            <!-- LAYER 3: DATABASE -->
+            <div class="box database">
+                <div class="box-header">
+                    <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg" class="box-logo">
+                    <div class="box-title-container">
+                        <div class="box-title">💾 Layer 3: PostgreSQL Database</div>
+                        <div class="box-subtitle">Data Persistence Layer • ACID Compliant • JSON Native</div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>🔍 Key Relationship:</strong> SQLAlchemy ORM in Python backend translates Python objects to SQL queries. PostgreSQL executes queries, manages transactions, and returns results. Backup JSON files written to disk in parallel.
+                </div>
+
+                <div class="db-tables">
+                    <div class="db-table">
+                        <div class="db-table-name">📋 configurations</div>
+                        <div class="db-table-fields">
+                            • id (Primary Key)<br>
+                            • name (String)<br>
+                            • description (Text)<br>
+                            • data (JSON/JSONB)<br>
+                            • created_at (DateTime)<br>
+                            • updated_at (DateTime)
+                        </div>
+                    </div>
+
+                    <div class="db-table">
+                        <div class="db-table-name">🔧 components</div>
+                        <div class="db-table-fields">
+                            • id (Primary Key)<br>
+                            • type (String)<br>
+                            • properties (JSON)<br>
+                            • category (String)<br>
+                            • metadata (JSON)
+                        </div>
+                    </div>
+
+                    <div class="db-table">
+                        <div class="db-table-name">📈 simulation_results</div>
+                        <div class="db-table-fields">
+                            • id (Primary Key)<br>
+                            • config_id (Foreign Key)<br>
+                            • scenario (String)<br>
+                            • time_series (JSON)<br>
+                            • metrics (JSON)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tech-badges">
+                    <span class="tech-badge">PostgreSQL 14+</span>
+                    <span class="tech-badge">JSONB Indexing</span>
+                    <span class="tech-badge">Full-Text Search</span>
+                    <span class="tech-badge">Concurrent MVCC</span>
+                </div>
+            </div>
+
+            <!-- MULTI-ARROW: Backend → 4 PSCAD Modalities -->
+            <div class="multi-arrow-section">
+                <div class="relationship-note" style="text-align: center; font-size: 1.1em; margin-bottom: 20px;">
+                    🔗 Backend connects to PSCAD through 4 different modalities (data paths)
+                </div>
+
+                <div class="multi-arrow-container">
+                    <div class="arrow-branch">
+                        <div class="branch-label">📁 Modality 1</div>
+                    </div>
+                    <div class="arrow-branch">
+                        <div class="branch-label">🗄️ Modality 2</div>
+                    </div>
+                    <div class="arrow-branch">
+                        <div class="branch-label">🚀 Modality 3</div>
+                    </div>
+                    <div class="arrow-branch">
+                        <div class="branch-label">⚙️ Modality 4</div>
+                    </div>
+                </div>
+
+                <!-- 4 Modality Cards -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 30px;">
+                    <div class="modality-box">
+                        <div class="modality-header">
+                            <div class="modality-number">1</div>
+                            <div>CSV Upload</div>
+                        </div>
+                        <div class="modality-how">
+                            <strong>Relationship:</strong><br>
+                            Engineer → Exports CSV from PSCAD<br>
+                            ↓<br>
+                            Browser → Uploads file<br>
+                            ↓<br>
+                            Backend → Parses CSV (Pandas)<br>
+                            ↓<br>
+                            Backend → Stores in PostgreSQL
+                        </div>
+                    </div>
+
+                    <div class="modality-box">
+                        <div class="modality-header">
+                            <div class="modality-number">2</div>
+                            <div>Database Sync</div>
+                        </div>
+                        <div class="modality-how">
+                            <strong>Relationship:</strong><br>
+                            PSCAD → Writes to its own DB<br>
+                            ↓<br>
+                            Backend → Queries PSCAD DB<br>
+                            ↓<br>
+                            Backend → Copies to our PostgreSQL<br>
+                            ↓<br>
+                            Scheduled jobs auto-sync
+                        </div>
+                    </div>
+
+                    <div class="modality-box">
+                        <div class="modality-header">
+                            <div class="modality-number">3</div>
+                            <div>Python API</div>
+                        </div>
+                        <div class="modality-how">
+                            <strong>Relationship:</strong><br>
+                            Backend → Calls FlexSim (Python)<br>
+                            ↓<br>
+                            FlexSim → Calls PSCAD API<br>
+                            ↓<br>
+                            PSCAD → Runs simulation<br>
+                            ↓<br>
+                            Results → Flow back to Backend
+                        </div>
+                    </div>
+
+                    <div class="modality-box">
+                        <div class="modality-header">
+                            <div class="modality-number">4</div>
+                            <div>HIL/SCADA</div>
+                        </div>
+                        <div class="modality-how">
+                            <strong>Relationship:</strong><br>
+                            SCADA/RTU → Industrial protocols<br>
+                            ↓<br>
+                            Backend → OPC UA/Modbus client<br>
+                            ↓<br>
+                            Backend → Streams via WebSocket<br>
+                            ↓<br>
+                            Frontend → Real-time updates
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FlexSim Bridge -->
+            <div class="flexsim-box">
+                <div class="flexsim-header">
+                    <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" class="flexsim-logo">
+                    <div>
+                        <div class="flexsim-title">🔗 FlexSim Automation Tool</div>
+                        <div class="flexsim-subtitle">Python Bridge Between Backend and PSCAD (Developed by Megan)</div>
+                    </div>
+                </div>
+
+                <div class="highlight-box" style="background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.5); color: white;">
+                    <strong>🔍 Key Relationship:</strong> FlexSim is a <strong>Python module</strong> that our backend imports and calls. FlexSim wraps PSCAD's Python API, handles CSV configuration, manages simulations, and returns pickle files. This allows our backend to control PSCAD without knowing PSCAD internals.
+                </div>
+
+                <div class="flexsim-functions">
+                    <div class="flexsim-function">
+                        <strong>📝 Component Parameterization</strong><br>
+                        Reads CSV configs → Sets PSCAD parameters
+                    </div>
+                    <div class="flexsim-function">
+                        <strong>⏱️ Event Scheduling</strong><br>
+                        Configures faults, breaker operations, load changes
+                    </div>
+                    <div class="flexsim-function">
+                        <strong>▶️ Simulation Execution</strong><br>
+                        Calls PSCAD API → Monitors progress → Collects results
+                    </div>
+                    <div class="flexsim-function">
+                        <strong>📊 Post-Processing</strong><br>
+                        FFT analysis → RMS calculations → Pickle serialization
+                    </div>
+                </div>
+            </div>
+
+            <!-- ARROW: Backend → PSCAD -->
+            <div class="arrow-section">
+                <div class="arrow-visual" style="background: linear-gradient(to bottom, #fa709a, #fee140);"></div>
+                <div class="arrow-label" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">🔬 PSCAD Python API</div>
+                <div class="arrow-description">
+                    Backend/FlexSim sends commands to PSCAD (load model, set params, run simulation)<br>
+                    PSCAD executes simulation and returns results (CSV, Pickle, or direct data)
+                </div>
+            </div>
+
+            <!-- LAYER 4: PSCAD -->
+            <div class="box pscad">
+                <div class="box-header">
+                    <span style="font-size: 3em;">🔬</span>
+                    <div class="box-title-container">
+                        <div class="box-title">🔬 Layer 4: PSCAD Simulation Engine</div>
+                        <div class="box-subtitle">Electromagnetic Transient Simulation • Power System Physics Engine</div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>🔍 Key Relationship:</strong> PSCAD is an <strong>external simulation software</strong> with a Python API. It doesn't directly know about our HMI. FlexSim translates our high-level requests into PSCAD commands. PSCAD performs the physics simulation and returns raw results.
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px;">
+                    <div style="background: rgba(250, 112, 154, 0.1); padding: 20px; border-radius: 12px; border: 2px solid #fa709a;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 1.1em;">
+                            ⚡ Power System Model
+                        </div>
+                        <div style="font-size: 0.9em; color: #555; line-height: 1.7;">
+                            • Network topology<br>
+                            • Component models<br>
+                            • Control systems<br>
+                            • Protection relays<br>
+                            • Differential equations
+                        </div>
+                    </div>
+                    <div style="background: rgba(250, 112, 154, 0.1); padding: 20px; border-radius: 12px; border: 2px solid #fa709a;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 1.1em;">
+                            🎯 Simulation Engine
+                        </div>
+                        <div style="font-size: 0.9em; color: #555; line-height: 1.7;">
+                            • Time-domain solver<br>
+                            • Fault injection<br>
+                            • Event studies<br>
+                            • Transient analysis<br>
+                            • Steady-state computation
+                        </div>
+                    </div>
+                    <div style="background: rgba(250, 112, 154, 0.1); padding: 20px; border-radius: 12px; border: 2px solid #fa709a;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 10px; font-size: 1.1em;">
+                            📤 Output Channels
+                        </div>
+                        <div style="font-size: 0.9em; color: #555; line-height: 1.7;">
+                            • Voltage waveforms<br>
+                            • Frequency traces<br>
+                            • Power measurements<br>
+                            • CSV exports<br>
+                            • Pickle files
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Legend -->
+        <div class="legend-box">
+            <div class="legend-title">📖 Component Relationships Legend</div>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color-box purple"></div>
+                    <div>
+                        <strong>Purple Box:</strong> Frontend Layer<br>
+                        <span style="color: #666; font-size: 0.9em;">Components written in React, rendered in browser</span>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box blue"></div>
+                    <div>
+                        <strong>Blue Box:</strong> Backend Layer<br>
+                        <span style="color: #666; font-size: 0.9em;">Python modules, FastAPI endpoints, business logic</span>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box green"></div>
+                    <div>
+                        <strong>Green Box:</strong> Database Layer<br>
+                        <span style="color: #666; font-size: 0.9em;">PostgreSQL tables, SQL queries via SQLAlchemy</span>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box orange"></div>
+                    <div>
+                        <strong>Orange Box:</strong> Simulation Layer<br>
+                        <span style="color: #666; font-size: 0.9em;">PSCAD engine, FlexSim bridge, 4 integration modalities</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deployment info -->
+        <div style="margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; color: white;">
+            <div style="text-align: center; font-size: 1.5em; font-weight: bold; margin-bottom: 20px;">
+                🚀 Complete System Deployment
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px;">
+                <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">🐳 Containerization</div>
+                    <div style="font-size: 0.9em; line-height: 1.6;">
+                        <strong>Frontend Container:</strong> Nginx serving React build<br>
+                        <strong>Backend Container:</strong> Python + FastAPI + Uvicorn<br>
+                        <strong>Database Container:</strong> PostgreSQL 14<br>
+                        <strong>Orchestration:</strong> Docker Compose
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">🖼️ Physical Setup</div>
+                    <div style="font-size: 0.9em; line-height: 1.6;">
+                        <strong>Location:</strong> Bultown High Bay<br>
+                        <strong>Display:</strong> 18ft x 10ft touchscreen<br>
+                        <strong>Server:</strong> On-premise rack<br>
+                        <strong>Network:</strong> Secure VLAN<br>
+                        <strong>Backup:</strong> UPS protected
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">🔒 Security</div>
+                    <div style="font-size: 0.9em; line-height: 1.6;">
+                        <strong>Transport:</strong> HTTPS/TLS encryption<br>
+                        <strong>Auth:</strong> JWT tokens<br>
+                        <strong>Access:</strong> Role-based (RBAC)<br>
+                        <strong>Audit:</strong> All actions logged<br>
+                        <strong>Validation:</strong> Input sanitization
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; color: #999; font-size: 0.95em;">
+            <p><strong>GE Vernova</strong> | Data Center Power System Designer | Version 1.0 | February 2026</p>
+            <p style="margin-top: 8px;">Developed by Habib • Integrated with Megan's FlexSim • PSCAD Simulation Engine</p>
+        </div>
+    </div>
+</body>
+</html>

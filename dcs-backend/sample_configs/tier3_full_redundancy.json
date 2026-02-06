@@ -1,0 +1,354 @@
+{
+  "name": "Tier III Data Center - Full Redundancy",
+  "description": "Production-grade Tier III configuration with N+1 redundancy. Features: Grid + 3x Gas Turbines (30MW total) + Wind (15MW) + Solar (10MW) + BESS (50MWh). Multiple power distribution paths, breaker protection, dual UPS systems feeding critical and auxiliary loads. Total capacity ~55MW with full failover capability.",
+  "data": {
+    "canvasComponents": [
+      {
+        "id": "comp-grid-1",
+        "type": "utility-grid",
+        "name": "Utility Grid",
+        "fullName": "Utility Grid Connection",
+        "position": { "x": 100, "y": 50 },
+        "status": "normal",
+        "properties": {
+          "rating": 100,
+          "voltage": 34.5,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 34.5, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-gas-1",
+        "type": "gas-turbine-10mw",
+        "name": "Gas Gen 10MW",
+        "fullName": "Gas Turbine Generator 10MW",
+        "position": { "x": 100, "y": 200 },
+        "status": "normal",
+        "properties": {
+          "rating": 10,
+          "voltage": 13.8,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 13.8, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-gas-2",
+        "type": "gas-turbine-10mw",
+        "name": "Gas Gen 10MW",
+        "fullName": "Gas Turbine Generator 10MW",
+        "position": { "x": 300, "y": 200 },
+        "status": "normal",
+        "properties": {
+          "rating": 10,
+          "voltage": 13.8,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 13.8, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-gas-3",
+        "type": "gas-turbine-10mw",
+        "name": "Gas Gen 10MW",
+        "fullName": "Gas Turbine Generator 10MW",
+        "position": { "x": 500, "y": 200 },
+        "status": "normal",
+        "properties": {
+          "rating": 10,
+          "voltage": 13.8,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 13.8, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-wind-1",
+        "type": "wind-turbine-type3",
+        "name": "Wind Type III",
+        "fullName": "Wind Turbine Type III",
+        "position": { "x": 300, "y": 50 },
+        "status": "normal",
+        "properties": {
+          "rating": 3,
+          "voltage": 0.69,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 0.69, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-solar-1",
+        "type": "solar-pv",
+        "name": "Solar PV",
+        "fullName": "Solar PV Array",
+        "position": { "x": 500, "y": 50 },
+        "status": "normal",
+        "properties": {
+          "rating": 2,
+          "voltage": 0.48,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-bess-1",
+        "type": "bess",
+        "name": "BESS",
+        "fullName": "Battery Energy Storage System",
+        "position": { "x": 700, "y": 200 },
+        "status": "normal",
+        "properties": {
+          "rating": 10,
+          "voltage": 0.48,
+          "unit": "MWh"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-hvbreaker-1",
+        "type": "breaker-hv",
+        "name": "HV Breaker",
+        "fullName": "High Voltage Circuit Breaker",
+        "position": { "x": 100, "y": 350 },
+        "status": "normal",
+        "properties": {
+          "rating": 3000,
+          "voltage": 34.5,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 34.5, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-1",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 100, "y": 500 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-2",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 200, "y": 500 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-3",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 300, "y": 500 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-4",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 400, "y": 500 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-5",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 500, "y": 500 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-6",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 600, "y": 500 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-mainbus-1",
+        "type": "bus-mv",
+        "name": "MV Bus",
+        "fullName": "Medium Voltage Bus",
+        "position": { "x": 350, "y": 650 },
+        "status": "normal",
+        "properties": {
+          "rating": 0,
+          "voltage": 4.16,
+          "unit": "kV"
+        },
+        "state": { "power": 0, "voltage": 4.16, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-ups-1",
+        "type": "ups",
+        "name": "UPS",
+        "fullName": "Uninterruptible Power Supply",
+        "position": { "x": 200, "y": 800 },
+        "status": "normal",
+        "properties": {
+          "rating": 1,
+          "voltage": 0.48,
+          "unit": "MVA"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-ups-2",
+        "type": "ups",
+        "name": "UPS",
+        "fullName": "Uninterruptible Power Supply",
+        "position": { "x": 400, "y": 800 },
+        "status": "normal",
+        "properties": {
+          "rating": 1,
+          "voltage": 0.48,
+          "unit": "MVA"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-7",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 200, "y": 950 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-lvbreaker-8",
+        "type": "breaker-lv",
+        "name": "LV Breaker",
+        "fullName": "Low Voltage Circuit Breaker",
+        "position": { "x": 400, "y": 950 },
+        "status": "normal",
+        "properties": {
+          "rating": 4000,
+          "voltage": 0.48,
+          "unit": "A"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-critical-1",
+        "type": "critical-load",
+        "name": "Critical Load",
+        "fullName": "Critical Load Block",
+        "position": { "x": 200, "y": 1100 },
+        "status": "normal",
+        "properties": {
+          "rating": 20,
+          "voltage": 0.48,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-critical-2",
+        "type": "critical-load",
+        "name": "Critical Load",
+        "fullName": "Critical Load Block",
+        "position": { "x": 400, "y": 1100 },
+        "status": "normal",
+        "properties": {
+          "rating": 20,
+          "voltage": 0.48,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-hvac-1",
+        "type": "hvac-load",
+        "name": "HVAC Load",
+        "fullName": "HVAC / Cooling Load",
+        "position": { "x": 550, "y": 950 },
+        "status": "normal",
+        "properties": {
+          "rating": 5,
+          "voltage": 0.48,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      },
+      {
+        "id": "comp-aux-1",
+        "type": "auxiliary-loads",
+        "name": "Aux Loads",
+        "fullName": "Auxiliary Loads",
+        "position": { "x": 700, "y": 950 },
+        "status": "normal",
+        "properties": {
+          "rating": 5,
+          "voltage": 0.48,
+          "unit": "MW"
+        },
+        "state": { "power": 0, "voltage": 0.48, "current": 0, "frequency": 60 }
+      }
+    ],
+    "connections": [
+      { "id": "conn-1", "from": "comp-grid-1", "to": "comp-hvbreaker-1" },
+      { "id": "conn-2", "from": "comp-gas-1", "to": "comp-lvbreaker-1" },
+      { "id": "conn-3", "from": "comp-gas-2", "to": "comp-lvbreaker-2" },
+      { "id": "conn-4", "from": "comp-gas-3", "to": "comp-lvbreaker-3" },
+      { "id": "conn-5", "from": "comp-wind-1", "to": "comp-lvbreaker-2" },
+      { "id": "conn-6", "from": "comp-solar-1", "to": "comp-lvbreaker-3" },
+      { "id": "conn-7", "from": "comp-bess-1", "to": "comp-lvbreaker-6" },
+      { "id": "conn-8", "from": "comp-hvbreaker-1", "to": "comp-lvbreaker-1" },
+      { "id": "conn-9", "from": "comp-lvbreaker-1", "to": "comp-mainbus-1" },
+      { "id": "conn-10", "from": "comp-lvbreaker-2", "to": "comp-mainbus-1" },
+      { "id": "conn-11", "from": "comp-lvbreaker-3", "to": "comp-mainbus-1" },
+      { "id": "conn-12", "from": "comp-lvbreaker-4", "to": "comp-mainbus-1" },
+      { "id": "conn-13", "from": "comp-lvbreaker-5", "to": "comp-mainbus-1" },
+      { "id": "conn-14", "from": "comp-lvbreaker-6", "to": "comp-mainbus-1" },
+      { "id": "conn-15", "from": "comp-mainbus-1", "to": "comp-ups-1" },
+      { "id": "conn-16", "from": "comp-mainbus-1", "to": "comp-ups-2" },
+      { "id": "conn-17", "from": "comp-ups-1", "to": "comp-lvbreaker-7" },
+      { "id": "conn-18", "from": "comp-ups-2", "to": "comp-lvbreaker-8" },
+      { "id": "conn-19", "from": "comp-lvbreaker-7", "to": "comp-critical-1" },
+      { "id": "conn-20", "from": "comp-lvbreaker-8", "to": "comp-critical-2" },
+      { "id": "conn-21", "from": "comp-mainbus-1", "to": "comp-hvac-1" },
+      { "id": "conn-22", "from": "comp-mainbus-1", "to": "comp-aux-1" }
+    ]
+  }
+}
