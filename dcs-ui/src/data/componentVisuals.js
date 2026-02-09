@@ -106,7 +106,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 90,
     height: 70,
     icon: '⚡',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'rounded-rect'
   },
   'microturbine': {
@@ -209,7 +209,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 70,
     height: 70,
     icon: '⊢⊣',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'rect'
   },
   'hydrogen-storage': {
@@ -262,7 +262,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 90,
     height: 70,
     icon: '⚡',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'rounded-rect'
   },
   'dcdc-converter': {
@@ -421,35 +421,35 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 50,
     height: 50,
     icon: 'CT',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'circle'
   },
   'current-transformer-800': {
     width: 50,
     height: 50,
     icon: 'CT',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'circle'
   },
   'current-transformer-1500': {
     width: 55,
     height: 55,
     icon: 'CT',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'circle'
   },
   'current-transformer-2000': {
     width: 60,
     height: 60,
     icon: 'CT',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'circle'
   },
   'voltage-transformer': {
     width: 50,
     height: 50,
     icon: 'VT',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'circle'
   },
   'power-meter': {
@@ -470,7 +470,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 60,
     height: 60,
     icon: '📡',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'rect'
   },
 
@@ -509,7 +509,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 160,
     height: 35,
     icon: '───',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'bus-bar'
   },
   'bus-ring': {
@@ -555,7 +555,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 70,
     height: 70,
     icon: '⊕',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'circle'
   },
   'microgrid-controller': {
@@ -601,14 +601,14 @@ export const COMPONENT_VISUAL_CONFIG = {
     width: 130,
     height: 90,
     icon: '❄️',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'rounded-rect'
   },
   'hvac-load': {
     width: 110,
     height: 80,
     icon: '❄️',
-    color: '#00bcd4',
+    color: '#005E60',
     shape: 'rounded-rect'
   },
   'auxiliary-loads': {

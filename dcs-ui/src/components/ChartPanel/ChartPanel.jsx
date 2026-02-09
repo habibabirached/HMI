@@ -15,7 +15,7 @@ import './ChartPanel.css';
  * - height: Current panel height in pixels
  * - onHeightChange: Function to update panel height
  */
-const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, simulationTime, simulationRunning }) => {
+const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, simulationTime, simulationRunning, selectedComponentId }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartY, setResizeStartY] = useState(0);
   const [resizeStartHeight, setResizeStartHeight] = useState(0);
@@ -36,6 +36,7 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
 
   /**
    * Fetch CSV data for a specific chart
+   * Handles both single-component and multi-component charts
    */
   const fetchChartData = async (chart) => {
     setLoadingCharts(prev => ({ ...prev, [chart.id]: true }));
@@ -54,7 +55,10 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
         [chart.id]: data.data // Store the full dataset
       }));
       
-      console.log(`✅ Loaded data for chart: ${chart.componentName} - ${chart.chartType}`);
+      const chartDesc = chart.isMultiComponent 
+        ? `Multi-component chart (${chart.components.length} components)` 
+        : `${chart.componentName} - ${chart.chartType}`;
+      console.log(`✅ Loaded data for chart: ${chartDesc}`);
     } catch (error) {
       console.error(`❌ Error loading chart data:`, error);
       setChartData(prev => ({
@@ -67,11 +71,74 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
   };
 
   /**
+   * Generate multi-component bar chart data
+   * Creates one bar trace per component, all sharing the same X-axis (time)
+   */
+  const generateMultiComponentBarChart = (chart, data) => {
+    // Color palette for different components
+    const colors = [
+      '#005E60', // GE Vernova teal
+      '#FF6B35', // Orange
+      '#4ECDC4', // Turquoise
+      '#F7B731', // Yellow
+      '#5F27CD', // Purple
+      '#00D2FF', // Cyan
+      '#C23616', // Red
+      '#0FB9B1'  // Green
+    ];
+
+    // Filter data based on simulation time
+    let filteredData = data;
+    if (simulationRunning && simulationTime !== undefined) {
+      filteredData = data.filter(row => {
+        const timeValue = parseFloat(row[chart.timeColumn]);
+        return !isNaN(timeValue) && timeValue <= simulationTime;
+      });
+    }
+
+    // Get the last data point for current time (for bar chart)
+    const currentData = filteredData.length > 0 ? filteredData[filteredData.length - 1] : null;
+    
+    if (!currentData) return [];
+
+    // Create a bar trace for each component
+    return chart.components.map((comp, index) => ({
+      x: [comp.name], // Component name on X-axis
+      y: [parseFloat(currentData[comp.columnName]) || 0], // Current value on Y-axis
+      type: 'bar',
+      name: comp.name,
+      marker: {
+        color: colors[index % colors.length],
+        line: {
+          color: '#000',
+          width: 1
+        }
+      },
+      text: [parseFloat(currentData[comp.columnName]).toFixed(2)],
+      textposition: 'outside',
+      textfont: {
+        color: '#e0e0e0',
+        size: 14,
+        weight: 600
+      },
+      hovertemplate: `<b>${comp.name}</b><br>` +
+                     `Value: %{y:.2f}<br>` +
+                     `Time: ${currentData[chart.timeColumn]}<br>` +
+                     `<extra></extra>`
+    }));
+  };
+
+  /**
    * Generate Plotly configuration for professional scientific charts
    * Filters data based on simulation time if simulation is running
    */
   const generatePlotlyData = (chart, data) => {
     if (!data || data.length === 0) return [];
+
+    // Handle multi-component bar charts
+    if (chart.isMultiComponent && chart.chartType === 'multi-bar-chart') {
+      return generateMultiComponentBarChart(chart, data);
+    }
 
     // Filter data based on simulation time if simulation is running
     let filteredData = data;
@@ -96,11 +163,11 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
           mode: 'lines+markers',
           name: chart.componentName,
           line: {
-            color: '#00bcd4',
+            color: '#005E60',
             width: 2
           },
           marker: {
-            color: '#00bcd4',
+            color: '#005E60',
             size: 4,
             opacity: 0.7
           }
@@ -149,7 +216,7 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
           values: Object.values(aggregated),
           type: 'pie',
           marker: {
-            colors: ['#00bcd4', '#ff9800', '#4caf50', '#f44336', '#9c27b0', '#ffeb3b']
+            colors: ['#005E60', '#ff9800', '#4caf50', '#f44336', '#9c27b0', '#ffeb3b']
           },
           textinfo: 'label+percent',
           textfont: {
@@ -194,7 +261,7 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
       
       // Title
       title: {
-        text: `${chart.componentName} - ${chart.chartType.toUpperCase()}`,
+        text: chart.isMultiComponent ? chart.title : `${chart.componentName} - ${chart.chartType.toUpperCase()}`,
         font: {
           family: 'Arial, sans-serif',
           size: 16,
@@ -228,7 +295,7 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
       // Hover label
       hoverlabel: {
         bgcolor: '#1a1a1a',
-        bordercolor: '#00bcd4',
+        bordercolor: '#005E60',
         font: {
           family: 'Courier New, monospace',
           size: 12,
@@ -239,6 +306,60 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
       // Auto-size to fit container
       autosize: true
     };
+
+    // Multi-component bar chart layout
+    if (chart.isMultiComponent && chart.chartType === 'multi-bar-chart') {
+      return {
+        ...baseLayout,
+        xaxis: {
+          title: {
+            text: 'Components',
+            font: {
+              family: 'Arial, sans-serif',
+              size: 13,
+              color: '#999',
+              weight: 600
+            }
+          },
+          gridcolor: '#2a2a2a',
+          gridwidth: 1,
+          showline: true,
+          linecolor: '#444',
+          linewidth: 2,
+          tickfont: {
+            family: 'Arial, sans-serif',
+            size: 11,
+            color: '#999'
+          }
+        },
+        yaxis: {
+          title: {
+            text: 'Value',
+            font: {
+              family: 'Arial, sans-serif',
+              size: 13,
+              color: '#999',
+              weight: 600
+            }
+          },
+          gridcolor: '#2a2a2a',
+          gridwidth: 1,
+          showline: true,
+          linecolor: '#444',
+          linewidth: 2,
+          tickfont: {
+            family: 'Arial, sans-serif',
+            size: 11,
+            color: '#999'
+          },
+          zeroline: true,
+          zerolinecolor: '#444',
+          zerolinewidth: 2
+        },
+        barmode: 'group', // Grouped bars
+        showlegend: false // Hide legend since X-axis shows component names
+      };
+    }
 
     // Chart-specific layout
     if (chart.chartType === '2d' || chart.chartType === 'bar') {
@@ -391,7 +512,7 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
     modeBarStyle: {
       bgcolor: 'rgba(0, 0, 0, 0.5)',
       color: '#999',
-      activecolor: '#00bcd4'
+      activecolor: '#005E60'
     }
   };
 
@@ -484,32 +605,54 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
 
       {/* Charts Container */}
       <div className="chart-panel-content">
-        {charts.map((chart) => (
-          <div key={chart.id} id={`chart-${chart.id}`} className="chart-panel-chart">
+        {charts.map((chart) => {
+          const isHighlighted = selectedComponentId === chart.componentId;
+          return (
+          <div 
+            key={chart.id} 
+            id={`chart-${chart.id}`} 
+            className={`chart-panel-chart ${isHighlighted ? 'highlighted' : ''}`}
+          >
             <div className="chart-panel-chart-header">
               <div className="chart-panel-chart-title">
                 <span className="chart-panel-chart-icon">
-                  {chart.chartType === '2d' && '📈'}
-                  {chart.chartType === 'histogram' && '📊'}
-                  {chart.chartType === 'pie' && '🥧'}
-                  {chart.chartType === 'bar' && '📊'}
-                  {chart.chartType === '3d' && '🗻'}
-                  {chart.chartType === 'heatmap' && '🔥'}
-                  {chart.chartType === 'box' && '📦'}
+                  {chart.isMultiComponent && '📊'}
+                  {!chart.isMultiComponent && chart.chartType === '2d' && '📈'}
+                  {!chart.isMultiComponent && chart.chartType === 'histogram' && '📊'}
+                  {!chart.isMultiComponent && chart.chartType === 'pie' && '🥧'}
+                  {!chart.isMultiComponent && chart.chartType === 'bar' && '📊'}
+                  {!chart.isMultiComponent && chart.chartType === '3d' && '🗻'}
+                  {!chart.isMultiComponent && chart.chartType === 'heatmap' && '🔥'}
+                  {!chart.isMultiComponent && chart.chartType === 'box' && '📦'}
                 </span>
                 <span className="chart-panel-chart-name">
-                  {chart.componentName}
+                  {chart.isMultiComponent ? chart.title : chart.componentName}
                 </span>
                 <span className="chart-panel-chart-type">
-                  ({chart.chartType.toUpperCase()})
+                  {chart.isMultiComponent 
+                    ? `(MULTI-BAR • ${chart.components.length} COMPONENTS)` 
+                    : `(${chart.chartType.toUpperCase()})`
+                  }
                 </span>
               </div>
               <div className="chart-panel-chart-metadata">
                 <span className="chart-panel-chart-csv">{chart.csvName}</span>
-                <span className="chart-panel-chart-separator">•</span>
-                <span className="chart-panel-chart-axes">
-                  X: {chart.xColumn} / Y: {chart.yColumn}
-                </span>
+                {!chart.isMultiComponent && (
+                  <>
+                    <span className="chart-panel-chart-separator">•</span>
+                    <span className="chart-panel-chart-axes">
+                      X: {chart.xColumn} / Y: {chart.yColumn}
+                    </span>
+                  </>
+                )}
+                {chart.isMultiComponent && (
+                  <>
+                    <span className="chart-panel-chart-separator">•</span>
+                    <span className="chart-panel-chart-axes">
+                      Time: {chart.timeColumn}
+                    </span>
+                  </>
+                )}
               </div>
               <button 
                 className="chart-panel-chart-close"
@@ -567,7 +710,8 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

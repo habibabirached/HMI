@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
 import ChartContextMenu from '../ChartContextMenu/ChartContextMenu';
+import MultiComponentContextMenu from '../MultiComponentContextMenu/MultiComponentContextMenu';
+import MultiComponentChartDialog from '../MultiComponentChartDialog/MultiComponentChartDialog';
+import KeyboardShortcuts from './KeyboardShortcuts';
 import { getComponentVisualConfig, getComponentDimensions } from '../../data/componentVisuals';
 import './Canvas.css';
 
@@ -10,11 +13,16 @@ const Canvas = forwardRef(({
   selectedConnection,
   onSelectComponent,
   onSelectConnection,
+  selectedComponents,
+  onMultiSelect,
+  onClearMultiSelection,
+  isComponentMultiSelected,
   onMoveComponent,
   onAddComponent,
   onAddConnection,
   onAssociateChart,
   onOpenChart,
+  onCreateMultiComponentChart,
   zoom,
   pan,
   onPan,
@@ -31,6 +39,8 @@ const Canvas = forwardRef(({
   const [connecting, setConnecting] = useState(null);
   const [connectingTo, setConnectingTo] = useState(null);
   const [contextMenu, setContextMenu] = useState(null); // { component, position }
+  const [showMultiChartDialog, setShowMultiChartDialog] = useState(false);
+  const [multiChartComponents, setMultiChartComponents] = useState([]);
 
   // ========================================================================
   // HELPER FUNCTION: snapToGrid
@@ -100,6 +110,11 @@ const Canvas = forwardRef(({
   const handleComponentMouseDown = (e, component) => {
     e.stopPropagation();
     
+    // CRITICAL: Ignore right-click (button 2) - let contextmenu handler deal with it
+    if (e.button === 2) {
+      return;
+    }
+    
     // If context menu is open, ignore all mouse events
     if (contextMenu) {
       return;
@@ -112,15 +127,25 @@ const Canvas = forwardRef(({
       return;  // But block dragging and connecting
     }
     
-    // IN DESIGN MODE: Allow everything (drag, connect, select)
+    // IN DESIGN MODE: Allow everything (drag, connect, select, multi-select)
     
+    // Shift + click = Multi-select
     if (e.shiftKey) {
-      // Shift + click starts connection
+      e.preventDefault(); // Prevent browser text selection
+      console.log('🖱️ Shift+Click - Multi-selecting:', component.name);
+      onMultiSelect(component.id, true);
+      return;
+    }
+    
+    // Ctrl/Cmd + click = Start connection
+    if (e.ctrlKey || e.metaKey) {
+      console.log('🔗 Ctrl+Click - Starting connection from:', component.name);
       setConnecting(component.id);
       return;
     }
 
-    // Start dragging the component
+    // Regular click = Start dragging and select (clears multi-selection)
+    onMultiSelect(component.id, false); // Clear multi-selection
     setDraggingComponent(component.id);
     const rect = canvasRef.current.getBoundingClientRect();
     setDragOffset({
@@ -137,24 +162,46 @@ const Canvas = forwardRef(({
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('🖱️ Right-click on component:', component.name);
-    
     // CRITICAL: Clear any dragging state when context menu opens
     setDraggingComponent(null);
     setConnecting(null);
     setConnectingTo(null);
     
-    setContextMenu({
-      component,
-      position: {
-        x: e.clientX,
-        y: e.clientY
-      }
+    // Debug logging
+    console.log('📋 Context Menu Debug:', {
+      componentId: component.id,
+      componentName: component.name,
+      selectedComponentsLength: selectedComponents.length,
+      selectedComponents: selectedComponents,
+      isInSelection: isComponentMultiSelected(component.id)
     });
+    
+    // Check if this is a multi-selection scenario
+    const isMultiSelect = selectedComponents.length > 1 && isComponentMultiSelected(component.id);
+    
+    console.log('🎯 isMultiSelect:', isMultiSelect);
+    
+    if (isMultiSelect) {
+      // Multi-component context menu
+      console.log('🖱️ Right-click on multi-selection:', selectedComponents.length, 'components');
+      setContextMenu({
+        type: 'multi-component',
+        components: selectedComponents.map(id => components.find(c => c.id === id)).filter(Boolean),
+        position: { x: e.clientX, y: e.clientY }
+      });
+    } else {
+      // Single component context menu (existing behavior)
+      console.log('🖱️ Right-click on component:', component.name);
+      setContextMenu({
+        type: 'single-component',
+        component,
+        position: { x: e.clientX, y: e.clientY }
+      });
+    }
   };
 
   /**
-   * Handle chart type selection from context menu
+   * Handle chart type selection from context menu (single component)
    */
   const handleChartTypeSelected = (chartType) => {
     if (contextMenu && contextMenu.component) {
@@ -168,6 +215,39 @@ const Canvas = forwardRef(({
     setContextMenu(null);
   };
 
+  /**
+   * Handle chart type selection from multi-component context menu
+   */
+  const handleMultiComponentChartTypeSelected = (chartType) => {
+    if (contextMenu && contextMenu.components) {
+      console.log('📊 Multi-component chart selected:', chartType, 'for', contextMenu.components.length, 'components');
+      console.log('Selected components:', contextMenu.components.map(c => c.name).join(', '));
+      
+      // Open the multi-component chart dialog
+      if (chartType === 'animated-bar-chart') {
+        setMultiChartComponents(contextMenu.components);
+        setShowMultiChartDialog(true);
+      } else {
+        // Other chart types not yet implemented
+        console.log('⚠️ Chart type not yet implemented:', chartType);
+      }
+    }
+    setContextMenu(null);
+  };
+
+  /**
+   * Handle multi-component chart creation from dialog
+   */
+  const handleCreateMultiChart = (chartConfig) => {
+    console.log('✅ Multi-component chart created:', chartConfig);
+    
+    // TODO: In Step 9, we'll pass this to App.js to create the actual Plotly chart
+    // For now, just log it
+    if (onCreateMultiComponentChart) {
+      onCreateMultiComponentChart(chartConfig);
+    }
+  };
+
   const handleCanvasMouseDown = (e) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       // Middle mouse or Alt+Left mouse for panning
@@ -177,6 +257,7 @@ const Canvas = forwardRef(({
       // Left click on empty canvas deselects
       onSelectComponent(null);
       onSelectConnection(null);
+      onClearMultiSelection(); // Clear multi-selection
     }
   };
 
@@ -246,6 +327,101 @@ const Canvas = forwardRef(({
     window.addEventListener('addComponentToCanvas', handleAddComponent);
     return () => window.removeEventListener('addComponentToCanvas', handleAddComponent);
   }, []);
+  
+  // Enhanced keyboard shortcuts for multi-selection
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in an input field
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      // ESC - Clear selection and close context menu
+      if (e.key === 'Escape') {
+        onClearMultiSelection();
+        setContextMenu(null);
+        console.log('⌨️  Escape - Cleared selection');
+      }
+      
+      // Ctrl/Cmd+A - Select all components (Design mode only)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && mode === 'design') {
+        e.preventDefault();
+        // Select all components
+        components.forEach(comp => {
+          onMultiSelect(comp.id, true);
+        });
+        console.log('⌨️  Ctrl+A - Selected all', components.length, 'components');
+      }
+      
+      // DELETE - Delete selected components (Design mode only)
+      if (e.key === 'Delete' && mode === 'design' && selectedComponents.length > 0) {
+        e.preventDefault();
+        console.log('⌨️  Delete -', selectedComponents.length, 'components');
+        // TODO: Implement deletion in App.js
+        // For now, just log
+        alert(`Delete ${selectedComponents.length} components? (Not yet implemented)`);
+      }
+      
+      // ARROW KEYS - Move selected components (Design mode only)
+      if (mode === 'design' && selectedComponents.length > 0 && !e.shiftKey) {
+        const gridSize = 50;
+        let dx = 0, dy = 0;
+        
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          dy = -gridSize;
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          dy = gridSize;
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          dx = -gridSize;
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          dx = gridSize;
+        }
+        
+        if (dx !== 0 || dy !== 0) {
+          // Move all selected components
+          selectedComponents.forEach(compId => {
+            const comp = components.find(c => c.id === compId);
+            if (comp) {
+              onMoveComponent(compId, {
+                x: comp.position.x + dx,
+                y: comp.position.y + dy
+              });
+            }
+          });
+          console.log('⌨️  Arrow keys - Moved', selectedComponents.length, 'components by', dx, dy);
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClearMultiSelection, selectedComponents, components, mode, onMultiSelect, onMoveComponent]);
+  
+  // Click outside handler for multi-component context menu
+  useEffect(() => {
+    if (!contextMenu || contextMenu.type !== 'multi-component') return;
+    
+    const handleClickOutside = (e) => {
+      // If clicking outside the context menu, close it
+      const menuElement = document.querySelector('.multi-component-context-menu');
+      if (menuElement && !menuElement.contains(e.target)) {
+        setContextMenu(null);
+      }
+    };
+    
+    // Use a small delay to avoid closing immediately on the same click that opened it
+    setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [contextMenu]);
 
   return (
     <div className="canvas-container">
@@ -379,7 +555,7 @@ const Canvas = forwardRef(({
                 y1={fromCenterY}
                 x2={connectingTo.x}
                 y2={connectingTo.y}
-                stroke="#00bcd4"
+                stroke="#005E60"
                 strokeWidth="2"
                 strokeDasharray="5,5"
                 pointerEvents="none"
@@ -390,6 +566,7 @@ const Canvas = forwardRef(({
           {/* Render components */}
           {components.map(component => {
             const isSelected = selectedComponent?.id === component.id;
+            const isMultiSelected = isComponentMultiSelected(component.id);
             const isDragging = draggingComponent === component.id;
             
             // Get visual configuration for this component type
@@ -410,7 +587,7 @@ const Canvas = forwardRef(({
                 onMouseDown={(e) => handleComponentMouseDown(e, component)}
                 onMouseUp={(e) => handleComponentMouseUp(e, component)}
                 onContextMenu={(e) => handleComponentContextMenu(e, component)}
-                className={`canvas-component ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
+                className={`canvas-component ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''}`}
                 style={{ cursor: mode === 'design' ? 'move' : 'pointer' }}
               >
                 {/* Wrapper group for rotation */}
@@ -432,7 +609,7 @@ const Canvas = forwardRef(({
                       : component.status === 'open'
                         ? '#ff9800'
                       : isSelected 
-                        ? '#00bcd4'
+                        ? '#005E60'
                         : '#444'
                   }
                   strokeWidth={
@@ -500,6 +677,33 @@ const Canvas = forwardRef(({
                         : '#4caf50'
                     }
                   />
+                )}
+                
+                {/* Multi-selection checkmark badge (top-right corner) */}
+                {isMultiSelected && (
+                  <g>
+                    {/* Badge background circle */}
+                    <circle
+                      cx={width - 10}
+                      cy="10"
+                      r="8"
+                      fill="#0066ff"
+                      stroke="#0099ff"
+                      strokeWidth="2"
+                    />
+                    {/* Checkmark */}
+                    <text
+                      x={width - 10}
+                      y="14"
+                      textAnchor="middle"
+                      fill="white"
+                      fontSize="12"
+                      fontWeight="bold"
+                      pointerEvents="none"
+                    >
+                      ✓
+                    </text>
+                  </g>
                 )}
 
                 {/* Chart Buttons - Show if component has associated charts */}
@@ -572,13 +776,42 @@ const Canvas = forwardRef(({
         <div>Connections: {connections.length}</div>
         {mode === 'design' && viewMode === 'designer' && (
           <div className="canvas-hint">
-            💡 Drag components from library | Shift+Click to connect | Alt+Drag to pan
+            💡 Drag components from library | Shift+Click to multi-select | Ctrl+Click to connect | Alt+Drag to pan
           </div>
         )}
       </div>
+      
+      {/* Multi-selection counter overlay */}
+      {selectedComponents.length > 0 && (
+        <div className="multi-select-counter">
+          <div className="multi-select-badge">
+            <span className="multi-select-check">✓</span>
+            <span className="multi-select-count">{selectedComponents.length} Selected</span>
+          </div>
+          <div className="multi-select-actions">
+            <button 
+              className="multi-select-btn clear-btn"
+              onClick={onClearMultiSelection}
+              title="Clear selection (Escape)"
+            >
+              Clear
+            </button>
+            <button 
+              className="multi-select-btn chart-btn"
+              onClick={(e) => {
+                // This will be implemented in Step 7-8 (context menu for multi-select)
+                console.log('📊 Chart button clicked for multi-selection');
+              }}
+              title="Create multi-component chart"
+            >
+              📊 Chart...
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Chart Context Menu */}
-      {contextMenu && (
+      {contextMenu && contextMenu.type === 'single-component' && (
         <ChartContextMenu
           position={contextMenu.position}
           componentName={contextMenu.component.name}
@@ -586,6 +819,28 @@ const Canvas = forwardRef(({
           onSelectChartType={handleChartTypeSelected}
         />
       )}
+      
+      {/* Multi-Component Context Menu */}
+      {contextMenu && contextMenu.type === 'multi-component' && (
+        <MultiComponentContextMenu
+          position={contextMenu.position}
+          components={contextMenu.components}
+          onClose={() => setContextMenu(null)}
+          onSelectChartType={handleMultiComponentChartTypeSelected}
+        />
+      )}
+      
+      {/* Multi-Component Chart Configuration Dialog */}
+      {showMultiChartDialog && (
+        <MultiComponentChartDialog
+          components={multiChartComponents}
+          onClose={() => setShowMultiChartDialog(false)}
+          onCreateChart={handleCreateMultiChart}
+        />
+      )}
+      
+      {/* Keyboard Shortcuts Help */}
+      {mode === 'design' && <KeyboardShortcuts />}
     </div>
   );
 });

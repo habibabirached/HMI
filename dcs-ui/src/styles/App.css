@@ -4,10 +4,36 @@
   box-sizing: border-box;
 }
 
+/* ============================================================================
+   GE VERNOVA BRAND COLORS & DESIGN SYSTEM
+   ============================================================================
+   Primary: #005E60 (Urgency Green/Teal)
+   Secondary: #005E60 (Bright Cyan - legacy, kept for compatibility)
+   Accent: #1a8b8d (Lighter teal for highlights)
+   Background: Dark theme with professional industrial HMI aesthetic
+   
+   Design Philosophy:
+   - ISA 101 compliant (HMI User Experience Design standards)
+   - High situational awareness through minimalist design
+   - Clean, modern, professional - suitable for control room environments
+   - Nature-inspired palette reflecting green energy transition
+   ============================================================================ */
+   
+:root {
+  --vernova-primary: #005E60;      /* Urgency Green */
+  --vernova-secondary: #1a8b8d;    /* Lighter Teal */
+  --vernova-accent: #00d4a8;       /* Bright accent */
+  --vernova-dark: #0d0d0d;         /* Background dark */
+  --vernova-grey: #1a1a1a;         /* Panel dark */
+  --vernova-border: #2a3a3a;       /* Teal-tinted borders */
+  --vernova-text: #e0e0e0;         /* Primary text */
+  --vernova-text-dim: #999;        /* Secondary text */
+}
+
 body {
   font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
-  background: #0d0d0d;
-  color: #e0e0e0;
+  background: var(--vernova-dark);
+  color: var(--vernova-text);
   overflow: hidden;
 }
 
@@ -15,33 +41,47 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #0d0d0d;
+  background: var(--vernova-dark);
 }
 
 .app-header {
-  background: #1a1a1a;
-  padding: 12px 24px;
-  border-bottom: 2px solid #333;
+  background: var(--vernova-grey);
+  padding: 8px 24px;
+  border-bottom: 2px solid var(--vernova-primary);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 8px rgba(0, 94, 96, 0.3);
   z-index: 100;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
+}
+
+/* GE Vernova Logo */
+.ge-vernova-logo {
+  height: 48px;
+  width: auto;
+  opacity: 0.95;
+  transition: opacity 0.2s;
+}
+
+.ge-vernova-logo:hover {
+  opacity: 1;
 }
 
 .app-header h1 {
-  font-size: 20px;
-  font-weight: 400;
-  color: #00bcd4;
-  letter-spacing: 1px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vernova-primary);
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   margin: 0;
+  border-left: 3px solid var(--vernova-primary);
+  padding-left: 20px;
 }
 
 .view-mode-toggle {
@@ -49,7 +89,7 @@ body {
   align-items: center;
   gap: 12px;
   padding-left: 24px;
-  border-left: 2px solid #333;
+  border-left: 2px solid var(--vernova-border);
 }
 
 /* View Badge */
@@ -62,18 +102,18 @@ body {
 }
 
 .view-badge.view-designer {
-  background: rgba(255, 152, 0, 0.2);
-  color: #ff9800;
-  border: 1px solid #ff9800;
+  background: rgba(0, 94, 96, 0.15);
+  color: var(--vernova-secondary);
+  border: 1px solid var(--vernova-primary);
 }
 
 .view-badge.view-customer {
-  background: rgba(156, 39, 176, 0.2);
-  color: #9c27b0;
-  border: 1px solid #9c27b0;
+  background: rgba(0, 212, 168, 0.15);
+  color: var(--vernova-accent);
+  border: 1px solid var(--vernova-accent);
 }
 
-/* Toggle Switch */
+/* Toggle Switch - GE Vernova Teal */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -94,10 +134,10 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ff9800;
+  background-color: var(--vernova-primary);
   transition: 0.3s;
   border-radius: 28px;
-  border: 2px solid #ff9800;
+  border: 2px solid var(--vernova-primary);
 }
 
 .toggle-slider:before {
@@ -114,8 +154,8 @@ body {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #9c27b0;
-  border-color: #9c27b0;
+  background-color: var(--vernova-accent);
+  border-color: var(--vernova-accent);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -123,11 +163,11 @@ body {
 }
 
 .toggle-switch:hover .toggle-slider {
-  box-shadow: 0 0 8px rgba(255, 152, 0, 0.5);
+  box-shadow: 0 0 8px rgba(0, 94, 96, 0.5);
 }
 
 .toggle-switch input:checked:hover + .toggle-slider {
-  box-shadow: 0 0 8px rgba(156, 39, 176, 0.5);
+  box-shadow: 0 0 8px rgba(0, 212, 168, 0.5);
 }
 
 .app-main {

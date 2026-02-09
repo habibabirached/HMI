@@ -45,8 +45,8 @@
 
 .mode-badge.mode-design {
   background: rgba(0, 188, 212, 0.2);
-  color: #00bcd4;
-  border: 1px solid #00bcd4;
+  color: #005E60;
+  border: 1px solid #005E60;
 }
 
 .mode-badge.mode-simulation {
@@ -71,7 +71,7 @@
 
 .btn-mode-toggle:hover {
   background: #2a2a2a;
-  border-color: #00bcd4;
+  border-color: #005E60;
 }
 
 .btn-mode-toggle.active {
@@ -151,8 +151,8 @@
 
 .btn-zoom:hover {
   background: #2a2a2a;
-  border-color: #00bcd4;
-  color: #00bcd4;
+  border-color: #005E60;
+  color: #005E60;
 }
 
 /* Save/Load Buttons */
@@ -198,8 +198,8 @@
 
 .btn-load:hover {
   background: #2a2a2a;
-  border-color: #00bcd4;
-  color: #00bcd4;
+  border-color: #005E60;
+  color: #005E60;
 }
 
 .btn-csv:hover {
@@ -226,8 +226,8 @@
 
 .btn-fullscreen:hover {
   background: rgba(0, 188, 212, 0.1);
-  border-color: #00bcd4;
-  color: #00bcd4;
+  border-color: #005E60;
+  color: #005E60;
   box-shadow: 0 0 12px rgba(0, 188, 212, 0.3);
   transform: scale(1.05);
 }

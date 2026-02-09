@@ -31,7 +31,7 @@
 
 .panel-header h3 {
   font-size: 15px;
-  color: #00bcd4;
+  color: #005E60;
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 600;
@@ -68,7 +68,7 @@
 
 .prop-section h4 {
   font-size: 12px;
-  color: #00bcd4;
+  color: #005E60;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 12px;
@@ -105,7 +105,7 @@
 
 .prop-group input:focus,
 .prop-group select:focus {
-  border-color: #00bcd4;
+  border-color: #005E60;
 }
 
 .prop-group input:disabled,
@@ -150,7 +150,7 @@
 }
 
 .btn-save {
-  background: #00bcd4;
+  background: #005E60;
   color: #000;
 }
 

@@ -17,7 +17,7 @@
 
 .csv-picker-dialog {
   background: #1a1a1a;
-  border: 1px solid #00bcd4;
+  border: 1px solid #005E60;
   border-radius: 8px;
   width: 90%;
   max-width: 700px;
@@ -53,7 +53,7 @@
 .csv-picker-title {
   font-size: 16px;
   font-weight: 600;
-  color: #00bcd4;
+  color: #005E60;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 4px;
@@ -89,7 +89,7 @@
 }
 
 .csv-picker-close:hover {
-  color: #00bcd4;
+  color: #005E60;
 }
 
 /* ============================================================================
@@ -122,7 +122,7 @@
 
 .csv-picker-search-input:focus {
   outline: none;
-  border-color: #00bcd4;
+  border-color: #005E60;
 }
 
 .csv-picker-search-input::placeholder {
@@ -144,7 +144,7 @@
   width: 32px;
   height: 32px;
   border: 3px solid #333;
-  border-top-color: #00bcd4;
+  border-top-color: #005E60;
   border-radius: 50%;
   animation: csv-picker-spin 0.8s linear infinite;
   margin-bottom: 16px;
@@ -178,7 +178,7 @@
 
 .csv-picker-retry {
   padding: 8px 20px;
-  background: #00bcd4;
+  background: #005E60;
   border: none;
   color: #000;
   cursor: pointer;
@@ -243,13 +243,13 @@
 
 .csv-picker-item:hover {
   background: #1a1a1a;
-  border-color: #00bcd4;
+  border-color: #005E60;
   box-shadow: 0 2px 8px rgba(0, 188, 212, 0.2);
 }
 
 .csv-picker-item.selected {
   background: rgba(0, 188, 212, 0.1);
-  border-color: #00bcd4;
+  border-color: #005E60;
   border-width: 2px;
   padding: 15px;
 }
@@ -304,7 +304,7 @@
   border-radius: 3px;
   font-size: 10px;
   font-family: 'Courier New', monospace;
-  color: #00bcd4;
+  color: #005E60;
   font-weight: 500;
 }
 
@@ -314,7 +314,7 @@
   right: 16px;
   width: 24px;
   height: 24px;
-  background: #00bcd4;
+  background: #005E60;
   color: #000;
   border-radius: 50%;
   display: flex;
@@ -354,7 +354,7 @@
 }
 
 .csv-picker-btn-confirm {
-  background: #00bcd4;
+  background: #005E60;
   color: #000;
 }
 

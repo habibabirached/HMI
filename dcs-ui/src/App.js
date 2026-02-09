@@ -28,6 +28,9 @@ function App() {
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [selectedConnection, setSelectedConnection] = useState(null);
   
+  // Multi-selection state
+  const [selectedComponents, setSelectedComponents] = useState([]); // Array of component IDs for multi-select
+  
   // Canvas viewport
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -132,6 +135,53 @@ function App() {
       setSelectedConnection(null);
     }
   }, [selectedConnection]);
+
+  // ============================================================================
+  // MULTI-SELECTION HANDLERS
+  // ============================================================================
+  
+  /**
+   * Toggle a component in multi-selection
+   * @param {string} componentId - ID of component to toggle
+   * @param {boolean} shiftKey - Whether Shift key is pressed
+   */
+  const handleMultiSelect = useCallback((componentId, shiftKey) => {
+    if (!shiftKey) {
+      // No shift key - clear multi-selection, use single selection
+      setSelectedComponents([]);
+      return;
+    }
+    
+    // Shift key pressed - toggle this component in multi-selection
+    setSelectedComponents(prev => {
+      if (prev.includes(componentId)) {
+        // Already selected - remove it
+        return prev.filter(id => id !== componentId);
+      } else {
+        // Not selected - add it
+        return [...prev, componentId];
+      }
+    });
+    
+    // Clear single selection when using multi-select
+    setSelectedComponent(null);
+  }, []);
+  
+  /**
+   * Clear all multi-selections
+   */
+  const handleClearMultiSelection = useCallback(() => {
+    setSelectedComponents([]);
+  }, []);
+  
+  /**
+   * Check if a component is multi-selected
+   * @param {string} componentId
+   * @returns {boolean}
+   */
+  const isComponentMultiSelected = useCallback((componentId) => {
+    return selectedComponents.includes(componentId);
+  }, [selectedComponents]);
 
   // Toggle mode
   const handleToggleMode = () => {
@@ -795,6 +845,27 @@ function App() {
   };
 
   /**
+   * Handle creating a multi-component chart (animated bar chart, etc.)
+   */
+  const handleCreateMultiComponentChart = (chartConfig) => {
+    console.log('📊 Creating multi-component chart:', chartConfig);
+    
+    // Create a single chart that displays multiple components
+    const multiChart = {
+      id: `multi-${Date.now()}`,
+      type: 'multi-component',
+      chartType: chartConfig.type, // 'multi-bar-chart'
+      title: chartConfig.title,
+      csvName: chartConfig.csvFile,
+      timeColumn: chartConfig.timeColumn,
+      components: chartConfig.components, // Array of {id, name, type, columnName}
+      isMultiComponent: true
+    };
+    
+    setOpenCharts(prev => [...prev, multiChart]);
+  };
+
+  /**
    * Handle removing a chart from the bottom panel
    */
   const handleRemoveChart = (openChartId) => {
@@ -907,6 +978,11 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <div className="header-left">
+          <img 
+            src="/ge-vernova-logo.svg" 
+            alt="GE Vernova" 
+            className="ge-vernova-logo"
+          />
           <h1>Data Center Power System Designer</h1>
           <div className="view-mode-toggle">
             <span className={`view-badge view-${viewMode}`}>
@@ -961,11 +1037,16 @@ function App() {
           selectedConnection={selectedConnection}
           onSelectComponent={setSelectedComponent}
           onSelectConnection={setSelectedConnection}
+          selectedComponents={selectedComponents}
+          onMultiSelect={handleMultiSelect}
+          onClearMultiSelection={handleClearMultiSelection}
+          isComponentMultiSelected={isComponentMultiSelected}
           onMoveComponent={handleMoveComponent}
           onAddComponent={handleAddComponent}
           onAddConnection={handleAddConnection}
           onAssociateChart={handleAssociateChart}
           onOpenChart={handleOpenChart}
+          onCreateMultiComponentChart={handleCreateMultiComponentChart}
           zoom={zoom}
           pan={pan}
           onPan={setPan}
@@ -1091,6 +1172,7 @@ function App() {
           onHeightChange={setChartPanelHeight}
           simulationTime={simulationTime}
           simulationRunning={simulationRunning}
+          selectedComponentId={selectedComponent?.id}
         />
       )}
 

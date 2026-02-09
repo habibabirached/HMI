@@ -200,8 +200,8 @@
 }
 
 .csv-btn-file:hover:not(:disabled) {
-  border-color: #00bcd4;
-  color: #00bcd4;
+  border-color: #005E60;
+  color: #005E60;
 }
 
 .csv-btn-directory:hover:not(:disabled) {
@@ -240,7 +240,7 @@
   margin: 0 0 12px 0;
   font-size: 13px;
   font-weight: 600;
-  color: #00bcd4;
+  color: #005E60;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -429,7 +429,7 @@
   margin: 0 0 12px 0;
   font-size: 14px;
   font-weight: 600;
-  color: #00bcd4;
+  color: #005E60;
   font-family: 'Courier New', monospace;
 }
 

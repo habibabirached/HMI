@@ -256,8 +256,8 @@
 }
 
 .simulation-time-display {
-  background: rgba(0, 188, 212, 0.1);
-  border: 1px solid #00bcd4;
+  background: rgba(0, 94, 96, 0.15);
+  border: 1px solid #005E60;
   border-radius: 6px;
   padding: 12px;
   margin-bottom: 12px;
@@ -274,7 +274,7 @@
 
 .time-value {
   font-size: 20px;
-  color: #00bcd4;
+  color: #1a8b8d;
   font-weight: 700;
   font-family: 'Courier New', monospace;
 }
@@ -300,20 +300,20 @@
 
 .speed-btn:hover {
   background: #3a3a3a;
-  border-color: #00bcd4;
+  border-color: #005E60;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 188, 212, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 94, 96, 0.4);
 }
 
 .speed-btn.active {
-  background: #00bcd4;
-  border-color: #00bcd4;
-  color: #0d0d0d;
-  box-shadow: 0 0 20px rgba(0, 188, 212, 0.5);
+  background: #005E60;
+  border-color: #005E60;
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(0, 94, 96, 0.6);
 }
 
 .speed-btn.active:hover {
-  background: #00d4e8;
-  border-color: #00d4e8;
+  background: #007a7d;
+  border-color: #007a7d;
   transform: translateY(-1px);
 }

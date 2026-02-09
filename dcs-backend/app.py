@@ -398,6 +398,91 @@ async def save_configuration(
 # {
 #   "detail": "Configuration with ID 999 not found"
 # }
+
+# ============================================================================
+# HELPER FUNCTION: AUTO-LOAD CSV FOR CONFIGURATION
+# ============================================================================
+
+def auto_load_csv_for_config(config_name: str, db: Session):
+    """
+    Automatically load the corresponding CSV file for a configuration.
+    
+    CSV filename must match configuration name exactly.
+    Example: Configuration "Tier III Data Center - Horizontal Layout" 
+             → CSV "Tier III Data Center - Horizontal Layout.csv"
+    
+    Args:
+        config_name: Name of the configuration (exact match)
+        db: Database session
+    
+    Returns:
+        dict: {"loaded": bool, "csv_name": str, "message": str}
+    """
+    try:
+        # CSV filename = configuration name + .csv extension (exact match)
+        csv_filename = f"{config_name}.csv"
+        csv_path = os.path.join("saved_csv", csv_filename)
+        
+        # Check if CSV file exists
+        if not os.path.exists(csv_path):
+            return {
+                "loaded": False,
+                "csv_name": None,
+                "message": f"No CSV file found: '{csv_filename}'"
+            }
+        
+        # CSV file exists - check if already in database
+        existing_csv = db.query(CSVDataset).filter(CSVDataset.name == csv_filename).first()
+        
+        if existing_csv:
+            # Already loaded
+            return {
+                "loaded": True,
+                "csv_name": csv_filename,
+                "message": f"CSV '{csv_filename}' already loaded (ID: {existing_csv.id})"
+            }
+        
+        # CSV exists but not in database - load it now
+        print(f"📂 Auto-loading CSV: {csv_filename}")
+        
+        # Read and parse CSV
+        with open(csv_path, 'r') as f:
+            csv_reader = csv.DictReader(f)
+            columns = csv_reader.fieldnames
+            rows = list(csv_reader)
+        
+        # Create CSVDataset record
+        new_csv = CSVDataset(
+            name=csv_filename,
+            file_path=csv_path,
+            columns=json.dumps(columns),
+            data_json=json.dumps(rows),
+            row_count=len(rows)
+        )
+        
+        db.add(new_csv)
+        db.commit()
+        db.refresh(new_csv)
+        
+        print(f"✅ Auto-loaded CSV: {csv_filename} ({len(rows)} rows)")
+        
+        return {
+            "loaded": True,
+            "csv_name": csv_filename,
+            "message": f"CSV '{csv_filename}' auto-loaded successfully ({len(rows)} rows)"
+        }
+        
+    except Exception as e:
+        print(f"❌ Error auto-loading CSV: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "loaded": False,
+            "csv_name": None,
+            "message": f"Error: {str(e)}"
+        }
+
+
 @app.get("/api/load/{config_id}", response_model=ConfigurationResponse)
 async def load_configuration(
     config_id: int,
@@ -474,6 +559,14 @@ async def load_configuration(
         )
         
         print(f"✅ Configuration loaded: ID={config.id}, Name='{config.name}'")
+        
+        # ----------------------------------------------------------------
+        # STEP 5: Auto-load corresponding CSV if available
+        # ----------------------------------------------------------------
+        # Try to automatically load the CSV file that matches this configuration
+        csv_result = auto_load_csv_for_config(config.name, db)
+        if csv_result["loaded"]:
+            print(f"   📊 {csv_result['message']}")
         
         return response_config
         

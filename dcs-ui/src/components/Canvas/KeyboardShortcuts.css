@@ -1,0 +1,143 @@
+/* ============================================================================
+   KEYBOARD SHORTCUTS HELP - Quick Reference Panel
+   ============================================================================ */
+
+.keyboard-shortcuts-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(26, 26, 26, 0.95);
+  border: 2px solid rgba(0, 94, 96, 0.6);
+  border-radius: 8px;
+  padding: 16px 20px;
+  z-index: 9999;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(0, 94, 96, 0.3);
+  backdrop-filter: blur(10px);
+  min-width: 280px;
+  animation: slide-in-from-bottom 0.3s ease-out;
+}
+
+@keyframes slide-in-from-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 94, 96, 0.3);
+}
+
+.shortcuts-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vernova-accent, #00d4a8);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.shortcuts-close {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 20px;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.shortcuts-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shortcut-key {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.key-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  min-width: 32px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.key-plus {
+  color: #666;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.shortcut-desc {
+  font-size: 12px;
+  color: #999;
+  flex: 1;
+  text-align: right;
+}
+
+.shortcuts-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--vernova-primary, #005E60) 0%, var(--vernova-secondary, #1a8b8d) 100%);
+  border: 2px solid var(--vernova-accent, #00d4a8);
+  box-shadow: 0 4px 12px rgba(0, 94, 96, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+  z-index: 9998;
+  transition: all 0.3s;
+}
+
+.shortcuts-toggle-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 94, 96, 0.6);
+}
+
+.shortcuts-toggle-btn:active {
+  transform: scale(0.95);
+}

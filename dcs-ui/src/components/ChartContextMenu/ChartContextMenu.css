@@ -15,7 +15,7 @@
 .chart-context-menu {
   position: fixed;
   background: #1a1a1a;
-  border: 1px solid #00bcd4;
+  border: 1px solid #005E60;
   border-radius: 6px;
   box-shadow: 0 8px 32px rgba(0, 188, 212, 0.3);
   min-width: 280px;
@@ -47,7 +47,7 @@
 .chart-context-title {
   font-size: 11px;
   font-weight: 600;
-  color: #00bcd4;
+  color: #005E60;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 4px;
@@ -84,7 +84,7 @@
 
 .chart-context-item:hover {
   background: rgba(0, 188, 212, 0.1);
-  border-left: 3px solid #00bcd4;
+  border-left: 3px solid #005E60;
   padding-left: 13px;
 }
 
