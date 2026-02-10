@@ -101,31 +101,66 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
     
     if (!currentData) return [];
 
+    // Helper function to detect units from column name
+    const detectUnits = (columnName) => {
+      if (columnName.includes('_mw') || columnName.includes('power_mw')) return 'MW';
+      if (columnName.includes('_kw') || columnName.includes('power_kw')) return 'kW';
+      if (columnName.includes('_kv') || columnName.includes('voltage_kv')) return 'kV';
+      if (columnName.includes('_v') || columnName.includes('voltage_v')) return 'V';
+      if (columnName.includes('_a') || columnName.includes('current_a')) return 'A';
+      if (columnName.includes('percent') || columnName.includes('_pct')) return '%';
+      if (columnName.includes('temp') || columnName.includes('temperature')) return '°C';
+      if (columnName.includes('_hz') || columnName.includes('freq')) return 'Hz';
+      return ''; // No unit
+    };
+
     // Create a bar trace for each component
-    return chart.components.map((comp, index) => ({
-      x: [comp.name], // Component name on X-axis
-      y: [parseFloat(currentData[comp.columnName]) || 0], // Current value on Y-axis
-      type: 'bar',
-      name: comp.name,
-      marker: {
-        color: colors[index % colors.length],
-        line: {
-          color: '#000',
-          width: 1
+    return chart.components.map((comp, index) => {
+      const value = parseFloat(currentData[comp.columnName]) || 0;
+      const units = detectUnits(comp.columnName);
+      const displayValue = units ? `${value.toFixed(2)} ${units}` : value.toFixed(2);
+      
+      return {
+        x: [comp.name], // Component name on X-axis
+        y: [value], // Current value on Y-axis
+        type: 'bar',
+        name: comp.name,
+        marker: {
+          color: colors[index % colors.length],
+          line: {
+            color: '#000',
+            width: 1
+          },
+          // Add gradient effect
+          pattern: {
+            shape: '',
+            solidity: 0.5
+          }
+        },
+        text: [displayValue],
+        textposition: 'outside',
+        textfont: {
+          color: '#e0e0e0',
+          size: 14,
+          weight: 600
+        },
+        hovertemplate: 
+          `<b>%{x}</b><br>` +
+          `<b>Value:</b> ${displayValue}<br>` +
+          `<b>Column:</b> ${comp.columnName}<br>` +
+          `<b>Time:</b> ${currentData[chart.timeColumn]}<br>` +
+          `<extra></extra>`,
+        hoverlabel: {
+          bgcolor: colors[index % colors.length],
+          bordercolor: '#fff',
+          font: {
+            family: 'Arial, sans-serif',
+            size: 13,
+            color: '#fff'
+          }
         }
-      },
-      text: [parseFloat(currentData[comp.columnName]).toFixed(2)],
-      textposition: 'outside',
-      textfont: {
-        color: '#e0e0e0',
-        size: 14,
-        weight: 600
-      },
-      hovertemplate: `<b>${comp.name}</b><br>` +
-                     `Value: %{y:.2f}<br>` +
-                     `Time: ${currentData[chart.timeColumn]}<br>` +
-                     `<extra></extra>`
-    }));
+      };
+    });
   };
 
   /**
@@ -357,7 +392,38 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
           zerolinewidth: 2
         },
         barmode: 'group', // Grouped bars
-        showlegend: false // Hide legend since X-axis shows component names
+        showlegend: true, // Show legend for multi-component
+        legend: {
+          orientation: 'h', // Horizontal legend at bottom
+          x: 0.5,
+          xanchor: 'center',
+          y: -0.15,
+          yanchor: 'top',
+          font: {
+            family: 'Arial, sans-serif',
+            size: 12,
+            color: '#e0e0e0'
+          },
+          bgcolor: 'rgba(0, 0, 0, 0.5)',
+          bordercolor: 'rgba(0, 94, 96, 0.5)',
+          borderwidth: 2
+        },
+        // Add annotations for component count
+        annotations: [{
+          text: `${chart.components.length} Components`,
+          showarrow: false,
+          xref: 'paper',
+          yref: 'paper',
+          x: 1,
+          xanchor: 'right',
+          y: 1.05,
+          yanchor: 'bottom',
+          font: {
+            size: 11,
+            color: '#666',
+            family: 'Arial, sans-serif'
+          }
+        }]
       };
     }
 
@@ -513,6 +579,20 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
       bgcolor: 'rgba(0, 0, 0, 0.5)',
       color: '#999',
       activecolor: '#005E60'
+    }
+  };
+
+  /**
+   * Plotly transition config for smooth animations (multi-bar charts)
+   */
+  const plotlyTransition = {
+    transition: {
+      duration: 500,
+      easing: 'cubic-in-out'
+    },
+    frame: {
+      duration: 500,
+      redraw: false
     }
   };
 
@@ -698,6 +778,7 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
                   config={plotlyConfig}
                   style={{ width: '100%', height: '100%' }}
                   useResizeHandler={true}
+                  {...(chart.isMultiComponent ? plotlyTransition : {})}
                 />
               )}
 
