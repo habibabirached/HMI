@@ -10,12 +10,15 @@ import './CSVUploadDialog.css';
  * 3. See upload progress
  * 4. Handle filename conflicts (overwrite warning)
  * 5. View list of successfully uploaded CSVs
+ * 6. ENFORCES naming convention: CSV must match configuration name
  * 
  * Props:
  * - onClose: Function to close the dialog
  * - onUploadComplete: Function called when uploads finish (for refresh)
+ * - currentConfigName: Name of currently loaded configuration (for validation)
+ * - expectedCsvName: Expected CSV filename (configName.csv)
  */
-const CSVUploadDialog = ({ onClose, onUploadComplete }) => {
+const CSVUploadDialog = ({ onClose, onUploadComplete, currentConfigName, expectedCsvName }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
   const [uploadResults, setUploadResults] = useState([]);
@@ -49,6 +52,7 @@ const CSVUploadDialog = ({ onClose, onUploadComplete }) => {
   /**
    * Process selected files from file input
    * Filters to only include .csv files
+   * VALIDATES: CSV filename must match configuration name
    */
   const handleFileChange = (event) => {
     const files = Array.from(event.target.files);
@@ -57,6 +61,33 @@ const CSVUploadDialog = ({ onClose, onUploadComplete }) => {
     if (csvFiles.length === 0) {
       alert('No CSV files selected. Please select .csv files.');
       return;
+    }
+    
+    // ----------------------------------------------------------------
+    // VALIDATION: Check if CSV filename matches configuration
+    // ----------------------------------------------------------------
+    if (expectedCsvName) {
+      const invalidFiles = csvFiles.filter(file => file.name !== expectedCsvName);
+      
+      if (invalidFiles.length > 0) {
+        const invalidNames = invalidFiles.map(f => f.name).join(', ');
+        alert(
+          `❌ CSV Filename Mismatch!\n\n` +
+          `Expected filename: ${expectedCsvName}\n` +
+          `Selected file(s): ${invalidNames}\n\n` +
+          `The CSV filename MUST match the configuration name exactly.\n` +
+          `Current configuration: "${currentConfigName}"`
+        );
+        
+        // Don't add invalid files
+        const validFiles = csvFiles.filter(file => file.name === expectedCsvName);
+        if (validFiles.length > 0) {
+          setSelectedFiles(prev => [...prev, ...validFiles]);
+        }
+        
+        event.target.value = '';
+        return;
+      }
     }
     
     setSelectedFiles(prev => [...prev, ...csvFiles]);
@@ -391,6 +422,24 @@ const CSVUploadDialog = ({ onClose, onUploadComplete }) => {
 
           {/* Selection Buttons */}
           <div className="csv-selection-section">
+            {/* Expected Filename Info */}
+            {expectedCsvName ? (
+              <div className="csv-expected-info">
+                <div className="csv-expected-label">📌 Expected CSV filename:</div>
+                <div className="csv-expected-name">{expectedCsvName}</div>
+                <div className="csv-expected-hint">
+                  (Must match configuration: "{currentConfigName}")
+                </div>
+              </div>
+            ) : (
+              <div className="csv-warning-info">
+                <div className="csv-warning-icon">⚠️</div>
+                <div className="csv-warning-text">
+                  No configuration loaded. Please load a configuration first to ensure correct CSV naming.
+                </div>
+              </div>
+            )}
+            
             <p className="csv-help-text">
               Select CSV files to upload. These will be stored in the database and can be associated with components for real-time plotting.
             </p>

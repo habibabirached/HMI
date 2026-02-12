@@ -538,3 +538,113 @@ Example Query Patterns:
      .filter(ChartAssociation.dataset_name == "solar_24hr_realistic.csv")\
      .all()
 """
+
+# ------------------------------------------------------------------------------------------------------
+# SIMULATION CONFIG MODEL
+# ------------------------------------------------------------------------------------------------------
+
+class SimulationConfig(Base):
+    """
+    SimulationConfig Model - Stores simulation scenario configurations
+    
+    This table stores JSON configurations that define:
+    - Which charts to display for each simulation scenario
+    - Event marker settings (colors, labels)
+    - Display names for simulation buttons
+    
+    Each design configuration can have ONE simulation config that defines
+    multiple simulation scenarios (e.g., sim_Torsional, sim_LVRT, sim_SmallSignal).
+    
+    Table Structure:
+    - id: Unique identifier
+    - design_name: Name of the design this config belongs to (UNIQUE)
+    - json_data: Full simulation configuration as JSON string
+    - created_at: When this config was created
+    - updated_at: When this config was last modified
+    
+    Example json_data structure:
+    {
+        "design_name": "LM2500-BESS-Integrated-Power-Node",
+        "csv_file": "LM2500-BESS-Integrated-Power-Node.csv",
+        "simulations": {
+            "sim_Torsional": {
+                "display_name": "Torsional Vibration Analysis",
+                "description": "Steady-state validation...",
+                "charts_to_display": [
+                    {"type": "single", "component_id": "comp-turbine-1", "chart_id": "chart-123"},
+                    {"type": "multi", "chart_id": "multiChart-456", "components": [...]}
+                ],
+                "event_markers": {
+                    "bess_connected": {"label": "BESS Connected", "color": "rgba(0,255,0,0.15)"}
+                }
+            },
+            "sim_LVRT": {...},
+            "sim_SmallSignal": {...}
+        }
+    }
+    
+    The design_name field is unique to ensure one simulation config per design.
+    """
+    
+    __tablename__ = "simulation_configs"
+    
+    # PRIMARY KEY
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+        autoincrement=True,
+        comment="Unique identifier for the simulation config"
+    )
+    
+    # DESIGN_NAME: Name of the design configuration (must be unique)
+    # This links the simulation config to a specific design
+    # Example: "LM2500-BESS-Integrated-Power-Node"
+    design_name = Column(
+        String(255),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="Name of the design configuration (must match Configuration.name)"
+    )
+    
+    # JSON_DATA: Full simulation configuration as JSON string
+    # Stores the complete simulation config including all scenarios, charts, and event markers
+    json_data = Column(
+        Text,
+        nullable=False,
+        comment="Full simulation configuration as JSON string"
+    )
+    
+    # CREATED_AT: When this simulation config was created
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+        comment="Timestamp of when this simulation config was created"
+    )
+    
+    # UPDATED_AT: When this simulation config was last modified
+    # Auto-updates on every save
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Timestamp of when this simulation config was last updated"
+    )
+    
+    def __repr__(self):
+        """String representation for debugging"""
+        return f"<SimulationConfig(id={self.id}, design='{self.design_name}', updated={self.updated_at})>"
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            "id": self.id,
+            "design_name": self.design_name,
+            "json_data": self.json_data,  # Will be parsed to object in API
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+

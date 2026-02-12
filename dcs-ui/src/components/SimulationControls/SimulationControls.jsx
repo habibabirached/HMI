@@ -12,24 +12,16 @@ import './SimulationControls.css';
  * - Shows action buttons specific to the selected component type
  * - For example: turbines get "Trip" and "Restart" buttons
  * - For example: breakers get "Open", "Close", "Trip" buttons
+ * - Shows dynamically generated simulation scenario buttons
  * 
  * PROPS IT RECEIVES (like function parameters):
  * - mode: string - either 'design' or 'simulation'
  * - selectedComponent: object - the component the user clicked on the canvas
  * - onTripComponent: function - a callback we can call to trip/fail a component
- * - onRestartComponent: function - NEW! a callback to bring component back online
- * 
- * REACT CONCEPT - Props:
- * Props are like inputs to a component. The parent (App.js) passes data
- * and functions down to this child component. We receive them in the
- * curly braces { mode, selectedComponent, onTripComponent, onRestartComponent }.
- * 
- * REACT CONCEPT - Callbacks:
- * onTripComponent is a FUNCTION passed from the parent. When we call it,
- * we're basically telling the parent "Hey, the user clicked this button,
- * do something about it!" The parent then updates the state.
- * 
- * onRestartComponent works the same way but for bringing components online.
+ * - onRestartComponent: function - a callback to bring component back online
+ * - availableSimulations: array - unique simulation identifiers from CSV
+ * - simConfig: object - simulation configuration JSON with display names and metadata
+ * - onRunSimulation: function - callback when user clicks a simulation button
  */
 const SimulationControls = ({ 
   mode, 
@@ -48,7 +40,10 @@ const SimulationControls = ({
   onResetSystem,
   simulationTime,
   simulationSpeed,
-  onSetSimulationSpeed
+  onSetSimulationSpeed,
+  availableSimulations,
+  simConfig,
+  onRunSimulation
 }) => {
   // ========================================================================
   // VISIBILITY CHECK
@@ -504,6 +499,67 @@ const SimulationControls = ({
             </button>
           </div>
         </div>
+
+        {/* ================================================================
+            SIMULATION SCENARIOS SECTION
+            ================================================================
+            Dynamically generated buttons based on CSV simulation column.
+            Each unique value in the 'simulation' column gets a button.
+            
+            When clicked, the button will:
+            1. Clear existing charts
+            2. Load charts for that simulation (from JSON config)
+            3. Filter CSV data to only that simulation
+            4. Start playback
+        ================================================================ */}
+        {availableSimulations && availableSimulations.length > 0 && (
+          <div className="simulation-scenarios-section">
+            <h4 className="scenarios-title">Simulation Scenarios</h4>
+            <div className="scenarios-info">
+              {availableSimulations.length} scenario(s) detected
+            </div>
+            
+            <div className="control-buttons">
+              {availableSimulations.map((simId) => {
+                // ================================================================
+                // DISPLAY NAME RESOLUTION
+                // ================================================================
+                // simId comes from CSV (e.g., "sim_LVRT", "sim_Torsional")
+                // simConfig comes from backend JSON (display_name, description, etc.)
+                // 
+                // Priority:
+                // 1. Use display_name from simConfig if available (user-friendly)
+                // 2. Fall back to raw simId from CSV (technical name)
+                //
+                // Example:
+                // - simId: "sim_LVRT"
+                // - display_name: "Low-Voltage Ride-Through"
+                // - Button shows: "▶️ Low-Voltage Ride-Through"
+                // ================================================================
+                let displayName = simId;
+                if (simConfig && simConfig.simulations && simConfig.simulations[simId]) {
+                  displayName = simConfig.simulations[simId].display_name || simId;
+                }
+                
+                return (
+                  <button
+                    key={simId}
+                    className="control-btn control-btn-scenario"
+                    onClick={() => {
+                      console.log('🎬 Simulation scenario clicked:', simId);
+                      if (onRunSimulation) {
+                        onRunSimulation(simId);
+                      }
+                    }}
+                    title={simConfig?.simulations?.[simId]?.description || `Run ${simId} simulation scenario`}
+                  >
+                    ▶️ {displayName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

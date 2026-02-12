@@ -37,7 +37,7 @@ import re
 # Import database components
 from database import init_db, get_db
 # Import database models
-from models import Configuration, CSVDataset
+from models import Configuration, CSVDataset, SimulationConfig
 # Import Pydantic schemas for request/response validation
 from schemas import ConfigurationSaveRequest, ConfigurationResponse, ConfigurationListItem
 # Additional imports for CSV handling
@@ -368,40 +368,34 @@ async def save_configuration(
             status_code=500,
             detail=f"Failed to save configuration: {str(e)}"
         )
-
-# ============================================================================
-# LOAD CONFIGURATION ENDPOINT
-# ============================================================================
-# GET /api/load/{id} - Load a specific configuration by ID
-#
-# HOW IT WORKS:
-# 1. Frontend requests a configuration by ID (e.g., /api/load/1)
-# 2. We query the database for that ID
-# 3. If not found, return 404 error
-# 4. If found, parse the JSON data string back to a dict
-# 5. Return the configuration
-#
-# EXAMPLE REQUEST (curl):
-# curl http://localhost:5000/api/load/1
-#
-# EXAMPLE RESPONSE (success):
-# {
-#   "id": 1,
-#   "name": "Test Configuration 1",
-#   "description": "First test",
-#   "data": {"canvasComponents": [...], "connections": [...]},
-#   "created_at": "2026-02-04T14:30:00",
-#   "updated_at": "2026-02-04T14:30:00"
-# }
-#
-# EXAMPLE RESPONSE (not found):
-# {
-#   "detail": "Configuration with ID 999 not found"
-# }
-
 # ============================================================================
 # HELPER FUNCTION: AUTO-LOAD CSV FOR CONFIGURATION
 # ============================================================================
+# This function automatically loads CSV data when a configuration is loaded.
+#
+# NAMING CONVENTION:
+# - Configuration name must match CSV filename exactly
+# - Example: "LM2500-BESS-Integrated-Power-Node" → "LM2500-BESS-Integrated-Power-Node.csv"
+#
+# THREE-TIER CHECK PROCESS:
+# 1. Check if CSV file exists on disk (in saved_csv/ directory)
+#    → If NO: Return error message "No CSV file found"
+# 2. Check if CSV is already loaded in database
+#    → If YES: Return success message "already loaded" (cached)
+# 3. If file exists but not in database: Auto-load it
+#    → Read CSV from disk
+#    → Parse columns and rows
+#    → Store in CSVDataset table
+#    → Return success message "auto-loaded"
+#
+# WHY THIS MATTERS:
+# - Enforces tight coupling between configurations and their data
+# - Eliminates manual CSV upload steps
+# - Prevents wrong data being used with wrong configuration
+# - Provides instant feedback to user about data availability
+#
+# RETURNS:
+# dict with keys: {"loaded": bool, "csv_name": str, "message": str}
 
 def auto_load_csv_for_config(config_name: str, db: Session):
     """
@@ -483,6 +477,66 @@ def auto_load_csv_for_config(config_name: str, db: Session):
         }
 
 
+# ============================================================================
+# LOAD CONFIGURATION ENDPOINT
+# ============================================================================
+# GET /api/load/{id} - Load a specific configuration by ID and check for matching CSV
+#
+# HOW IT WORKS:
+# 1. Frontend requests a configuration by ID (e.g., /api/load/9)
+# 2. Query the database for that ID
+# 3. If not found, return 404 error
+# 4. If found, parse the JSON data string back to a dict
+# 5. Call auto_load_csv_for_config() to check for matching CSV file
+# 6. Check for matching simulation configuration
+# 7. Return configuration + csv_status + sim_config to frontend
+#
+# WHAT GETS RETURNED:
+# - id, name, description, data (the configuration)
+# - created_at, updated_at (timestamps)
+# - csv_status: {exists: bool, csv_name: str, message: str}
+# - sim_config: {design_name, csv_file, simulations: {...}} or null
+#
+# EXAMPLE REQUEST (curl):
+# curl http://localhost:5000/api/load/9
+#
+# EXAMPLE RESPONSE (with CSV and sim_config):
+# {
+#   "id": 9,
+#   "name": "LM2500-BESS-Integrated-Power-Node",
+#   "description": "One-quarter Meta data center...",
+#   "data": {"canvasComponents": [...], "connections": [...]},
+#   "created_at": "2026-02-11T00:58:06",
+#   "updated_at": "2026-02-11T00:58:06",
+#   "csv_status": {
+#     "exists": true,
+#     "csv_name": "LM2500-BESS-Integrated-Power-Node.csv",
+#     "message": "CSV auto-loaded (13000 rows)"
+#   },
+#   "sim_config": {
+#     "design_name": "LM2500-BESS-Integrated-Power-Node",
+#     "csv_file": "LM2500-BESS-Integrated-Power-Node.csv",
+#     "simulations": {
+#       "sim_LVRT": {
+#         "display_name": "Low-Voltage Ride-Through",
+#         "description": "LVRT test on bus",
+#         "charts_to_display": [],
+#         "event_markers": {}
+#       }
+#     }
+#   }
+# }
+#
+# EXAMPLE RESPONSE (without CSV and sim_config):
+# {
+#   ... (same as above) ...
+#   "csv_status": {
+#     "exists": false,
+#     "csv_name": "SomeConfig.csv",
+#     "message": "No CSV file found: 'SomeConfig.csv'"
+#   }
+# }
+
 @app.get("/api/load/{config_id}", response_model=ConfigurationResponse)
 async def load_configuration(
     config_id: int,
@@ -546,7 +600,43 @@ async def load_configuration(
             )
         
         # ----------------------------------------------------------------
-        # STEP 4: Create the response object
+        # STEP 4: Check for matching CSV file
+        # ----------------------------------------------------------------
+        # Try to automatically load the CSV file that matches this configuration
+        csv_result = auto_load_csv_for_config(config.name, db)
+        
+        # Prepare CSV status for response
+        csv_status = {
+            "exists": csv_result["loaded"],
+            "csv_name": csv_result.get("csv_name", f"{config.name}.csv"),
+            "message": csv_result["message"]
+        }
+        
+        if csv_result["loaded"]:
+            print(f"   ✅ {csv_result['message']}")
+        else:
+            print(f"   ⚠️  {csv_result['message']}")
+        
+        # ----------------------------------------------------------------
+        # STEP 5: Check for matching simulation configuration
+        # ----------------------------------------------------------------
+        # Try to load the simulation config that defines scenarios, charts, and event markers
+        sim_config = db.query(SimulationConfig).filter(
+            SimulationConfig.design_name == config.name
+        ).first()
+        
+        sim_config_data = None
+        if sim_config:
+            try:
+                sim_config_data = json.loads(sim_config.json_data)
+                print(f"   ✅ Simulation config found for '{config.name}'")
+            except json.JSONDecodeError as json_error:
+                print(f"   ⚠️  Simulation config JSON parsing error: {json_error}")
+        else:
+            print(f"   ℹ️  No simulation config found for '{config.name}'")
+        
+        # ----------------------------------------------------------------
+        # STEP 6: Create the response object
         # ----------------------------------------------------------------
         # Build a ConfigurationResponse with all the data
         response_config = ConfigurationResponse(
@@ -555,18 +645,12 @@ async def load_configuration(
             description=config.description,
             data=parsed_data,  # Use the parsed dict, not the JSON string
             created_at=config.created_at,
-            updated_at=config.updated_at
+            updated_at=config.updated_at,
+            csv_status=csv_status,
+            sim_config=sim_config_data  # Add simulation config (or None)
         )
         
         print(f"✅ Configuration loaded: ID={config.id}, Name='{config.name}'")
-        
-        # ----------------------------------------------------------------
-        # STEP 5: Auto-load corresponding CSV if available
-        # ----------------------------------------------------------------
-        # Try to automatically load the CSV file that matches this configuration
-        csv_result = auto_load_csv_for_config(config.name, db)
-        if csv_result["loaded"]:
-            print(f"   📊 {csv_result['message']}")
         
         return response_config
         
@@ -1327,6 +1411,118 @@ async def get_csv_data(name: str, db: Session = Depends(get_db)):
             detail=f"Failed to retrieve CSV data: {str(e)}"
         )
 
+
+# ============================================================================
+# GET UNIQUE SIMULATIONS FROM CSV
+# ============================================================================
+# GET /api/csv/{name}/simulations - Extract unique simulation scenarios
+#
+# HOW IT WORKS:
+# 1. Load CSV dataset from database by name
+# 2. Parse the data_json to get all rows
+# 3. Extract the "simulation" column from each row
+# 4. Return unique values as an array
+#
+# EXAMPLE REQUEST:
+# GET /api/csv/LM2500-BESS-Integrated-Power-Node.csv/simulations
+#
+# EXAMPLE RESPONSE:
+# {
+#   "csv_name": "LM2500-BESS-Integrated-Power-Node.csv",
+#   "simulations": ["sim_Torsional", "sim_LVRT", "sim_SmallSignal"],
+#   "count": 3
+# }
+# This step creates the intelligence to dynamically discover which simulation scenarios are available in a CSV file. 
+# When a CSV is loaded (either from disk or database), the backend will scan through the simulation column and identify all unique values (like sim_Torsional, sim_LVRT, sim_SmallSignal). This list of available simulations becomes the foundation for dynamically generating simulation buttons in the UI. Instead of hard-coding which simulations exist, the system discovers them automatically from the data itself.
+# this is a backend endpoint /api/csv/{csv_name}/simulations that returns an array of unique simulation identifiers found in the CSV. The frontend will call this endpoint when a configuration with matching CSV data is loaded, storing the available simulations in state. This dynamic discovery means users can create CSV files with any number of simulation scenarios, and the UI will automatically adapt to show the right number of buttons - no code changes needed.
+
+@app.get("/api/csv/{name}/simulations")
+async def get_csv_simulations(name: str, db: Session = Depends(get_db)):
+    """
+    Extract unique simulation scenarios from a CSV's 'simulation' column.
+    
+    This endpoint scans the CSV data for unique values in the 'simulation' column
+    and returns them as an array. This enables dynamic simulation button generation
+    in the frontend based on what scenarios are actually in the data.
+    
+    Args:
+        name: CSV dataset name (e.g., "LM2500-BESS-Integrated-Power-Node.csv")
+        db: Database session
+    
+    Returns:
+        dict: {
+            "csv_name": str,
+            "simulations": list of unique simulation identifiers,
+            "count": int
+        }
+    
+    Raises:
+        HTTPException 404: If CSV not found
+        HTTPException 400: If CSV has no 'simulation' column
+        HTTPException 500: If data parsing fails
+    """
+    try:
+        # ----------------------------------------------------------------
+        # STEP 1: Get CSV dataset from database
+        # ----------------------------------------------------------------
+        csv_dataset = db.query(CSVDataset).filter(CSVDataset.name == name).first()
+        
+        if not csv_dataset:
+            print(f"❌ CSV dataset not found: {name}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"CSV dataset '{name}' not found"
+            )
+        
+        # ----------------------------------------------------------------
+        # STEP 2: Parse data and columns
+        # ----------------------------------------------------------------
+        columns = json.loads(csv_dataset.columns)
+        data_rows = json.loads(csv_dataset.data_json)
+        
+        # ----------------------------------------------------------------
+        # STEP 3: Check if 'simulation' column exists
+        # ----------------------------------------------------------------
+        if 'simulation' not in columns:
+            print(f"⚠️  CSV '{name}' has no 'simulation' column")
+            raise HTTPException(
+                status_code=400,
+                detail=f"CSV '{name}' does not have a 'simulation' column"
+            )
+        
+        # ----------------------------------------------------------------
+        # STEP 4: Extract unique simulation values
+        # ----------------------------------------------------------------
+        simulations = set()
+        for row in data_rows:
+            sim_value = row.get('simulation')
+            if sim_value:  # Skip empty/null values
+                simulations.add(sim_value)
+        
+        # Convert set to sorted list
+        simulations_list = sorted(list(simulations))
+        
+        print(f"✅ Found {len(simulations_list)} unique simulations in '{name}': {simulations_list}")
+        
+        # ----------------------------------------------------------------
+        # STEP 5: Return result
+        # ----------------------------------------------------------------
+        return {
+            "csv_name": name,
+            "simulations": simulations_list,
+            "count": len(simulations_list)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error extracting simulations: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract simulations: {str(e)}"
+        )
+
+
 # ============================================================================
 # CSV DELETE ENDPOINT
 # ============================================================================
@@ -1440,6 +1636,169 @@ async def delete_csv_data(name: str, db: Session = Depends(get_db)):
             status_code=500,
             detail=f"Failed to delete CSV data: {str(e)}"
         )
+
+
+# ============================================================================
+# SIMULATION CONFIG ENDPOINTS
+# ============================================================================
+# These endpoints manage simulation scenario configurations (JSON files)
+# that define which charts to show for each simulation scenario.
+#
+# GET  /api/sim-config/{design_name} - Retrieve simulation config
+# POST /api/sim-config/{design_name} - Save/update simulation config
+# ============================================================================
+
+@app.get("/api/sim-config/{design_name}")
+async def get_simulation_config(design_name: str, db: Session = Depends(get_db)):
+    """
+    Get simulation configuration for a specific design.
+    
+    This endpoint retrieves the JSON configuration that defines:
+    - Display names for simulation buttons
+    - Which charts to show for each simulation scenario
+    - Event marker settings (colors, labels)
+    
+    Args:
+        design_name: Name of the design configuration
+        db: Database session
+    
+    Returns:
+        dict: Full simulation configuration with all scenarios
+    
+    Raises:
+        HTTPException 404: If simulation config not found
+        HTTPException 500: If JSON parsing fails
+    """
+    try:
+        # Query database for simulation config
+        sim_config = db.query(SimulationConfig).filter(
+            SimulationConfig.design_name == design_name
+        ).first()
+        
+        if not sim_config:
+            print(f"⚠️  No simulation config found for design: {design_name}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"No simulation config found for design '{design_name}'"
+            )
+        
+        # Parse JSON string to dict
+        config_data = json.loads(sim_config.json_data)
+        
+        print(f"✅ Retrieved simulation config for: {design_name}")
+        
+        return {
+            "id": sim_config.id,
+            "design_name": sim_config.design_name,
+            "config": config_data,
+            "created_at": sim_config.created_at.isoformat(),
+            "updated_at": sim_config.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error retrieving simulation config: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve simulation config: {str(e)}"
+        )
+
+
+@app.post("/api/sim-config/{design_name}")
+async def save_simulation_config(
+    design_name: str,
+    config_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Save or update simulation configuration for a design.
+    
+    This endpoint:
+    1. Accepts simulation configuration JSON from frontend
+    2. Saves to database (creates new or updates existing)
+    3. Saves backup JSON file to saved_sim/ directory
+    4. Returns success response
+    
+    Args:
+        design_name: Name of the design configuration
+        config_data: Full simulation configuration dict
+        db: Database session
+    
+    Returns:
+        dict: Success message with saved config info
+    
+    Raises:
+        HTTPException 500: If save fails
+    """
+    try:
+        print(f"💾 Saving simulation config for: {design_name}")
+        
+        # Convert dict to JSON string for database storage
+        json_string = json.dumps(config_data, indent=2)
+        
+        # Check if config already exists
+        existing = db.query(SimulationConfig).filter(
+            SimulationConfig.design_name == design_name
+        ).first()
+        
+        if existing:
+            # Update existing
+            print(f"   🔄 Updating existing simulation config (ID: {existing.id})")
+            existing.json_data = json_string
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            sim_config = existing
+        else:
+            # Create new
+            print(f"   ➕ Creating new simulation config")
+            new_config = SimulationConfig(
+                design_name=design_name,
+                json_data=json_string
+            )
+            db.add(new_config)
+            db.commit()
+            db.refresh(new_config)
+            sim_config = new_config
+        
+        # Save backup JSON file to disk
+        try:
+            # Sanitize filename
+            sanitized_name = re.sub(r'[^\w\s-]', '', design_name)
+            sanitized_name = re.sub(r'[\s]+', '_', sanitized_name)
+            sanitized_name = sanitized_name.lower()
+            
+            if not sanitized_name:
+                sanitized_name = f"sim_config_{sim_config.id}"
+            
+            backup_path = f"saved_sim/{sanitized_name}.json"
+            
+            with open(backup_path, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            
+            print(f"   ✅ Saved backup file: {backup_path}")
+        except Exception as backup_error:
+            print(f"   ⚠️  Backup file save failed: {backup_error}")
+        
+        print(f"✅ Simulation config saved: {design_name}")
+        
+        return {
+            "success": True,
+            "message": f"Simulation config saved for '{design_name}'",
+            "id": sim_config.id,
+            "design_name": sim_config.design_name,
+            "updated_at": sim_config.updated_at.isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ Error saving simulation config: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save simulation config: {str(e)}"
+        )
+
 
 # ============================================================================
 # STARTUP EVENT

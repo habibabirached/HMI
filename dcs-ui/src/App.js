@@ -49,6 +49,11 @@ function App() {
   // Save state
   const [currentConfigName, setCurrentConfigName] = useState(null); // Track current config name for "Save"
   const [isSaving, setIsSaving] = useState(false); // Saving spinner state
+  const [csvStatus, setCsvStatus] = useState(null); // CSV status for current configuration
+  const [availableSimulations, setAvailableSimulations] = useState([]); // Unique simulations from CSV
+  const [simConfig, setSimConfig] = useState(null); // Simulation configuration JSON (from backend)
+  const [simulationData, setSimulationData] = useState([]); // Filtered CSV data for current simulation
+  const [simulationMetadata, setSimulationMetadata] = useState(null); // Metadata about current simulation
   
   // CSV Upload dialog state
   const [showCSVDialog, setShowCSVDialog] = useState(false);
@@ -607,6 +612,140 @@ function App() {
   }, [canvasComponents]);
 
   /**
+   * Handle simulation scenario button click
+   * This will be expanded in later steps to:
+   * 1. Clear existing charts
+   * 2. Load charts for this simulation (from JSON config)
+   * 3. Filter CSV data to only this simulation
+   * 4. Start playback
+   */
+  const handleRunSimulation = async (simulationId) => {
+    console.log('🎬 Run simulation clicked:', simulationId);
+    console.log('📊 Current configuration:', currentConfigName);
+    console.log('📊 CSV status:', csvStatus);
+    console.log('📊 Sim config:', simConfig);
+    
+    // ========================================================================
+    // STEP 1: Validate prerequisites
+    // ========================================================================
+    if (!currentConfigName) {
+      alert('⚠️ No configuration loaded. Please load a design first.');
+      return;
+    }
+    
+    if (!csvStatus || !csvStatus.exists) {
+      alert('⚠️ No CSV data available for this configuration.\n\nPlease load CSV data first.');
+      return;
+    }
+    
+    if (!availableSimulations.includes(simulationId)) {
+      alert(`⚠️ Simulation "${simulationId}" not found in CSV data.`);
+      return;
+    }
+    
+    // ========================================================================
+    // STEP 2: Clear existing charts
+    // ========================================================================
+    console.log('🧹 Clearing existing charts...');
+    const previousChartCount = openCharts.length;
+    setOpenCharts([]);
+    console.log(`✅ Cleared ${previousChartCount} chart(s)`);
+    
+    // ========================================================================
+    // STEP 3: Fetch full CSV data from backend
+    // ========================================================================
+    try {
+      console.log(`📥 Fetching CSV data: ${csvStatus.csv_name}`);
+      const response = await fetch(`http://localhost:5000/api/csv/${csvStatus.csv_name}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch CSV: ${response.statusText}`);
+      }
+      
+      const csvData = await response.json();
+      console.log('✅ CSV data fetched:', csvData.row_count, 'total rows');
+      
+      // Parse the data field (it's already an array, or might be a JSON string)
+      let allRows;
+      if (typeof csvData.data === 'string') {
+        allRows = JSON.parse(csvData.data);
+      } else if (Array.isArray(csvData.data)) {
+        allRows = csvData.data;
+      } else {
+        throw new Error('Unexpected CSV data format');
+      }
+      console.log('📊 Parsed CSV rows:', allRows.length);
+      
+      // ========================================================================
+      // STEP 4: Filter data by simulation ID
+      // ========================================================================
+      const filteredRows = allRows.filter(row => row.simulation === simulationId);
+      console.log(`🔍 Filtered to ${filteredRows.length} rows for simulation "${simulationId}"`);
+      
+      if (filteredRows.length === 0) {
+        alert(`⚠️ No data found for simulation "${simulationId}".\n\nThe CSV may not contain this simulation scenario.`);
+        return;
+      }
+      
+      // ========================================================================
+      // STEP 5: Prepare simulation metadata
+      // ========================================================================
+      const simulationMetadata = {
+        id: simulationId,
+        displayName: simConfig?.simulations?.[simulationId]?.display_name || simulationId,
+        description: simConfig?.simulations?.[simulationId]?.description || '',
+        rowCount: filteredRows.length,
+        timeRange: {
+          min: Math.min(...filteredRows.map(r => r.time_sec || 0)),
+          max: Math.max(...filteredRows.map(r => r.time_sec || 0))
+        },
+        columns: Object.keys(filteredRows[0] || {})
+      };
+      
+      console.log('📋 Simulation metadata:', simulationMetadata);
+      
+      // ========================================================================
+      // STEP 6: Store data and metadata in state
+      // ========================================================================
+      console.log('💾 Storing simulation data in state...');
+      setSimulationData(filteredRows);
+      setSimulationMetadata(simulationMetadata);
+      console.log('✅ Simulation data stored in state');
+      
+      // ========================================================================
+      // STEP 7: Log success and prepare for next steps
+      // ========================================================================
+      console.log('✅ Simulation data ready for playback');
+      console.log('📊 Time range:', simulationMetadata.timeRange);
+      console.log('📊 Available columns:', simulationMetadata.columns);
+      
+      // Show success message with details
+      const detailsMessage = [
+        `Simulation: ${simulationMetadata.displayName}`,
+        `Rows: ${simulationMetadata.rowCount}`,
+        `Time: ${simulationMetadata.timeRange.min}s to ${simulationMetadata.timeRange.max}s`,
+        ``,
+        `Next steps (will be implemented):`,
+        `- Clear current charts`,
+        `- Load charts from sim_config`,
+        `- Start animated playback`
+      ].join('\n');
+      
+      alert(`✅ Simulation data loaded!\n\n${detailsMessage}`);
+      
+      // TODO in next steps:
+      // - ✅ Clear current charts (DONE)
+      // - ✅ Store filtered data in state (DONE)
+      // - Load charts from sim_config
+      // - Start animation loop
+      
+    } catch (error) {
+      console.error('❌ Error loading simulation:', error);
+      alert(`❌ Failed to load simulation data:\n\n${error.message}`);
+    }
+  };
+
+  /**
    * Toggle view mode (designer vs customer)
    */
   const handleToggleViewMode = () => {
@@ -729,12 +868,46 @@ function App() {
    * Handle Chart Association Request
    * Called when user selects a chart type from context menu
    */
-  const handleAssociateChart = (component, chartType) => {
+  const handleAssociateChart = async (component, chartType) => {
     console.log('📊 Associate chart:', chartType, 'to', component.name);
     
-    // Store context and open CSV picker
-    setCsvPickerContext({ component, chartType });
-    setShowCSVPicker(true);
+    // Auto-determine CSV name from current configuration
+    if (!currentConfigName) {
+      alert('⚠️ No configuration loaded. Please load a configuration first.');
+      return;
+    }
+    
+    const expectedCsvName = `${currentConfigName}.csv`;
+    console.log(`🔍 Auto-selecting CSV: ${expectedCsvName}`);
+    
+    // Check if CSV data is loaded
+    if (!csvStatus || !csvStatus.exists) {
+      alert(`⚠️ No CSV data loaded for this configuration.\n\nExpected file: ${expectedCsvName}\n\nPlease ensure the CSV file exists in the saved_csv directory.`);
+      return;
+    }
+    
+    // Fetch the CSV data from backend
+    try {
+      const response = await fetch(`http://localhost:5000/api/csv/${expectedCsvName}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch CSV: ${response.statusText}`);
+      }
+      const csvData = await response.json();
+      
+      console.log('✅ CSV data fetched:', csvData.name);
+      
+      // Go directly to column picker (skip CSV picker dialog)
+      setColumnPickerContext({
+        component,
+        chartType,
+        csvData
+      });
+      setShowColumnPicker(true);
+      
+    } catch (error) {
+      console.error('❌ Error fetching CSV:', error);
+      alert(`Failed to load CSV data: ${error.message}\n\nExpected file: ${expectedCsvName}`);
+    }
   };
 
   /**
@@ -884,11 +1057,66 @@ function App() {
   /**
    * Handle Load - Apply loaded configuration to the app
    */
+  /**
+   * Fetch available simulations from CSV
+   * Calls /api/csv/{name}/simulations to get unique simulation identifiers
+   */
+  const fetchAvailableSimulations = async (csvName) => {
+    if (!csvName) return;
+    
+    try {
+      console.log(`🔍 Fetching simulations from: ${csvName}`);
+      const response = await fetch(`http://localhost:5000/api/csv/${csvName}/simulations`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch simulations: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log(`✅ Available simulations:`, result.simulations);
+      setAvailableSimulations(result.simulations);
+      
+    } catch (error) {
+      console.error('❌ Error fetching simulations:', error);
+      setAvailableSimulations([]);
+    }
+  };
+
   const handleConfigurationLoaded = (loadedConfig) => {
     console.log('✅ Loading configuration:', loadedConfig.name);
+    console.log('🔍 Full loadedConfig:', loadedConfig); // DEBUG: See entire response
+    console.log('🔍 csv_status:', loadedConfig.csv_status); // DEBUG: Check csv_status
+    console.log('🔍 sim_config:', loadedConfig.sim_config); // DEBUG: Check sim_config
     
     // Save the configuration name for future quick saves
     setCurrentConfigName(loadedConfig.name);
+    
+    // Store simulation configuration (if present)
+    if (loadedConfig.sim_config) {
+      setSimConfig(loadedConfig.sim_config);
+      console.log('✅ Simulation config loaded:', Object.keys(loadedConfig.sim_config.simulations || {}).length, 'scenarios');
+    } else {
+      setSimConfig(null);
+      console.log('ℹ️  No simulation config available for this design');
+    }
+    
+    // Store CSV status and fetch available simulations
+    if (loadedConfig.csv_status) {
+      setCsvStatus(loadedConfig.csv_status);
+      console.log('✅ CSV Status set:', loadedConfig.csv_status);
+      if (loadedConfig.csv_status.exists) {
+        console.log(`📊 ${loadedConfig.csv_status.message}`);
+        
+        // Fetch available simulations from CSV
+        fetchAvailableSimulations(loadedConfig.csv_status.csv_name);
+      } else {
+        console.warn(`⚠️  ${loadedConfig.csv_status.message}`);
+        setAvailableSimulations([]); // No CSV = no simulations
+      }
+    } else {
+      console.warn('⚠️ csv_status is missing from backend response!');
+      setAvailableSimulations([]);
+    }
     
     // Extract data from the loaded configuration
     const { data } = loadedConfig;
@@ -984,6 +1212,16 @@ function App() {
             className="ge-vernova-logo"
           />
           <h1>Data Center Power System Designer</h1>
+          {currentConfigName && (
+            <div className="config-status-badge">
+              <span className="config-name">{currentConfigName}</span>
+              {csvStatus && (
+                <span className={`csv-status ${csvStatus.exists ? 'csv-loaded' : 'csv-missing'}`}>
+                  {csvStatus.exists ? '✅ Data loaded' : '⚠️ No CSV data'}
+                </span>
+              )}
+            </div>
+          )}
           <div className="view-mode-toggle">
             <span className={`view-badge view-${viewMode}`}>
               {viewMode === 'designer' ? '🔧 DESIGNER' : '👤 CUSTOMER'}
@@ -1119,6 +1357,9 @@ function App() {
           simulationTime={simulationTime}
           simulationSpeed={simulationSpeed}
           onSetSimulationSpeed={handleSetSimulationSpeed}
+          availableSimulations={availableSimulations}
+          simConfig={simConfig}
+          onRunSimulation={handleRunSimulation}
         />
       </div>
 
@@ -1138,6 +1379,8 @@ function App() {
         <CSVUploadDialog
           onClose={handleCloseCSVDialog}
           onUploadComplete={handleCSVUploadComplete}
+          currentConfigName={currentConfigName}
+          expectedCsvName={currentConfigName ? `${currentConfigName}.csv` : null}
         />
       )}
 

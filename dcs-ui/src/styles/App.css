@@ -113,6 +113,47 @@ body {
   border: 1px solid var(--vernova-accent);
 }
 
+/* Configuration Status Badge */
+.config-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: rgba(26, 58, 58, 0.4);
+  border-radius: 6px;
+  border: 1px solid var(--vernova-border);
+}
+
+.config-status-badge .config-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vernova-text);
+  letter-spacing: 0.5px;
+}
+
+.config-status-badge .csv-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.config-status-badge .csv-status.csv-loaded {
+  background: rgba(0, 212, 168, 0.15);
+  color: var(--vernova-accent);
+  border: 1px solid var(--vernova-accent);
+}
+
+.config-status-badge .csv-status.csv-missing {
+  background: rgba(255, 165, 0, 0.15);
+  color: #ffa500;
+  border: 1px solid #ffa500;
+}
+
 /* Toggle Switch - GE Vernova Teal */
 .toggle-switch {
   position: relative;

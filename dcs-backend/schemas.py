@@ -136,7 +136,7 @@ class ConfigurationResponse(BaseModel):
     
     This defines what data the API will return to the frontend.
     It includes all the fields from the request, plus auto-generated fields
-    like id, created_at, and updated_at.
+    like id, created_at, updated_at, and csv_status.
     
     Example response:
     {
@@ -145,7 +145,12 @@ class ConfigurationResponse(BaseModel):
         "description": "Production configuration",
         "data": {...},
         "created_at": "2026-02-04T14:30:00",
-        "updated_at": "2026-02-04T14:30:00"
+        "updated_at": "2026-02-04T14:30:00",
+        "csv_status": {
+            "exists": true,
+            "csv_name": "Main Data Center Layout.csv",
+            "message": "Data loaded"
+        }
     }
     """
     
@@ -189,6 +194,31 @@ class ConfigurationResponse(BaseModel):
         ...,
         description="Timestamp of when this configuration was last updated",
         example="2026-02-04T14:30:00"
+    )
+    
+    # CSV_STATUS: Information about matching CSV file
+    csv_status: dict = Field(
+        default={"exists": False, "csv_name": None, "message": "No CSV data"},
+        description="Status of matching CSV file for this configuration",
+        example={"exists": True, "csv_name": "config.csv", "message": "Data loaded"}
+    )
+    
+    # SIM_CONFIG: Simulation configuration JSON (optional)
+    sim_config: Optional[dict] = Field(
+        None,
+        description="Simulation configuration defining scenarios, charts, and event markers",
+        example={
+            "design_name": "LM2500-BESS-Integrated-Power-Node",
+            "csv_file": "LM2500-BESS-Integrated-Power-Node.csv",
+            "simulations": {
+                "sim_LVRT": {
+                    "display_name": "Low-Voltage Ride-Through",
+                    "description": "LVRT test on bus",
+                    "charts_to_display": [],
+                    "event_markers": {}
+                }
+            }
+        }
     )
     
     class Config:

@@ -76,11 +76,11 @@ const Toolbar = ({
             onClick={onSaveAs} 
             title="Save As (create new config)"
           >
-            💾+
+            💾 Save As
           </button>
         )}
         <button className="btn-load" onClick={onLoad} title="Load Configuration">
-          📂 Load
+          📂 Load Design
         </button>
       </div>
 

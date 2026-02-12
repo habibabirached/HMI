@@ -1,0 +1,24 @@
+{
+  "design_name": "LM2500-BESS-Integrated-Power-Node",
+  "csv_file": "LM2500-BESS-Integrated-Power-Node.csv",
+  "simulations": {
+    "sim_Torsional": {
+      "display_name": "Torsional Vibration Analysis",
+      "description": "Steady-state validation with FFT analysis",
+      "charts_to_display": [],
+      "event_markers": {}
+    },
+    "sim_LVRT": {
+      "display_name": "Low-Voltage Ride-Through",
+      "description": "LVRT test on bus",
+      "charts_to_display": [],
+      "event_markers": {}
+    },
+    "sim_SmallSignal": {
+      "display_name": "Small-Signal Perturbation",
+      "description": "Dynamic stability analysis",
+      "charts_to_display": [],
+      "event_markers": {}
+    }
+  }
+}

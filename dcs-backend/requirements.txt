@@ -53,3 +53,14 @@ python-multipart==0.0.6
 # ----------------------------------------------------------------------------
 # python-dateutil - Better date/time parsing and formatting
 python-dateutil==2.8.2
+
+# ----------------------------------------------------------------------------
+# DATA PROCESSING & ANALYSIS
+# ----------------------------------------------------------------------------
+# pandas - Data manipulation and analysis library
+# Used for CSV data processing, time-series analysis, and simulation data
+pandas==2.2.0
+
+# numpy - Numerical computing library
+# Used for mathematical operations, array processing, and signal analysis
+numpy==1.26.3
