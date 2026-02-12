@@ -725,16 +725,33 @@ function App() {
         
         if (chartsToDisplay.length > 0) {
           console.log('📊 Charts defined in sim_config:', chartsToDisplay);
+          console.log('🔄 Auto-loading charts...');
           
-          // TODO: Implement chart loading from sim_config
-          // For now, this is a placeholder that logs what should be loaded
-          // In future steps, we'll:
-          // 1. Parse chart definitions from chartsToDisplay array
-          // 2. Create chart objects and add them to openCharts
-          // 3. Load the appropriate CSV data for each chart
+          // Load each chart definition
+          const newCharts = chartsToDisplay.map((chartDef, index) => {
+            const component = canvasComponents.find(c => c.id === chartDef.component_id);
+            
+            if (!component) {
+              console.warn(`⚠️  Component not found: ${chartDef.component_id}`);
+              return null;
+            }
+            
+            // Create chart object for openCharts
+            return {
+              id: `sim-chart-${Date.now()}-${index}`,
+              componentId: component.id,
+              componentName: component.name,
+              chartType: chartDef.chart_type || '2d',
+              csvName: csvStatus.csv_name,
+              xColumn: chartDef.x_column,
+              yColumn: chartDef.y_column,
+              title: chartDef.title || `${component.name} - ${chartDef.y_column}`
+            };
+          }).filter(Boolean); // Remove nulls
           
-          console.log('ℹ️  Chart auto-loading will be implemented in future steps');
-          console.log('ℹ️  Users can manually add charts for now via right-click menu');
+          // Add all charts to openCharts
+          setOpenCharts(newCharts);
+          console.log(`✅ Auto-loaded ${newCharts.length} chart(s)`);
         } else {
           console.log('ℹ️  No charts defined for this simulation in sim_config');
           console.log('ℹ️  User can manually add charts via right-click menu');
@@ -767,10 +784,9 @@ function App() {
       // TODO in next steps:
       // - ✅ Clear current charts (DONE)
       // - ✅ Store filtered data in state (DONE)
-      // - ✅ Check for charts in sim_config (DONE - placeholder)
-      // - Implement full chart auto-loading from sim_config
-      // - Implement UI to save chart config to sim_config
-      // - Start animation loop
+      // - ✅ Auto-load charts from sim_config (DONE)
+      // - Implement animation loop with playback controls
+      // - Add event markers visualization
       
     } catch (error) {
       console.error('❌ Error loading simulation:', error);
