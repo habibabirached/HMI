@@ -713,7 +713,38 @@ function App() {
       console.log('✅ Simulation data stored in state');
       
       // ========================================================================
-      // STEP 7: Log success and prepare for next steps
+      // STEP 7: Load charts from simulation config
+      // ========================================================================
+      console.log('📊 Checking for charts to load from sim_config...');
+      
+      if (simConfig && simConfig.simulations && simConfig.simulations[simulationId]) {
+        const scenarioConfig = simConfig.simulations[simulationId];
+        const chartsToDisplay = scenarioConfig.charts_to_display || [];
+        
+        console.log(`📋 Simulation config defines ${chartsToDisplay.length} chart(s) to display`);
+        
+        if (chartsToDisplay.length > 0) {
+          console.log('📊 Charts defined in sim_config:', chartsToDisplay);
+          
+          // TODO: Implement chart loading from sim_config
+          // For now, this is a placeholder that logs what should be loaded
+          // In future steps, we'll:
+          // 1. Parse chart definitions from chartsToDisplay array
+          // 2. Create chart objects and add them to openCharts
+          // 3. Load the appropriate CSV data for each chart
+          
+          console.log('ℹ️  Chart auto-loading will be implemented in future steps');
+          console.log('ℹ️  Users can manually add charts for now via right-click menu');
+        } else {
+          console.log('ℹ️  No charts defined for this simulation in sim_config');
+          console.log('ℹ️  User can manually add charts via right-click menu');
+        }
+      } else {
+        console.log('ℹ️  No simulation config available, skipping chart auto-load');
+      }
+      
+      // ========================================================================
+      // STEP 8: Log success and prepare for next steps
       // ========================================================================
       console.log('✅ Simulation data ready for playback');
       console.log('📊 Time range:', simulationMetadata.timeRange);
@@ -736,7 +767,9 @@ function App() {
       // TODO in next steps:
       // - ✅ Clear current charts (DONE)
       // - ✅ Store filtered data in state (DONE)
-      // - Load charts from sim_config
+      // - ✅ Check for charts in sim_config (DONE - placeholder)
+      // - Implement full chart auto-loading from sim_config
+      // - Implement UI to save chart config to sim_config
       // - Start animation loop
       
     } catch (error) {
