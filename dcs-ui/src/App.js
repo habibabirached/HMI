@@ -1465,6 +1465,9 @@ function App() {
           simulationTime={simulationTime}
           simulationRunning={simulationRunning}
           selectedComponentId={selectedComponent?.id}
+          simulationData={simulationData}
+          simulationMetadata={simulationMetadata}
+          eventMarkers={simConfig?.simulations?.[simulationMetadata?.id]?.event_markers}
         />
       )}
 

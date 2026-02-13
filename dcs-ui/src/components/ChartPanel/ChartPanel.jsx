@@ -15,7 +15,19 @@ import './ChartPanel.css';
  * - height: Current panel height in pixels
  * - onHeightChange: Function to update panel height
  */
-const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, simulationTime, simulationRunning, selectedComponentId }) => {
+const ChartPanel = ({ 
+  charts, 
+  onClose, 
+  onRemoveChart, 
+  height, 
+  onHeightChange, 
+  simulationTime, 
+  simulationRunning, 
+  selectedComponentId,
+  simulationData,
+  simulationMetadata,
+  eventMarkers
+}) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartY, setResizeStartY] = useState(0);
   const [resizeStartHeight, setResizeStartHeight] = useState(0);
@@ -286,6 +298,94 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
   };
 
   /**
+   * Generate event marker shapes for Plotly charts
+   * Creates colored background regions based on CSV event columns
+   */
+  const generateEventMarkerShapes = () => {
+    if (!simulationData || simulationData.length === 0 || !eventMarkers) {
+      return [];
+    }
+
+    const shapes = [];
+    
+    // Process each event marker definition
+    Object.keys(eventMarkers).forEach(eventColumn => {
+      const markerConfig = eventMarkers[eventColumn];
+      let inEvent = false;
+      let eventStartTime = null;
+      
+      // Scan through simulation data to find event regions
+      // Note: CSV values are often strings ("1"/"0") from DictReader, not numbers
+      simulationData.forEach((row, index) => {
+        const val = row[eventColumn];
+        const isActive = val === 1 || val === true || val === '1' ||
+          (typeof val === 'string' && val.toLowerCase() === 'true');
+        const timeValue = Number(row.time_sec) || 0;
+        
+        if (isActive && !inEvent) {
+          // Event starts
+          inEvent = true;
+          eventStartTime = timeValue;
+        } else if (!isActive && inEvent) {
+          // Event ends - create shape
+          shapes.push({
+            type: 'rect',
+            xref: 'x',
+            yref: 'paper',
+            x0: eventStartTime,
+            x1: timeValue,
+            y0: 0,
+            y1: 1,
+            fillcolor: markerConfig.color || 'rgba(255, 0, 0, 0.15)',
+            line: { width: 0 },
+            layer: 'below'
+          });
+          
+          // Optional: Add vertical line at event start
+          if (markerConfig.line_color) {
+            shapes.push({
+              type: 'line',
+              xref: 'x',
+              yref: 'paper',
+              x0: eventStartTime,
+              x1: eventStartTime,
+              y0: 0,
+              y1: 1,
+              line: {
+                color: markerConfig.line_color,
+                width: 2,
+                dash: 'dash'
+              },
+              layer: 'below'
+            });
+          }
+          
+          inEvent = false;
+          eventStartTime = null;
+        }
+        
+        // Handle event that extends to end of data
+        if (inEvent && index === simulationData.length - 1) {
+          shapes.push({
+            type: 'rect',
+            xref: 'x',
+            yref: 'paper',
+            x0: eventStartTime,
+            x1: timeValue,
+            y0: 0,
+            y1: 1,
+            fillcolor: markerConfig.color || 'rgba(255, 0, 0, 0.15)',
+            line: { width: 0 },
+            layer: 'below'
+          });
+        }
+      });
+    });
+    
+    return shapes;
+  };
+
+  /**
    * Generate professional Plotly layout
    */
   const generatePlotlyLayout = (chart) => {
@@ -429,6 +529,8 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
 
     // Chart-specific layout
     if (chart.chartType === '2d' || chart.chartType === 'bar') {
+      const eventShapes = generateEventMarkerShapes();
+      
       return {
         ...baseLayout,
         xaxis: {
@@ -478,7 +580,8 @@ const ChartPanel = ({ charts, onClose, onRemoveChart, height, onHeightChange, si
           zeroline: true,
           zerolinecolor: '#444',
           zerolinewidth: 2
-        }
+        },
+        shapes: eventShapes // Add event marker shapes
       };
     } else if (chart.chartType === 'histogram') {
       return {
