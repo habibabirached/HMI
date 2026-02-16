@@ -1394,6 +1394,7 @@ function App() {
           perChartSampleStep={perChartSampleStep}
           onGlobalSampleStepChange={setGlobalSampleStep}
           onPerChartSampleStepChange={(chartId, step) => setPerChartSampleStep(prev => ({ ...prev, [chartId]: step }))}
+          currentConfigName={currentConfigName}
         />
       )}
 

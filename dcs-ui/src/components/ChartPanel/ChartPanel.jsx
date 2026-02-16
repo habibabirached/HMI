@@ -30,7 +30,8 @@ const ChartPanel = ({
   globalSampleStep = 1,
   perChartSampleStep = {},
   onGlobalSampleStepChange,
-  onPerChartSampleStepChange
+  onPerChartSampleStepChange,
+  currentConfigName
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartY, setResizeStartY] = useState(0);
@@ -67,23 +68,34 @@ const ChartPanel = ({
 
   /**
    * Fetch CSV data for a specific chart
-   * Handles both single-component and multi-component charts
+   * Uses design-dir endpoint when currentConfigName exists, else falls back to legacy /api/csv/
    */
   const fetchChartData = async (chart) => {
     setLoadingCharts(prev => ({ ...prev, [chart.id]: true }));
 
     try {
-      const response = await fetch(`http://localhost:5000/api/csv/${chart.csvName}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch CSV data');
+      let dataRows = null;
+      if (currentConfigName && chart.csvName && chart.csvName.endsWith('.data.csv')) {
+        const simName = chart.csvName.replace('.data.csv', '');
+        const response = await fetch(
+          `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simName)}`
+        );
+        if (response.ok) {
+          const result = await response.json();
+          dataRows = result.data || [];
+        }
       }
+      if (!dataRows && chart.csvName) {
+        const response = await fetch(`http://localhost:5000/api/csv/${chart.csvName}`);
+        if (!response.ok) throw new Error('Failed to fetch CSV data');
+        const data = await response.json();
+        dataRows = data.data;
+      }
+      if (!dataRows) throw new Error('No data available');
 
-      const data = await response.json();
-      
       setChartData(prev => ({
         ...prev,
-        [chart.id]: data.data // Store the full dataset
+        [chart.id]: dataRows
       }));
       
       const chartDesc = chart.isMultiComponent 
@@ -101,32 +113,26 @@ const ChartPanel = ({
     }
   };
 
+  const CHART_COLORS = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
+
   /**
-   * Derive a readable Y-axis label from multi-component chart column names.
-   * E.g. turbine1_torque_nm → "Torque (Nm)", P_load (MW) → "Load (MW)"
+   * Y-axis label for multi-component charts: use actual column names from CSV/Excel.
+   * Plain text for bar charts; HTML with legend-like colors for multi-line.
    */
   const getMultiBarYAxisLabel = (chart) => {
     if (!chart.components || chart.components.length === 0) return 'Value';
-    const col = chart.components[0].columnName;
-    const parts = col.split('_').filter(p => p && isNaN(parseFloat(p)));
-    const unitMap = { mw: 'MW', kw: 'kW', kv: 'kV', nm: 'Nm', a: 'A', hz: 'Hz', pct: '%' };
-    const lower = col.toLowerCase();
-    let unit = '';
-    let quantityPart = parts[parts.length - 1];
-    for (const [k, v] of Object.entries(unitMap)) {
-      if (lower.endsWith('_' + k) || lower.endsWith(k)) {
-        unit = v;
-        quantityPart = parts.length > 1 ? parts[parts.length - 2] : parts[parts.length - 1];
-        break;
-      }
-    }
-    const m = col.match(/\(([^)]+)\)\s*$/);
-    if (m) {
-      const u = m[1].toLowerCase().replace(/\s/g, '');
-      if (unitMap[u]) unit = unitMap[u];
-    }
-    const quantity = quantityPart ? quantityPart.replace(/^./, c => c.toUpperCase()).replace(/\s*\([^)]*\)\s*$/g, '').trim() : 'Value';
-    return unit ? `${quantity} (${unit})` : quantity;
+    const columns = [...new Set(chart.components.map(c => c.columnName))];
+    return columns.join(' / ');
+  };
+
+  /**
+   * Y-axis label with legend colors: each column name in its trace color (P_load=teal, P_gen=orange)
+   */
+  const getMultiBarYAxisLabelHTML = (chart) => {
+    if (!chart.components || chart.components.length === 0) return 'Value';
+    return chart.components.map((c, i) =>
+      `<span style="color:${CHART_COLORS[i % CHART_COLORS.length]}">${c.columnName}</span>`
+    ).join(' / ');
   };
 
   /**
@@ -540,16 +546,17 @@ const ChartPanel = ({
       autosize: true
     };
 
-    // Multi-line 2D chart layout – X = time, Y = values
+    // Multi-line 2D chart layout – X = time, Y = values (Y-axis title in margin, legend colors)
     if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
       const eventShapes = generateEventMarkerShapes();
+      const yLabelHTML = getMultiBarYAxisLabelHTML(chart);
       return {
         ...baseLayout,
         shapes: eventShapes,
         xaxis: {
           title: {
             text: chart.timeColumn || 'Time',
-            font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 }
+            font: { family: 'Arial, sans-serif', size: 14, color: '#00d4a8', weight: 600 }
           },
           gridcolor: '#2a2a2a',
           gridwidth: 1,
@@ -563,8 +570,8 @@ const ChartPanel = ({
         },
         yaxis: {
           title: {
-            text: getMultiBarYAxisLabel(chart),
-            font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 }
+            text: yLabelHTML,
+            font: { family: 'Arial, sans-serif', size: 13, weight: 600 }
           },
           gridcolor: '#2a2a2a',
           gridwidth: 1,
@@ -591,18 +598,33 @@ const ChartPanel = ({
       };
     }
 
-    // Multi-component bar chart layout (fixed Y range so bars animate, not scale)
+    // Multi-component bar chart layout (fixed Y range so bars animate, not scale; Y-axis label rotated 90°)
     if (chart.isMultiComponent && chart.chartType === 'multi-bar-chart') {
       const yRange = data && getMultiBarYRange(chart, data);
+      const yLabel = getMultiBarYAxisLabel(chart);
       return {
         ...baseLayout,
+        annotations: [
+          {
+            text: yLabel,
+            xref: 'paper',
+            yref: 'paper',
+            x: 0.06,
+            y: 0.5,
+            xanchor: 'center',
+            yanchor: 'middle',
+            textangle: -90,
+            showarrow: false,
+            font: { family: 'Arial, sans-serif', size: 14, color: '#00d4a8', weight: 600 }
+          }
+        ],
         xaxis: {
           title: {
             text: 'Components',
             font: {
               family: 'Arial, sans-serif',
-              size: 13,
-              color: '#999',
+              size: 14,
+              color: '#00d4a8',
               weight: 600
             }
           },
@@ -618,15 +640,7 @@ const ChartPanel = ({
           }
         },
         yaxis: {
-          title: {
-            text: getMultiBarYAxisLabel(chart),
-            font: {
-              family: 'Arial, sans-serif',
-              size: 13,
-              color: '#999',
-              weight: 600
-            }
-          },
+          title: { text: '' },
           gridcolor: '#2a2a2a',
           gridwidth: 1,
           showline: true,
