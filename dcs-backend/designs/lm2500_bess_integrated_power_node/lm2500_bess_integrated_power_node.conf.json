@@ -1,0 +1,161 @@
+{
+  "name": "LM2500-BESS-Integrated-Power-Node",
+  "description": "",
+  "canvasComponents": [
+    {
+      "id": "comp-turbine-1",
+      "type": "gas-turbine-lm2500",
+      "name": "LM2500 #1",
+      "fullName": "Gas Turbine LM2500 #1",
+      "position": {
+        "x": 180,
+        "y": 210
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-2",
+      "type": "gas-turbine-lm2500",
+      "name": "LM2500 #2",
+      "fullName": "Gas Turbine LM2500 #2",
+      "position": {
+        "x": 180,
+        "y": 360
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bess-1",
+      "type": "bess",
+      "name": "BESS",
+      "fullName": "Battery Energy Storage System",
+      "position": {
+        "x": 195,
+        "y": 510
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 10,
+        "voltage": 0.8,
+        "unit": "MWh"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.8,
+        "current": 0,
+        "frequency": 60,
+        "soc": 85
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bus-1",
+      "type": "bus-mv",
+      "name": "13.8kV Bus",
+      "fullName": "Medium Voltage Bus 13.8kV",
+      "position": {
+        "x": 510,
+        "y": 380
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 13.8,
+        "unit": "kV"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-load-1",
+      "type": "datacenter-load",
+      "name": "DC Load 50MW",
+      "fullName": "Data Center Load 50MW",
+      "position": {
+        "x": 980,
+        "y": 355
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 50,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-1",
+      "from": "comp-turbine-1",
+      "to": "comp-bus-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-2",
+      "from": "comp-turbine-2",
+      "to": "comp-bus-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-3",
+      "from": "comp-bess-1",
+      "to": "comp-bus-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-4",
+      "from": "comp-bus-1",
+      "to": "comp-load-1",
+      "type": "power",
+      "status": "idle"
+    }
+  ],
+  "systemState": {
+    "simulationRunning": false,
+    "zoom": 1,
+    "pan": {
+      "x": 0,
+      "y": 0
+    },
+    "mode": "design"
+  }
+}

@@ -22,11 +22,14 @@ import './SimulationControls.css';
  * - availableSimulations: array - unique simulation identifiers from CSV
  * - simConfig: object - simulation configuration JSON with display names and metadata
  * - onRunSimulation: function - callback when user clicks a simulation button
+ * - activeSimulationId: string | null - STEP 2: ID of the simulation currently loaded; the matching
+ *   scenario button gets a bright "active" style so the user sees which sim they're in
  */
 const SimulationControls = ({ 
   mode, 
   viewMode,
   simulationRunning,
+  activeSimulationId,
   selectedComponent, 
   onTripComponent, 
   onRestartComponent,
@@ -43,8 +46,14 @@ const SimulationControls = ({
   onSetSimulationSpeed,
   availableSimulations,
   simConfig,
-  onRunSimulation
+  onRunSimulation,
+  useDesignDir,
+  currentConfigName,
+  onUploadSimData,
+  onAddSimulation
 }) => {
+  const [showAddSimForm, setShowAddSimForm] = React.useState(false);
+  const [newSimName, setNewSimName] = React.useState('');
   // ========================================================================
   // VISIBILITY CHECK
   // ========================================================================
@@ -354,6 +363,124 @@ const SimulationControls = ({
 
       {/* Body area where buttons appear */}
       <div className="controls-body">
+        {/* ================================================================
+            ADD SIMULATION SCENARIO (at top)
+            ================================================================ */}
+        {useDesignDir && currentConfigName && onAddSimulation && (
+          <div className="add-sim-section">
+            {!showAddSimForm ? (
+              <button
+                type="button"
+                className="btn-add-sim"
+                onClick={() => setShowAddSimForm(true)}
+                title="Create a new simulation scenario"
+              >
+                + Add simulation scenario
+              </button>
+            ) : (
+              <div className="add-sim-form">
+                <input
+                  type="text"
+                  className="add-sim-input"
+                  placeholder="Scenario name"
+                  value={newSimName}
+                  onChange={(e) => setNewSimName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const name = newSimName.trim();
+                      if (name) { onAddSimulation(name); setNewSimName(''); setShowAddSimForm(false); }
+                    } else if (e.key === 'Escape') {
+                      setShowAddSimForm(false); setNewSimName('');
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="btn-add-sim-submit"
+                  onClick={() => {
+                    const name = newSimName.trim();
+                    if (name) { onAddSimulation(name); setNewSimName(''); setShowAddSimForm(false); }
+                  }}
+                  disabled={!newSimName.trim()}
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  className="btn-add-sim-cancel"
+                  onClick={() => { setShowAddSimForm(false); setNewSimName(''); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================================================================
+            SIMULATION SCENARIOS SECTION (at top)
+            ================================================================ */}
+        {availableSimulations && availableSimulations.length > 0 && (
+          <div className="simulation-scenarios-section">
+            <h4 className="scenarios-title">Simulation Scenarios</h4>
+            <div className="scenarios-info">
+              {availableSimulations.length} scenario(s) detected
+            </div>
+            
+            <div className="control-buttons">
+              {availableSimulations.map((simId) => {
+                let displayName = simId;
+                if (simConfig && simConfig.simulations && simConfig.simulations[simId]) {
+                  displayName = simConfig.simulations[simId].display_name || simId;
+                }
+                /* STEP 2: Compare this button's simId to the loaded simulation; if they match,
+                   we add the 'active' class so it stands out with a brighter, glowing style. */
+                const isActive = activeSimulationId != null && simId === activeSimulationId;
+                return (
+                  <div key={simId} className="scenario-button-row">
+                    <button
+                      className={`control-btn control-btn-scenario${isActive ? ' control-btn-scenario-active' : ''}`}
+                      onClick={() => {
+                        console.log('🎬 Simulation scenario clicked:', simId);
+                        if (onRunSimulation) {
+                          onRunSimulation(simId);
+                        }
+                      }}
+                      title={simConfig?.simulations?.[simId]?.description || `Run ${simId} simulation scenario`}
+                    >
+                      ▶️ {displayName}
+                    </button>
+                    {useDesignDir && onUploadSimData && currentConfigName && (
+                      <>
+                        <input
+                          type="file"
+                          accept=".csv"
+                          style={{ display: 'none' }}
+                          id={`upload-sim-${simId}`}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) onUploadSimData(simId, f);
+                            e.target.value = '';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="control-btn control-btn-upload"
+                          onClick={() => document.getElementById(`upload-sim-${simId}`)?.click()}
+                          title={`Upload CSV data for ${displayName}`}
+                        >
+                          📤
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Call our function to fill this area with the right content */}
         {renderComponentControls()}
 
@@ -499,67 +626,6 @@ const SimulationControls = ({
             </button>
           </div>
         </div>
-
-        {/* ================================================================
-            SIMULATION SCENARIOS SECTION
-            ================================================================
-            Dynamically generated buttons based on CSV simulation column.
-            Each unique value in the 'simulation' column gets a button.
-            
-            When clicked, the button will:
-            1. Clear existing charts
-            2. Load charts for that simulation (from JSON config)
-            3. Filter CSV data to only that simulation
-            4. Start playback
-        ================================================================ */}
-        {availableSimulations && availableSimulations.length > 0 && (
-          <div className="simulation-scenarios-section">
-            <h4 className="scenarios-title">Simulation Scenarios</h4>
-            <div className="scenarios-info">
-              {availableSimulations.length} scenario(s) detected
-            </div>
-            
-            <div className="control-buttons">
-              {availableSimulations.map((simId) => {
-                // ================================================================
-                // DISPLAY NAME RESOLUTION
-                // ================================================================
-                // simId comes from CSV (e.g., "sim_LVRT", "sim_Torsional")
-                // simConfig comes from backend JSON (display_name, description, etc.)
-                // 
-                // Priority:
-                // 1. Use display_name from simConfig if available (user-friendly)
-                // 2. Fall back to raw simId from CSV (technical name)
-                //
-                // Example:
-                // - simId: "sim_LVRT"
-                // - display_name: "Low-Voltage Ride-Through"
-                // - Button shows: "▶️ Low-Voltage Ride-Through"
-                // ================================================================
-                let displayName = simId;
-                if (simConfig && simConfig.simulations && simConfig.simulations[simId]) {
-                  displayName = simConfig.simulations[simId].display_name || simId;
-                }
-                
-                return (
-                  <button
-                    key={simId}
-                    className="control-btn control-btn-scenario"
-                    onClick={() => {
-                      console.log('🎬 Simulation scenario clicked:', simId);
-                      if (onRunSimulation) {
-                        onRunSimulation(simId);
-                      }
-                    }}
-                    title={simConfig?.simulations?.[simId]?.description || `Run ${simId} simulation scenario`}
-                  >
-                    ▶️ {displayName}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -5,10 +5,8 @@ import PropertyPanel from './components/PropertyPanel';
 import SimulationControls from './components/SimulationControls';
 import Toolbar from './components/Toolbar';
 import SaveLoadDialog from './components/SaveLoadDialog';
-import CSVUploadDialog from './components/CSVUploadDialog/CSVUploadDialog';
-import CSVPickerDialog from './components/CSVPickerDialog/CSVPickerDialog';
-import ColumnPickerDialog from './components/ColumnPickerDialog/ColumnPickerDialog';
 import ChartPanel from './components/ChartPanel/ChartPanel';
+import ColumnPickerDialog from './components/ColumnPickerDialog/ColumnPickerDialog';
 import * as Scenarios from './scenarios/quickScenarios';
 import './styles/App.css';
 
@@ -55,20 +53,15 @@ function App() {
   const [simulationData, setSimulationData] = useState([]); // Filtered CSV data for current simulation
   const [simulationMetadata, setSimulationMetadata] = useState(null); // Metadata about current simulation
   
-  // CSV Upload dialog state
-  const [showCSVDialog, setShowCSVDialog] = useState(false);
-  
-  // CSV Picker dialog state
-  const [showCSVPicker, setShowCSVPicker] = useState(false);
-  const [csvPickerContext, setCsvPickerContext] = useState(null); // { component, chartType }
-  
-  // Column Picker dialog state
-  const [showColumnPicker, setShowColumnPicker] = useState(false);
-  const [columnPickerContext, setColumnPickerContext] = useState(null); // { component, chartType, csvData }
   
   // Chart Panel state
   const [openCharts, setOpenCharts] = useState([]); // Charts currently displayed in bottom panel
   const [chartPanelHeight, setChartPanelHeight] = useState(300);
+  const [globalSampleStep, setGlobalSampleStep] = useState(1); // Chart sampling: 1=every row, 2=every 2nd, etc.
+  const [perChartSampleStep, setPerChartSampleStep] = useState({}); // Per-chart override: { chartId: step }
+
+  // STEP 4: Column picker – when user picks a chart type, we show this dialog to choose X/Y columns
+  const [columnPickerContext, setColumnPickerContext] = useState(null); // { component, chartType } | null
   
   const canvasRef = useRef(null);
 
@@ -623,174 +616,170 @@ function App() {
     console.log('🎬 Run simulation clicked:', simulationId);
     console.log('📊 Current configuration:', currentConfigName);
     console.log('📊 CSV status:', csvStatus);
-    console.log('📊 Sim config:', simConfig);
     
-    // ========================================================================
-    // STEP 1: Validate prerequisites
-    // ========================================================================
     if (!currentConfigName) {
       alert('⚠️ No configuration loaded. Please load a design first.');
       return;
     }
     
-    if (!csvStatus || !csvStatus.exists) {
-      alert('⚠️ No CSV data available for this configuration.\n\nPlease load CSV data first.');
-      return;
-    }
-    
     if (!availableSimulations.includes(simulationId)) {
-      alert(`⚠️ Simulation "${simulationId}" not found in CSV data.`);
+      alert(`⚠️ Simulation "${simulationId}" not found.`);
       return;
     }
     
-    // ========================================================================
-    // STEP 2: Clear existing charts
-    // ========================================================================
-    console.log('🧹 Clearing existing charts...');
-    const previousChartCount = openCharts.length;
-    setOpenCharts([]);
-    console.log(`✅ Cleared ${previousChartCount} chart(s)`);
+    if (!csvStatus?.use_design_dir) {
+      alert('⚠️ No design directory for this configuration.');
+      return;
+    }
     
-    // ========================================================================
-    // STEP 3: Fetch full CSV data from backend
-    // ========================================================================
+    console.log('🧹 Clearing existing charts...');
+    setOpenCharts([]);
+    
     try {
-      console.log(`📥 Fetching CSV data: ${csvStatus.csv_name}`);
-      const response = await fetch(`http://localhost:5000/api/csv/${csvStatus.csv_name}`);
+      let filteredRows;
+      let scenarioConfig;
+      let csvNameForCharts;
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch CSV: ${response.statusText}`);
-      }
+      // Fetch from design dir (per-sim .sim.json + .data.csv)
+      const response = await fetch(
+        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationId)}`
+      );
+      if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
+      const result = await response.json();
+      filteredRows = result.data || [];
+      scenarioConfig = result.sim_config || {};
+      csvNameForCharts = `${simulationId}.data.csv`;
       
-      const csvData = await response.json();
-      console.log('✅ CSV data fetched:', csvData.row_count, 'total rows');
-      
-      // Parse the data field (it's already an array, or might be a JSON string)
-      let allRows;
-      if (typeof csvData.data === 'string') {
-        allRows = JSON.parse(csvData.data);
-      } else if (Array.isArray(csvData.data)) {
-        allRows = csvData.data;
-      } else {
-        throw new Error('Unexpected CSV data format');
-      }
-      console.log('📊 Parsed CSV rows:', allRows.length);
-      
-      // ========================================================================
-      // STEP 4: Filter data by simulation ID
-      // ========================================================================
-      const filteredRows = allRows.filter(row => row.simulation === simulationId);
-      console.log(`🔍 Filtered to ${filteredRows.length} rows for simulation "${simulationId}"`);
-      
-      if (filteredRows.length === 0) {
-        alert(`⚠️ No data found for simulation "${simulationId}".\n\nThe CSV may not contain this simulation scenario.`);
+      if (!filteredRows || filteredRows.length === 0) {
+        alert(`⚠️ No data found for simulation "${simulationId}".`);
         return;
       }
       
-      // ========================================================================
-      // STEP 5: Prepare simulation metadata
-      // ========================================================================
+      const timeValues = filteredRows.map(r => Number(r.time_sec) || 0);
       const simulationMetadata = {
         id: simulationId,
-        displayName: simConfig?.simulations?.[simulationId]?.display_name || simulationId,
-        description: simConfig?.simulations?.[simulationId]?.description || '',
+        displayName: scenarioConfig.display_name || simConfig?.simulations?.[simulationId]?.display_name || simulationId,
+        description: scenarioConfig.description || '',
         rowCount: filteredRows.length,
-        timeRange: {
-          min: Math.min(...filteredRows.map(r => r.time_sec || 0)),
-          max: Math.max(...filteredRows.map(r => r.time_sec || 0))
-        },
+        timeRange: { min: Math.min(...timeValues), max: Math.max(...timeValues) },
         columns: Object.keys(filteredRows[0] || {})
       };
       
-      console.log('📋 Simulation metadata:', simulationMetadata);
-      
-      // ========================================================================
-      // STEP 6: Store data and metadata in state
-      // ========================================================================
-      console.log('💾 Storing simulation data in state...');
       setSimulationData(filteredRows);
       setSimulationMetadata(simulationMetadata);
-      console.log('✅ Simulation data stored in state');
       
-      // ========================================================================
-      // STEP 7: Load charts from simulation config
-      // ========================================================================
-      console.log('📊 Checking for charts to load from sim_config...');
-      
-      if (simConfig && simConfig.simulations && simConfig.simulations[simulationId]) {
-        const scenarioConfig = simConfig.simulations[simulationId];
-        const chartsToDisplay = scenarioConfig.charts_to_display || [];
-        
-        console.log(`📋 Simulation config defines ${chartsToDisplay.length} chart(s) to display`);
-        
-        if (chartsToDisplay.length > 0) {
-          console.log('📊 Charts defined in sim_config:', chartsToDisplay);
-          console.log('🔄 Auto-loading charts...');
-          
-          // Load each chart definition
-          const newCharts = chartsToDisplay.map((chartDef, index) => {
-            const component = canvasComponents.find(c => c.id === chartDef.component_id);
-            
-            if (!component) {
-              console.warn(`⚠️  Component not found: ${chartDef.component_id}`);
-              return null;
-            }
-            
-            // Create chart object for openCharts
-            return {
-              id: `sim-chart-${Date.now()}-${index}`,
-              componentId: component.id,
-              componentName: component.name,
-              chartType: chartDef.chart_type || '2d',
-              csvName: csvStatus.csv_name,
-              xColumn: chartDef.x_column,
-              yColumn: chartDef.y_column,
-              title: chartDef.title || `${component.name} - ${chartDef.y_column}`
-            };
-          }).filter(Boolean); // Remove nulls
-          
-          // Add all charts to openCharts
-          setOpenCharts(newCharts);
-          console.log(`✅ Auto-loaded ${newCharts.length} chart(s)`);
-        } else {
-          console.log('ℹ️  No charts defined for this simulation in sim_config');
-          console.log('ℹ️  User can manually add charts via right-click menu');
-        }
-      } else {
-        console.log('ℹ️  No simulation config available, skipping chart auto-load');
+      // Set simConfig for event markers (ChartPanel expects simulations[id].event_markers)
+      if (scenarioConfig.event_markers) {
+        setSimConfig({ simulations: { [simulationId]: scenarioConfig } });
       }
       
-      // ========================================================================
-      // STEP 8: Log success and prepare for next steps
-      // ========================================================================
-      console.log('✅ Simulation data ready for playback');
-      console.log('📊 Time range:', simulationMetadata.timeRange);
-      console.log('📊 Available columns:', simulationMetadata.columns);
+      const chartsToDisplay = scenarioConfig.charts_to_display || [];
+      setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
+      const initialPerChart = {};
+      if (chartsToDisplay.length > 0) {
+        const newCharts = chartsToDisplay.map((chartDef, index) => {
+          const chartId = `sim-chart-${Date.now()}-${index}`;
+          if (chartDef.sample_step != null) initialPerChart[chartId] = chartDef.sample_step;
+          if (chartDef.type === 'multi') {
+            return {
+              id: chartId,
+              type: 'multi-component',
+              chartType: chartDef.chart_type || 'multi-bar-chart',
+              title: chartDef.title || 'Multi-Component Chart',
+              csvName: csvNameForCharts,
+              timeColumn: chartDef.x_column,
+              components: chartDef.components || [],
+              isMultiComponent: true
+            };
+          }
+          const component = canvasComponents.find(c => c.id === chartDef.component_id);
+          if (!component) return null;
+          return {
+            id: chartId,
+            componentId: component.id,
+            componentName: component.name,
+            chartType: chartDef.chart_type || '2d',
+            csvName: csvNameForCharts,
+            xColumn: chartDef.x_column,
+            yColumn: chartDef.y_column,
+            title: chartDef.title || `${component.name} - ${chartDef.y_column}`
+          };
+        }).filter(Boolean);
+        setOpenCharts(newCharts);
+        setPerChartSampleStep(initialPerChart);
+      } else {
+        setPerChartSampleStep({});
+      }
       
-      // Show success message with details
-      const detailsMessage = [
-        `Simulation: ${simulationMetadata.displayName}`,
-        `Rows: ${simulationMetadata.rowCount}`,
-        `Time: ${simulationMetadata.timeRange.min}s to ${simulationMetadata.timeRange.max}s`,
-        ``,
-        `Next steps (will be implemented):`,
-        `- Clear current charts`,
-        `- Load charts from sim_config`,
-        `- Start animated playback`
-      ].join('\n');
-      
-      alert(`✅ Simulation data loaded!\n\n${detailsMessage}`);
-      
-      // TODO in next steps:
-      // - ✅ Clear current charts (DONE)
-      // - ✅ Store filtered data in state (DONE)
-      // - ✅ Auto-load charts from sim_config (DONE)
-      // - Implement animation loop with playback controls
-      // - Add event markers visualization
-      
+      // alert(`✅ Simulation loaded!\n\n${simulationMetadata.displayName}\n${simulationMetadata.rowCount} rows, ${simulationMetadata.timeRange.min}s–${simulationMetadata.timeRange.max}s`);
     } catch (error) {
       console.error('❌ Error loading simulation:', error);
-      alert(`❌ Failed to load simulation data:\n\n${error.message}`);
+      alert(`❌ Failed to load simulation:\n\n${error.message}`);
+    }
+  };
+
+  /**
+   * Refresh simulations list from backend (after add or upload)
+   */
+  const refreshSimulationsList = async () => {
+    if (!currentConfigName) return;
+    try {
+      const listRes = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations`);
+      if (listRes.ok) {
+        const list = await listRes.json();
+        const sims = list.simulations || [];
+        setAvailableSimulations(sims.map(s => s.id));
+        const simMap = {};
+        sims.forEach(s => { simMap[s.id] = { display_name: s.display_name, description: s.description || '' }; });
+        setSimConfig(sims.length > 0 ? { simulations: simMap } : null);
+      }
+    } catch (e) {
+      console.error('Failed to refresh simulations:', e);
+    }
+  };
+
+  /**
+   * Add a new simulation scenario (creates .sim.json, then user can upload CSV)
+   */
+  const handleAddSimulation = async (simName) => {
+    if (!currentConfigName || !simName?.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: simName.trim() })
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
+      }
+      await refreshSimulationsList();
+    } catch (e) {
+      alert(`❌ Failed to add simulation: ${e.message}`);
+    }
+  };
+
+  /**
+   * Upload CSV data for a simulation (design dir flow only)
+   */
+  const handleUploadSimData = async (simId, file) => {
+    if (!currentConfigName || !file) return;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(
+        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}/data`,
+        { method: 'POST', body: formData }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      await refreshSimulationsList();
+      alert(`✅ Uploaded ${result.row_count} rows to ${simId}.data.csv`);
+    } catch (e) {
+      alert(`❌ Upload failed: ${e.message}`);
     }
   };
 
@@ -866,6 +855,10 @@ function App() {
       console.log(`✅ Configuration saved: ${savedConfig.name}`);
       alert(`✅ Configuration "${savedConfig.name}" saved successfully!`);
 
+      // Persist current simulation's charts + sample rates to .sim.json
+      if (simulationMetadata?.id && openCharts.length >= 0) {
+        persistChartsToSimJson(openCharts);
+      }
     } catch (error) {
       console.error('❌ Error saving configuration:', error);
       alert(`❌ Failed to save: ${error.message}`);
@@ -891,167 +884,109 @@ function App() {
   };
 
   /**
-   * Open CSV Upload Dialog
+   * STEP 3: Persist chart config to .sim.json
+   *
+   * When the user adds or removes charts, we save the updated list to the current
+   * simulation's .sim.json so it survives a reload. We only persist when we have
+   * an active simulation from a design dir (simulationMetadata.id + currentConfigName).
+   * The conversion maps our openCharts format (componentId, xColumn, etc.) to the
+   * backend format (component_id, x_column, etc.) used in charts_to_display.
    */
-  const handleOpenCSVDialog = () => {
-    setShowCSVDialog(true);
-  };
-
-  /**
-   * Close CSV Upload Dialog
-   */
-  const handleCloseCSVDialog = () => {
-    setShowCSVDialog(false);
-  };
-
-  /**
-   * Handle CSV Upload Complete
-   * Called when CSV files are successfully uploaded
-   */
-  const handleCSVUploadComplete = () => {
-    console.log('✅ CSV upload complete');
-    // Future: Refresh CSV list in chart association dialog
-  };
-
-  /**
-   * Handle Chart Association Request
-   * Called when user selects a chart type from context menu
-   */
-  const handleAssociateChart = async (component, chartType) => {
-    console.log('📊 Associate chart:', chartType, 'to', component.name);
-    
-    // Auto-determine CSV name from current configuration
-    if (!currentConfigName) {
-      alert('⚠️ No configuration loaded. Please load a configuration first.');
-      return;
-    }
-    
-    const expectedCsvName = `${currentConfigName}.csv`;
-    console.log(`🔍 Auto-selecting CSV: ${expectedCsvName}`);
-    
-    // Check if CSV data is loaded
-    if (!csvStatus || !csvStatus.exists) {
-      alert(`⚠️ No CSV data loaded for this configuration.\n\nExpected file: ${expectedCsvName}\n\nPlease ensure the CSV file exists in the saved_csv directory.`);
-      return;
-    }
-    
-    // Fetch the CSV data from backend
+  const persistChartsToSimJson = useCallback(async (charts) => {
+    if (!simulationMetadata?.id || !currentConfigName) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/csv/${expectedCsvName}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch CSV: ${response.statusText}`);
-      }
-      const csvData = await response.json();
-      
-      console.log('✅ CSV data fetched:', csvData.name);
-      
-      // Go directly to column picker (skip CSV picker dialog)
-      setColumnPickerContext({
-        component,
-        chartType,
-        csvData
+      const charts_to_display = charts.map(c => {
+        let base;
+        if (c.isMultiComponent) {
+          base = {
+            type: 'multi',
+            chart_type: c.chartType,
+            x_column: c.timeColumn,
+            components: c.components || [],
+            title: c.title || ''
+          };
+        } else {
+          base = {
+            type: 'single',
+            component_id: c.componentId,
+            chart_type: c.chartType || '2d',
+            x_column: c.xColumn,
+            y_column: c.yColumn,
+            title: c.title || `${c.componentName || ''} - ${c.yColumn || 'chart'}`
+          };
+        }
+        if (perChartSampleStep[c.id] != null) base.sample_step = perChartSampleStep[c.id];
+        return base;
       });
-      setShowColumnPicker(true);
-      
-    } catch (error) {
-      console.error('❌ Error fetching CSV:', error);
-      alert(`Failed to load CSV data: ${error.message}\n\nExpected file: ${expectedCsvName}`);
+      const body = { charts_to_display, chart_sample_default: globalSampleStep };
+      const res = await fetch(
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationMetadata.id)}/config`,
+        { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
+      if (!res.ok) console.warn('Failed to persist charts:', await res.text());
+    } catch (e) {
+      console.warn('persistChartsToSimJson error:', e);
     }
+  }, [simulationMetadata?.id, currentConfigName, globalSampleStep, perChartSampleStep]);
+
+  /**
+   * STEP 1 + STEP 4: Gate and column picker flow
+   *
+   * When the user right-clicks a component and chooses "Associate Chart", we first check
+   * whether a simulation is loaded. If not, we show an instructive message. If yes,
+   * we open the column picker dialog (Step 4) so the user can pick X and Y columns from
+   * the current simulation's CSV. On confirm, we add the chart and persist to .sim.json.
+   */
+  const handleAssociateChart = (component, chartType) => {
+    const inSimulation = simulationMetadata != null && simulationData && simulationData.length > 0;
+    if (!inSimulation) {
+      alert('Run a simulation first to add or modify charts.\n\nClick a scenario button in the Simulation Controls panel.');
+      return;
+    }
+    setColumnPickerContext({ component, chartType });
   };
 
   /**
-   * Handle CSV selection from picker
+   * STEP 4: Callback when user confirms column selection in the column picker dialog.
+   * We create the chart object, add it to openCharts, persist to .sim.json, and close the dialog.
    */
-  const handleCSVSelected = (csvData) => {
-    console.log('✅ CSV selected:', csvData.name);
-    console.log('📋 Context:', csvPickerContext);
-    
-    // Close CSV picker and open column picker
-    setShowCSVPicker(false);
-    setColumnPickerContext({
-      component: csvPickerContext.component,
-      chartType: csvPickerContext.chartType,
-      csvData
-    });
-    setShowColumnPicker(true);
-  };
-
-  /**
-   * Handle column selection confirmation
-   */
-  const handleColumnsConfirmed = (selection) => {
-    console.log('✅ Columns confirmed:', selection);
-    
-    const { xColumn, yColumn, csvData } = selection;
+  const handleColumnPickerConfirm = ({ xColumn, yColumn, title }) => {
+    if (!columnPickerContext) return;
     const { component, chartType } = columnPickerContext;
-    
-    // Create chart association object
-    const chartAssociation = {
-      id: `chart-${Date.now()}`,
+    const csvName = simulationMetadata?.id ? `${simulationMetadata.id}.data.csv` : '';
+    const openChart = {
+      id: `open-${Date.now()}`,
+      componentId: component.id,
+      componentName: component.name,
       chartType,
-      csvName: csvData.name,
+      csvName,
       xColumn,
       yColumn,
-      created: new Date().toISOString()
+      title: title || `${component.name} - ${yColumn}`
     };
-    
-    // Update component with new chart association
-    setCanvasComponents(prev => prev.map(comp => {
-      if (comp.id === component.id) {
-        // Add or update charts array in component
-        const existingCharts = comp.charts || [];
-        
-        // Check if this chart type already exists
-        const existingIndex = existingCharts.findIndex(c => c.chartType === chartType);
-        
-        let updatedCharts;
-        if (existingIndex >= 0) {
-          // Replace existing chart of this type
-          updatedCharts = [...existingCharts];
-          updatedCharts[existingIndex] = chartAssociation;
-          console.log(`🔄 Updated existing ${chartType} chart for ${comp.name}`);
-        } else {
-          // Add new chart
-          updatedCharts = [...existingCharts, chartAssociation];
-          console.log(`✨ Added new ${chartType} chart to ${comp.name}`);
-        }
-        
-        return {
-          ...comp,
-          charts: updatedCharts
-        };
-      }
-      return comp;
-    }));
-    
-    console.log('📊 Chart associated successfully:', {
-      component: component.name,
-      chartType,
-      csv: csvData.name,
-      xColumn,
-      yColumn
+    setOpenCharts(prev => {
+      const next = [...prev, openChart];
+      persistChartsToSimJson(next);
+      return next;
     });
-    
-    setShowColumnPicker(false);
+    setColumnPickerContext(null);
   };
 
   /**
-   * Handle opening a chart in the bottom panel
+   * Handle opening a chart in the bottom panel (from a component's predefined charts).
+   * After adding, we persist to .sim.json so the chart list is saved.
    */
   const handleOpenChart = (component, chart) => {
     console.log('📊 Opening chart:', chart.chartType, 'for', component.name);
     
-    // Check if chart is already open
     const isAlreadyOpen = openCharts.some(c => 
       c.componentId === component.id && c.chartId === chart.id
     );
-    
     if (isAlreadyOpen) {
       console.log('⚠️  Chart already open');
       return;
     }
     
-    // Add chart to open charts
     const openChart = {
       id: `open-${Date.now()}`,
       componentId: component.id,
@@ -1063,74 +998,71 @@ function App() {
       yColumn: chart.yColumn
     };
     
-    setOpenCharts(prev => [...prev, openChart]);
+    setOpenCharts(prev => {
+      const next = [...prev, openChart];
+      persistChartsToSimJson(next);
+      return next;
+    });
   };
 
   /**
-   * Handle creating a multi-component chart (animated bar chart, etc.)
+   * Handle creating a multi-component chart (animated bar chart, etc.).
+   * After adding the chart to state, we persist the full chart list to .sim.json
+   * so the new chart survives a reload.
    */
   const handleCreateMultiComponentChart = (chartConfig) => {
     console.log('📊 Creating multi-component chart:', chartConfig);
     
-    // Create a single chart that displays multiple components
     const multiChart = {
       id: `multi-${Date.now()}`,
       type: 'multi-component',
-      chartType: chartConfig.type, // 'multi-bar-chart'
+      chartType: chartConfig.type,
       title: chartConfig.title,
       csvName: chartConfig.csvFile,
       timeColumn: chartConfig.timeColumn,
-      components: chartConfig.components, // Array of {id, name, type, columnName}
+      components: chartConfig.components || [],
       isMultiComponent: true
     };
     
-    setOpenCharts(prev => [...prev, multiChart]);
+    setOpenCharts(prev => {
+      const next = [...prev, multiChart];
+      persistChartsToSimJson(next);
+      return next;
+    });
   };
 
   /**
-   * Handle removing a chart from the bottom panel
+   * Handle removing a chart from the bottom panel.
+   * We compute the next chart list, update state, and persist to .sim.json so the
+   * removal is saved and will persist across reloads.
    */
   const handleRemoveChart = (openChartId) => {
     console.log('🗑️  Removing chart:', openChartId);
-    setOpenCharts(prev => prev.filter(c => c.id !== openChartId));
+    const nextCharts = openCharts.filter(c => c.id !== openChartId);
+    setOpenCharts(nextCharts);
+    setPerChartSampleStep(prev => {
+      const next = { ...prev };
+      delete next[openChartId];
+      return next;
+    });
+    persistChartsToSimJson(nextCharts);
   };
 
   /**
-   * Handle closing the entire chart panel
+   * Handle closing the entire chart panel.
+   * We clear charts and persist the empty list to .sim.json so reopening the design
+   * will start with no charts.
    */
   const handleCloseChartPanel = () => {
     console.log('❌ Closing chart panel');
     setOpenCharts([]);
+    setPerChartSampleStep({});
+    persistChartsToSimJson([]);
   };
 
   /**
    * Handle Load - Apply loaded configuration to the app
    */
-  /**
-   * Fetch available simulations from CSV
-   * Calls /api/csv/{name}/simulations to get unique simulation identifiers
-   */
-  const fetchAvailableSimulations = async (csvName) => {
-    if (!csvName) return;
-    
-    try {
-      console.log(`🔍 Fetching simulations from: ${csvName}`);
-      const response = await fetch(`http://localhost:5000/api/csv/${csvName}/simulations`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch simulations: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      console.log(`✅ Available simulations:`, result.simulations);
-      setAvailableSimulations(result.simulations);
-      
-    } catch (error) {
-      console.error('❌ Error fetching simulations:', error);
-      setAvailableSimulations([]);
-    }
-  };
-
   const handleConfigurationLoaded = (loadedConfig) => {
     console.log('✅ Loading configuration:', loadedConfig.name);
     console.log('🔍 Full loadedConfig:', loadedConfig); // DEBUG: See entire response
@@ -1140,31 +1072,18 @@ function App() {
     // Save the configuration name for future quick saves
     setCurrentConfigName(loadedConfig.name);
     
-    // Store simulation configuration (if present)
-    if (loadedConfig.sim_config) {
-      setSimConfig(loadedConfig.sim_config);
-      console.log('✅ Simulation config loaded:', Object.keys(loadedConfig.sim_config.simulations || {}).length, 'scenarios');
-    } else {
-      setSimConfig(null);
-      console.log('ℹ️  No simulation config available for this design');
-    }
-    
     // Store CSV status and fetch available simulations
     if (loadedConfig.csv_status) {
       setCsvStatus(loadedConfig.csv_status);
-      console.log('✅ CSV Status set:', loadedConfig.csv_status);
-      if (loadedConfig.csv_status.exists) {
-        console.log(`📊 ${loadedConfig.csv_status.message}`);
-        
-        // Fetch available simulations from CSV
-        fetchAvailableSimulations(loadedConfig.csv_status.csv_name);
-      } else {
-        console.warn(`⚠️  ${loadedConfig.csv_status.message}`);
-        setAvailableSimulations([]); // No CSV = no simulations
-      }
+      const sims = loadedConfig.csv_status.available_simulations || [];
+      setAvailableSimulations(sims.map(s => s.id));
+      const simMap = {};
+      sims.forEach(s => { simMap[s.id] = { display_name: s.display_name, description: s.description || '' }; });
+      setSimConfig(sims.length > 0 ? { simulations: simMap } : null);
     } else {
       console.warn('⚠️ csv_status is missing from backend response!');
       setAvailableSimulations([]);
+      setSimConfig(null);
     }
     
     // Extract data from the loaded configuration
@@ -1229,6 +1148,11 @@ function App() {
     
     // Update current config name for future quick saves
     setCurrentConfigName(savedConfig.name);
+
+    // Persist current simulation's charts + sample rates to .sim.json
+    if (simulationMetadata?.id) {
+      persistChartsToSimJson(openCharts);
+    }
   };
 
   /**
@@ -1265,8 +1189,8 @@ function App() {
             <div className="config-status-badge">
               <span className="config-name">{currentConfigName}</span>
               {csvStatus && (
-                <span className={`csv-status ${csvStatus.exists ? 'csv-loaded' : 'csv-missing'}`}>
-                  {csvStatus.exists ? '✅ Data loaded' : '⚠️ No CSV data'}
+                <span className={`csv-status ${csvStatus.exists ? 'csv-loaded' : csvStatus.use_design_dir ? 'csv-design-dir' : 'csv-missing'}`}>
+                  {csvStatus.exists ? '✅ Data loaded' : csvStatus.use_design_dir ? 'Click simulation to load' : '⚠️ No CSV data'}
                 </span>
               )}
             </div>
@@ -1302,7 +1226,6 @@ function App() {
           onSave={handleQuickSave}
           onSaveAs={handleOpenSaveDialog}
           onLoad={handleOpenLoadDialog}
-          onLoadCSV={handleOpenCSVDialog}
           hasComponents={canvasComponents.length > 0}
           canSave={currentConfigName !== null}
         />
@@ -1334,6 +1257,9 @@ function App() {
           onAssociateChart={handleAssociateChart}
           onOpenChart={handleOpenChart}
           onCreateMultiComponentChart={handleCreateMultiComponentChart}
+          canAddCharts={simulationMetadata != null && simulationData && simulationData.length > 0}
+          simulationColumns={simulationMetadata?.columns || []}
+          simulationCsvName={simulationMetadata?.id ? `${simulationMetadata.id}.data.csv` : ''}
           zoom={zoom}
           pan={pan}
           onPan={setPan}
@@ -1387,11 +1313,20 @@ function App() {
             3. handleRestartComponent updates the state (offline → normal)
             4. React re-renders everything
             5. The turbine appears grey/normal on screen!
+            When you click a simulation scenario (e.g. "Low-Voltage Ride-Through"), that scenario’s data and config are loaded. 
+            To show clearly which scenario is active, the matching button in the Simulation Controls panel gets a bright “active” style (brighter gradient, glow). 
+            The activeSimulationId prop is the ID of the loaded simulation and is passed from App to SimulationControls so the correct button can be styled.
+
         ================================================================ */}
+        {/* STEP 2: Pass which simulation  (simulationMetadata?.id ) is currently loaded so the Controls panel can highlight that button.
+            When the user clicks a scenario (e.g. "Low-Voltage Ride-Through"), simulationMetadata is set with its id.
+            Passing activeSimulationId lets SimulationControls show a bright, glowing style on the active button
+            so the user always knows which simulation they're viewing and editing charts for. */}
         <SimulationControls
           mode={mode}
           viewMode={viewMode}
           simulationRunning={simulationRunning}
+          activeSimulationId={simulationMetadata?.id ?? null}
           selectedComponent={selectedComponent}
           onTripComponent={handleTripComponent}
           onRestartComponent={handleRestartComponent}
@@ -1409,6 +1344,10 @@ function App() {
           availableSimulations={availableSimulations}
           simConfig={simConfig}
           onRunSimulation={handleRunSimulation}
+          useDesignDir={!!csvStatus?.use_design_dir}
+          currentConfigName={currentConfigName}
+          onUploadSimData={handleUploadSimData}
+          onAddSimulation={handleAddSimulation}
         />
       </div>
 
@@ -1420,37 +1359,20 @@ function App() {
           onSave={handleConfigurationSaved}
           onLoad={handleConfigurationLoaded}
           currentConfiguration={getCurrentConfiguration()}
-        />
-      )}
-
-      {/* CSV Upload Dialog */}
-      {showCSVDialog && (
-        <CSVUploadDialog
-          onClose={handleCloseCSVDialog}
-          onUploadComplete={handleCSVUploadComplete}
           currentConfigName={currentConfigName}
-          expectedCsvName={currentConfigName ? `${currentConfigName}.csv` : null}
         />
       )}
 
-      {/* CSV Picker Dialog */}
-      {showCSVPicker && csvPickerContext && (
-        <CSVPickerDialog
-          onClose={() => setShowCSVPicker(false)}
-          onSelectCSV={handleCSVSelected}
-          componentName={csvPickerContext.component.name}
-          chartType={csvPickerContext.chartType}
-        />
-      )}
-
-      {/* Column Picker Dialog */}
-      {showColumnPicker && columnPickerContext && (
+      {/* STEP 4: Column picker – when user picks a chart type, choose X/Y from simulation CSV */}
+      {columnPickerContext && (
         <ColumnPickerDialog
-          onClose={() => setShowColumnPicker(false)}
-          onConfirm={handleColumnsConfirmed}
-          csvData={columnPickerContext.csvData}
-          componentName={columnPickerContext.component.name}
+          key={`${columnPickerContext.component?.id}-${columnPickerContext.chartType}`}
+          component={columnPickerContext.component}
           chartType={columnPickerContext.chartType}
+          columns={simulationMetadata?.columns || []}
+          csvName={simulationMetadata?.id ? `${simulationMetadata.id}.data.csv` : ''}
+          onConfirm={handleColumnPickerConfirm}
+          onClose={() => setColumnPickerContext(null)}
         />
       )}
 
@@ -1468,6 +1390,10 @@ function App() {
           simulationData={simulationData}
           simulationMetadata={simulationMetadata}
           eventMarkers={simConfig?.simulations?.[simulationMetadata?.id]?.event_markers}
+          globalSampleStep={globalSampleStep}
+          perChartSampleStep={perChartSampleStep}
+          onGlobalSampleStepChange={setGlobalSampleStep}
+          onPerChartSampleStepChange={(chartId, step) => setPerChartSampleStep(prev => ({ ...prev, [chartId]: step }))}
         />
       )}
 

@@ -33,17 +33,123 @@ from datetime import datetime
 import json
 import os
 import re
+import shutil
 
 # Import database components
 from database import init_db, get_db
-# Import database models
-from models import Configuration, CSVDataset, SimulationConfig
+# Import database models (Configuration only; designs/ flow uses files, not DB for CSV/sim)
+from models import Configuration
 # Import Pydantic schemas for request/response validation
-from schemas import ConfigurationSaveRequest, ConfigurationResponse, ConfigurationListItem
+from schemas import ConfigurationSaveRequest, ConfigurationResponse, ConfigurationListItem, CreateSimulationRequest, UpdateSimulationConfigRequest
 # Additional imports for CSV handling
 from fastapi import File, UploadFile
 import csv
 import io
+import pandas as pd
+
+# ============================================================================
+# DESIGN DIRECTORY HELPERS (Step 5 - per-design structure)
+# ============================================================================
+
+DESIGNS_ROOT = "./designs"
+
+
+def sanitize_design_name(name: str) -> str:
+    """
+    Convert design name to safe directory name.
+    Example: "LM2500-BESS-Integrated-Power-Node" -> "lm2500_bess_integrated_power_node"
+    """
+    if not name or not isinstance(name, str):
+        return "unnamed"
+    s = re.sub(r'[^\w\s-]', '', name)  # Remove special chars except - and _
+    s = re.sub(r'[\s-]+', '_', s)      # Spaces and hyphens -> underscore
+    s = s.lower().strip('_')
+    return s if s else "unnamed"
+
+
+def copy_design_dir(source_name: str, dest_name: str) -> bool:
+    """
+    Copy design dir from source to dest (for Save As).
+    Copies all .sim.json and .data.csv files; renames .conf.json to new design name.
+    Returns True if copied, False if source doesn't exist or copy failed.
+    """
+    try:
+        src_dir = sanitize_design_name(source_name)
+        dst_dir = sanitize_design_name(dest_name)
+        src_path = os.path.join(DESIGNS_ROOT, src_dir)
+        dst_path = os.path.join(DESIGNS_ROOT, dst_dir)
+        src_abs = os.path.abspath(src_path)
+        dst_abs = os.path.abspath(dst_path)
+        cwd = os.getcwd()
+        print(f"[DEBUG] copy_design_dir: cwd={cwd}")
+        print(f"[DEBUG] copy_design_dir: src_path={src_path} -> abs={src_abs}")
+        print(f"[DEBUG] copy_design_dir: dst_path={dst_path} -> abs={dst_abs}")
+        if src_dir == dst_dir:
+            print(f"[DEBUG] copy_design_dir: SKIP (src==dst)")
+            return False
+        if not os.path.isdir(src_path):
+            print(f"[DEBUG] copy_design_dir: SKIP (source dir does not exist)")
+            return False
+        if os.path.exists(dst_path):
+            shutil.rmtree(dst_path)
+        os.makedirs(dst_path, exist_ok=True)
+        # Copy all files except .conf.json (we'll create fresh with new name)
+        src_conf = os.path.join(src_path, f"{src_dir}.conf.json")
+        for f in os.listdir(src_path):
+            src_f = os.path.join(src_path, f)
+            if os.path.isfile(src_f) and not f.endswith(".conf.json"):
+                shutil.copy2(src_f, os.path.join(dst_path, f))
+        # Copy and adapt conf file: {src_dir}.conf.json -> {dst_dir}.conf.json with new name
+        if os.path.isfile(src_conf):
+            with open(src_conf, "r") as f:
+                conf = json.load(f)
+            conf["name"] = dest_name
+            dst_conf = os.path.join(dst_path, f"{dst_dir}.conf.json")
+            with open(dst_conf, "w") as f:
+                json.dump(conf, f, indent=2)
+        print(f"✅ Copied design dir: {src_dir} -> {dst_dir}")
+        return True
+    except Exception as e:
+        print(f"⚠️  Copy design dir failed: {e}")
+        return False
+
+
+def save_config_to_design_dir(config_name: str, description, data: dict):
+    """
+    Save configuration to designs/{design_dir}/{design_dir}.conf.json
+    Creates design directory if it doesn't exist.
+    Returns the design_dir path used, or None on failure.
+    """
+    try:
+        cwd = os.getcwd()
+        design_dir = sanitize_design_name(config_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        conf_path = os.path.join(dir_path, f"{design_dir}.conf.json")
+        dir_abs = os.path.abspath(dir_path)
+        conf_abs = os.path.abspath(conf_path)
+        print(f"[DEBUG] save_config_to_design_dir: cwd={cwd}")
+        print(f"[DEBUG] save_config_to_design_dir: DESIGNS_ROOT={DESIGNS_ROOT}")
+        print(f"[DEBUG] save_config_to_design_dir: dir_path={dir_path} -> abs={dir_abs}")
+        print(f"[DEBUG] save_config_to_design_dir: conf_path={conf_path} -> abs={conf_abs}")
+        os.makedirs(dir_path, exist_ok=True)
+        conf_data = {
+            "name": config_name,
+            "description": description or "",
+            "canvasComponents": data.get("canvasComponents", []),
+            "connections": data.get("connections", []),
+            "systemState": data.get("systemState", {"simulationRunning": False, "zoom": 1, "pan": {"x": 0, "y": 0}})
+        }
+        with open(conf_path, 'w') as f:
+            json.dump(conf_data, f, indent=2)
+        print(f"✅ Saved to design dir: {conf_path}")
+        print(f"[DEBUG] save_config_to_design_dir: Verifying file exists: {os.path.exists(conf_path)}")
+        return design_dir
+    except Exception as e:
+        print(f"⚠️  Design dir save failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 
 # ============================================================================
 # CREATE THE FASTAPI APPLICATION
@@ -181,6 +287,8 @@ async def save_configuration(
         HTTPException 500: If database save fails
     """
     try:
+        # DEBUG: Log incoming save request
+        print(f"[DEBUG] save_configuration called: name={config_request.name!r}, source_name={config_request.source_name!r}", flush=True)
         # ----------------------------------------------------------------
         # STEP 1: Check if configuration with same name already exists
         # ----------------------------------------------------------------
@@ -190,6 +298,7 @@ async def save_configuration(
             # ----------------------------------------------------------------
             # UPDATE EXISTING CONFIGURATION
             # ----------------------------------------------------------------
+            print(f"[DEBUG] SAVE: UPDATE branch (config already exists)")
             print(f"🔄 Updating existing configuration: '{config_request.name}' (ID={existing_config.id})")
             
             # Convert the data dict to a JSON string
@@ -205,31 +314,13 @@ async def save_configuration(
             db.commit()
             db.refresh(existing_config)
             
-            # Update backup file
-            try:
-                sanitized_name = re.sub(r'[^\w\s-]', '', config_request.name)
-                sanitized_name = re.sub(r'[\s]+', '_', sanitized_name)
-                sanitized_name = sanitized_name.lower()
-                
-                if not sanitized_name:
-                    sanitized_name = f"config_{existing_config.id}"
-                
-                backup_filename = f"saved_configs/{sanitized_name}.json"
-                backup_data = {
-                    "id": existing_config.id,
-                    "name": existing_config.name,
-                    "description": existing_config.description,
-                    "data": config_request.data,
-                    "created_at": existing_config.created_at.isoformat(),
-                    "updated_at": existing_config.updated_at.isoformat()
-                }
-                
-                with open(backup_filename, 'w') as f:
-                    json.dump(backup_data, f, indent=2)
-                
-                print(f"✅ Updated backup file: {backup_filename}")
-            except Exception as backup_error:
-                print(f"⚠️  Backup file update failed: {backup_error}")
+            # Save to design dir (per-design structure)
+            print(f"[DEBUG] SAVE (UPDATE): Calling save_config_to_design_dir for '{config_request.name}'")
+            save_config_to_design_dir(
+                config_request.name,
+                config_request.description,
+                config_request.data
+            )
             
             # Return the updated configuration
             response_config = ConfigurationResponse(
@@ -247,9 +338,15 @@ async def save_configuration(
         
         else:
             # ----------------------------------------------------------------
-            # CREATE NEW CONFIGURATION
+            # CREATE NEW CONFIGURATION (or Save As)
             # ----------------------------------------------------------------
+            print(f"[DEBUG] SAVE: CREATE branch (new config or Save As)")
             print(f"➕ Creating new configuration: '{config_request.name}'")
+            # Step 13: Save As - copy design dir from source if provided
+            if config_request.source_name and config_request.source_name != config_request.name:
+                print(f"[DEBUG] SAVE (CREATE): Save As detected - source_name='{config_request.source_name}', dest='{config_request.name}'")
+                copy_result = copy_design_dir(config_request.source_name, config_request.name)
+                print(f"[DEBUG] SAVE (CREATE): copy_design_dir returned {copy_result}")
         
         # ----------------------------------------------------------------
         # STEP 2: Convert the data dict to a JSON string
@@ -295,41 +392,13 @@ async def save_configuration(
         # db.refresh() re-reads the record from the database to get these values
         db.refresh(new_config)
         
-        # ----------------------------------------------------------------
-        # STEP 6: Optionally save a JSON backup file to disk
-        # ----------------------------------------------------------------
-        # This provides redundancy and makes configurations easy to inspect
-        # Format: saved_configs/{sanitized_name}.json
-        try:
-            # Sanitize the configuration name to make it a valid filename
-            # Replace spaces with underscores, remove special characters
-            sanitized_name = re.sub(r'[^\w\s-]', '', config_request.name)  # Remove special chars
-            sanitized_name = re.sub(r'[\s]+', '_', sanitized_name)  # Replace spaces with underscores
-            sanitized_name = sanitized_name.lower()  # Convert to lowercase
-            
-            # If sanitized name is empty (all special chars), use ID as fallback
-            if not sanitized_name:
-                sanitized_name = f"config_{new_config.id}"
-            
-            backup_filename = f"saved_configs/{sanitized_name}.json"
-            backup_data = {
-                "id": new_config.id,
-                "name": new_config.name,
-                "description": new_config.description,
-                "data": config_request.data,  # Save as dict, not string
-                "created_at": new_config.created_at.isoformat(),
-                "updated_at": new_config.updated_at.isoformat()
-            }
-            
-            # Write the JSON file with nice formatting (indent=2)
-            with open(backup_filename, 'w') as f:
-                json.dump(backup_data, f, indent=2)
-            
-            print(f"✅ Saved backup file: {backup_filename}")
-        except Exception as backup_error:
-            # If backup fails, log it but don't fail the whole request
-            # The database save already succeeded, which is what matters
-            print(f"⚠️  Backup file save failed: {backup_error}")
+        # Save to design dir (per-design structure)
+        print(f"[DEBUG] SAVE (CREATE): Calling save_config_to_design_dir for '{config_request.name}'")
+        save_config_to_design_dir(
+            config_request.name,
+            config_request.description,
+            config_request.data
+        )
         
         # ----------------------------------------------------------------
         # STEP 7: Return the saved configuration
@@ -368,115 +437,6 @@ async def save_configuration(
             status_code=500,
             detail=f"Failed to save configuration: {str(e)}"
         )
-# ============================================================================
-# HELPER FUNCTION: AUTO-LOAD CSV FOR CONFIGURATION
-# ============================================================================
-# This function automatically loads CSV data when a configuration is loaded.
-#
-# NAMING CONVENTION:
-# - Configuration name must match CSV filename exactly
-# - Example: "LM2500-BESS-Integrated-Power-Node" → "LM2500-BESS-Integrated-Power-Node.csv"
-#
-# THREE-TIER CHECK PROCESS:
-# 1. Check if CSV file exists on disk (in saved_csv/ directory)
-#    → If NO: Return error message "No CSV file found"
-# 2. Check if CSV is already loaded in database
-#    → If YES: Return success message "already loaded" (cached)
-# 3. If file exists but not in database: Auto-load it
-#    → Read CSV from disk
-#    → Parse columns and rows
-#    → Store in CSVDataset table
-#    → Return success message "auto-loaded"
-#
-# WHY THIS MATTERS:
-# - Enforces tight coupling between configurations and their data
-# - Eliminates manual CSV upload steps
-# - Prevents wrong data being used with wrong configuration
-# - Provides instant feedback to user about data availability
-#
-# RETURNS:
-# dict with keys: {"loaded": bool, "csv_name": str, "message": str}
-
-def auto_load_csv_for_config(config_name: str, db: Session):
-    """
-    Automatically load the corresponding CSV file for a configuration.
-    
-    CSV filename must match configuration name exactly.
-    Example: Configuration "Tier III Data Center - Horizontal Layout" 
-             → CSV "Tier III Data Center - Horizontal Layout.csv"
-    
-    Args:
-        config_name: Name of the configuration (exact match)
-        db: Database session
-    
-    Returns:
-        dict: {"loaded": bool, "csv_name": str, "message": str}
-    """
-    try:
-        # CSV filename = configuration name + .csv extension (exact match)
-        csv_filename = f"{config_name}.csv"
-        csv_path = os.path.join("saved_csv", csv_filename)
-        
-        # Check if CSV file exists
-        if not os.path.exists(csv_path):
-            return {
-                "loaded": False,
-                "csv_name": None,
-                "message": f"No CSV file found: '{csv_filename}'"
-            }
-        
-        # CSV file exists - check if already in database
-        existing_csv = db.query(CSVDataset).filter(CSVDataset.name == csv_filename).first()
-        
-        if existing_csv:
-            # Already loaded
-            return {
-                "loaded": True,
-                "csv_name": csv_filename,
-                "message": f"CSV '{csv_filename}' already loaded (ID: {existing_csv.id})"
-            }
-        
-        # CSV exists but not in database - load it now
-        print(f"📂 Auto-loading CSV: {csv_filename}")
-        
-        # Read and parse CSV
-        with open(csv_path, 'r') as f:
-            csv_reader = csv.DictReader(f)
-            columns = csv_reader.fieldnames
-            rows = list(csv_reader)
-        
-        # Create CSVDataset record
-        new_csv = CSVDataset(
-            name=csv_filename,
-            file_path=csv_path,
-            columns=json.dumps(columns),
-            data_json=json.dumps(rows),
-            row_count=len(rows)
-        )
-        
-        db.add(new_csv)
-        db.commit()
-        db.refresh(new_csv)
-        
-        print(f"✅ Auto-loaded CSV: {csv_filename} ({len(rows)} rows)")
-        
-        return {
-            "loaded": True,
-            "csv_name": csv_filename,
-            "message": f"CSV '{csv_filename}' auto-loaded successfully ({len(rows)} rows)"
-        }
-        
-    except Exception as e:
-        print(f"❌ Error auto-loading CSV: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "loaded": False,
-            "csv_name": None,
-            "message": f"Error: {str(e)}"
-        }
-
-
 # ============================================================================
 # LOAD CONFIGURATION ENDPOINT
 # ============================================================================
@@ -600,40 +560,28 @@ async def load_configuration(
             )
         
         # ----------------------------------------------------------------
-        # STEP 4: Check for matching CSV file
+        # STEP 4: Check if design uses new per-design directory structure
         # ----------------------------------------------------------------
-        # Try to automatically load the CSV file that matches this configuration
-        csv_result = auto_load_csv_for_config(config.name, db)
+        design_dir = sanitize_design_name(config.name)
+        design_dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        uses_design_dir = os.path.isdir(design_dir_path)
         
-        # Prepare CSV status for response
+        csv_status = {}
+        if not uses_design_dir:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Design directory not found for '{config.name}'. Configurations must have a design folder at designs/{design_dir}/"
+            )
+        list_result = _list_design_simulations(config.name)
         csv_status = {
-            "exists": csv_result["loaded"],
-            "csv_name": csv_result.get("csv_name", f"{config.name}.csv"),
-            "message": csv_result["message"]
+            "exists": False,
+            "csv_name": None,
+            "message": "Design uses per-simulation files (click a simulation to load data)",
+            "use_design_dir": True,
+            "design_name": config.name,
+            "available_simulations": list_result.get("simulations", [])
         }
-        
-        if csv_result["loaded"]:
-            print(f"   ✅ {csv_result['message']}")
-        else:
-            print(f"   ⚠️  {csv_result['message']}")
-        
-        # ----------------------------------------------------------------
-        # STEP 5: Check for matching simulation configuration
-        # ----------------------------------------------------------------
-        # Try to load the simulation config that defines scenarios, charts, and event markers
-        sim_config = db.query(SimulationConfig).filter(
-            SimulationConfig.design_name == config.name
-        ).first()
-        
-        sim_config_data = None
-        if sim_config:
-            try:
-                sim_config_data = json.loads(sim_config.json_data)
-                print(f"   ✅ Simulation config found for '{config.name}'")
-            except json.JSONDecodeError as json_error:
-                print(f"   ⚠️  Simulation config JSON parsing error: {json_error}")
-        else:
-            print(f"   ℹ️  No simulation config found for '{config.name}'")
+        print(f"   ✅ Design dir found: {design_dir} ({len(csv_status['available_simulations'])} simulations)")
         
         # ----------------------------------------------------------------
         # STEP 6: Create the response object
@@ -647,7 +595,7 @@ async def load_configuration(
             created_at=config.created_at,
             updated_at=config.updated_at,
             csv_status=csv_status,
-            sim_config=sim_config_data  # Add simulation config (or None)
+            sim_config=None  # Sim config comes from .sim.json when run
         )
         
         print(f"✅ Configuration loaded: ID={config.id}, Name='{config.name}'")
@@ -851,38 +799,7 @@ async def delete_configuration(
         
         print(f"✅ Configuration deleted from database: ID={config_id}, Name='{config_name}'")
         
-        # ----------------------------------------------------------------
-        # STEP 4: Delete backup JSON file (if it exists)
-        # ----------------------------------------------------------------
-        # Try to find and delete the backup file
-        # First, try using sanitized name (new format)
-        # Then fall back to old format (config_ID.json) for backwards compatibility
-        try:
-            # Sanitize the configuration name (same logic as save)
-            sanitized_name = re.sub(r'[^\w\s-]', '', config_name)  # Remove special chars
-            sanitized_name = re.sub(r'[\s]+', '_', sanitized_name)  # Replace spaces with underscores
-            sanitized_name = sanitized_name.lower()  # Convert to lowercase
-            
-            # Try new format first
-            backup_filename = f"saved_configs/{sanitized_name}.json"
-            if os.path.exists(backup_filename):
-                os.remove(backup_filename)
-                print(f"✅ Deleted backup file: {backup_filename}")
-            else:
-                # Try old format (config_ID.json) for backwards compatibility
-                backup_filename_old = f"saved_configs/config_{config_id}.json"
-                if os.path.exists(backup_filename_old):
-                    os.remove(backup_filename_old)
-                    print(f"✅ Deleted backup file (old format): {backup_filename_old}")
-                else:
-                    print(f"ℹ️  No backup file to delete")
-        except Exception as backup_error:
-            # If backup deletion fails, log it but don't fail the whole request
-            # The database deletion already succeeded, which is what matters
-            print(f"⚠️  Backup file deletion failed: {backup_error}")
-        
-        # ----------------------------------------------------------------
-        # STEP 5: Return success message
+        # Return success message
         # ----------------------------------------------------------------
         return {
             "message": f"Configuration '{config_name}' deleted successfully",
@@ -903,901 +820,255 @@ async def delete_configuration(
         )
 
 # ============================================================================
-# CSV UPLOAD ENDPOINT
+# DESIGN DIRECTORY ENDPOINTS (per-design structure)
 # ============================================================================
-# POST /api/csv/upload - Upload a CSV file and store it in the database
+# New design-centric APIs. Design name is sanitized to find design_dir.
 #
-# HOW IT WORKS:
-# 1. User uploads a CSV file through frontend
-# 2. We parse the CSV to extract columns and data
-# 3. We store the data as JSON in the database
-# 4. We save the original CSV file to saved_csv/ directory
-# 5. We return metadata about the uploaded dataset
-#
-# EXAMPLE REQUEST (curl):
-# curl -X POST http://localhost:5000/api/csv/upload \
-#   -F "file=@solar_data.csv"
-#
-# EXAMPLE RESPONSE:
-# {
-#   "id": 1,
-#   "name": "solar_data.csv",
-#   "columns": ["time_sec", "power_mw", "voltage_kv"],
-#   "row_count": 8640,
-#   "uploaded_at": "2026-02-06T04:00:00"
-# }
+# GET /api/designs/{design_name}/simulations - List simulations from design dir
 # ============================================================================
-# CSV UPLOAD ENDPOINT
-# ============================================================================
-# POST /api/csv/upload - Upload a CSV file and store it in the database
-#
-# 🌐 HOW FILE UPLOAD WORKS (Client → Server):
-# ============================================================================
-# IMPORTANT: The browser does NOT send a "file path" to the server!
-# 
-# Here's what actually happens:
-#
-# 1. USER ACTION (Client Side):
-#    - User clicks "Upload CSV" button in browser
-#    - Browser opens file picker dialog
-#    - User selects: /Users/john/Desktop/solar_data.csv
-#
-# 2. BROWSER BEHAVIOR (Client Side):
-#    - Browser reads the ENTIRE FILE CONTENT into memory
-#    - Browser creates an HTTP POST request with:
-#      a) File content as binary data (the actual bytes of the CSV)
-#      b) File metadata in HTTP headers (filename, content-type, size)
-#    - Browser sends this data over the network to the server
-#
-# 3. NETWORK TRANSMISSION:
-#    - The file travels as HTTP "multipart/form-data" 
-#    - This is a special encoding that packages files for web transmission
-#    - Example HTTP request:
-#      POST /api/csv/upload HTTP/1.1
-#      Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
-#      
-#      ------WebKitFormBoundary
-#      Content-Disposition: form-data; name="file"; filename="solar_data.csv"
-#      Content-Type: text/csv
-#      
-#      time_sec,power_mw
-#      0,0.0
-#      10,1.2
-#      ... (all file content here) ...
-#      ------WebKitFormBoundary--
-#
-# 4. SERVER RECEPTION (This Code):
-#    - FastAPI receives the HTTP request
-#    - The 'file: UploadFile' parameter automatically:
-#      a) Extracts the file content from the request body
-#      b) Extracts the filename from HTTP headers ("solar_data.csv")
-#      c) Provides methods to read the content (file.read(), file.seek())
-#    - The server NEVER sees the client's local path (/Users/john/Desktop/...)
-#    - Only the filename ("solar_data.csv") and content are transmitted
-#
-# 5. SERVER STORAGE:
-#    - We save the file content to OUR disk (server's saved_csv/ directory)
-#    - We parse the CSV and store data in OUR database
-#
-# 🔒 SECURITY NOTE:
-# The server cannot and should not see the client's local file path.
-# This is a security feature - prevents the server from knowing the
-# client's directory structure or username.
-#
-# 🎯 KEY TAKEAWAY:
-# UploadFile = The file CONTENT + filename, NOT a path!
-# The "file path" on the client machine is never transmitted to the server.
-#
-# ============================================================================
-#
-# EXAMPLE REQUEST (curl):
-# curl -X POST http://localhost:5000/api/csv/upload \
-#   -F "file=@solar_data.csv"
-#
-# The @ symbol tells curl to read the file content and send it.
-# The server receives the content, not the path.
-#
-# EXAMPLE RESPONSE:
-# {
-#   "id": 1,
-#   "name": "solar_data.csv",
-#   "columns": ["time_sec", "power_mw", "voltage_kv"],
-#   "row_count": 8640,
-#   "uploaded_at": "2026-02-06T04:00:00"
-# }
-@app.post("/api/csv/upload")
-async def upload_csv(
-    file: UploadFile = File(...),  # FastAPI extracts file content from HTTP request
-    db: Session = Depends(get_db)
-):
-    """
-    Upload a CSV file and store it in the database.
-    
-    HOW THE 'file' PARAMETER WORKS:
-    ================================
-    - 'file: UploadFile' is a FastAPI special type
-    - It automatically extracts the uploaded file from the HTTP request
-    - Properties available:
-      * file.filename: The original filename (e.g., "solar_data.csv")
-      * file.content_type: MIME type (e.g., "text/csv")
-      * file.read(): Returns the file content as bytes
-      * file.seek(0): Resets read position to beginning
-    
-    - The UploadFile object contains the FILE CONTENT, not a path
-    - Think of it like: UploadFile = {filename: "solar.csv", content: bytes}
-    
-    This endpoint:
-    1. Validates the CSV file format
-    2. Parses the CSV data (reads content, not path!)
-    3. Checks for name conflicts (same filename already exists)
-    4. Stores data as JSON in the database
-    5. Saves the CSV file to our server's disk (saved_csv/ directory)
-    6. Returns metadata about the uploaded dataset
-    
-    Args:
-        file: The uploaded CSV file (content + metadata, NOT a path)
-        db: Database session (injected by FastAPI via Depends)
-    
-    Returns:
-        dict: Metadata about the uploaded CSV dataset
-    
-    Raises:
-        HTTPException 400: If file is not a CSV or has invalid format
-        HTTPException 409: If CSV with same name already exists
-        HTTPException 500: If database or file save fails
-    """
-    try:
-        # ----------------------------------------------------------------
-        # STEP 1: Validate file is a CSV
-        # ----------------------------------------------------------------
-        # file.filename = The original filename from the client's computer
-        # Example: "solar_data.csv"
-        # We only get the NAME, not the full path (for security)
-        if not file.filename.endswith('.csv'):
-            raise HTTPException(
-                status_code=400,
-                detail="File must be a CSV file (*.csv)"
-            )
-        
-        # ----------------------------------------------------------------
-        # STEP 2: Read and parse CSV content
-        # ----------------------------------------------------------------
-        # Read file content as bytes, then decode to string
-        # await file.read() = Reads the ENTIRE file content sent by browser
-        # This might be 1 MB, 10 MB, etc. - the actual CSV data
-        contents = await file.read()
-        decoded_content = contents.decode('utf-8')
-        
-        # Now 'decoded_content' is a string containing the full CSV:
-        # "time_sec,power_mw\n0,0.0\n10,1.2\n20,2.5\n..."
-        
-        # Parse CSV using Python's csv.DictReader
-        # DictReader treats first row as headers and returns each row as a dict
-        # Example row: {"time_sec": "0", "power_mw": "0.0"}
-        csv_reader = csv.DictReader(io.StringIO(decoded_content))
-        
-        # Extract column names from header row
-        # Example: ["time_sec", "power_mw", "voltage_kv"]
-        columns = csv_reader.fieldnames
-        if not columns:
-            raise HTTPException(
-                status_code=400,
-                detail="CSV file has no header row (column names)"
-            )
-        
-        # Read all data rows into a list of dictionaries
-        # This loops through every row in the CSV
-        data_rows = []
-        for row in csv_reader:
-            # Convert each row to dict with proper data types
-            # CSV stores everything as strings, we try to convert to numbers
-            parsed_row = {}
-            for col_name, value in row.items():
-                # Try to convert to float if possible, otherwise keep as string
-                try:
-                    parsed_row[col_name] = float(value)
-                except (ValueError, TypeError):
-                    parsed_row[col_name] = value
-            data_rows.append(parsed_row)
-        
-        # Example data_rows after parsing:
-        # [
-        #   {"time_sec": 0.0, "power_mw": 0.0},
-        #   {"time_sec": 10.0, "power_mw": 1.2},
-        #   ...
-        # ]
-        
-        row_count = len(data_rows)
-        
-        if row_count == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="CSV file has no data rows"
-            )
-        
-        print(f"📊 Parsed CSV: {file.filename}")
-        print(f"   Columns: {columns}")
-        print(f"   Rows: {row_count:,}")
-        
-        # ----------------------------------------------------------------
-        # STEP 3: Check if CSV with same name already exists
-        # ----------------------------------------------------------------
-        existing_csv = db.query(CSVDataset).filter(CSVDataset.name == file.filename).first()
-        
-        if existing_csv:
-            raise HTTPException(
-                status_code=409,
-                detail=f"CSV file '{file.filename}' already exists. Please rename the file or delete the existing one first."
-            )
-        
-        # ----------------------------------------------------------------
-        # STEP 4: Convert data to JSON and store in database
-        # ----------------------------------------------------------------
-        # Convert Python list/dict to JSON strings for storage
-        columns_json = json.dumps(columns)
-        data_json = json.dumps(data_rows)
-        
-        # Define where we'll save the CSV file on our server
-        file_path = f"saved_csv/{file.filename}"
-        
-        # Create database record
-        new_csv = CSVDataset(
-            name=file.filename,
-            file_path=file_path,
-            columns=columns_json,
-            data_json=data_json,
-            row_count=row_count
-        )
-        
-        db.add(new_csv)
-        db.commit()
-        db.refresh(new_csv)
-        
-        print(f"✅ Stored in database: {file.filename}")
-        
-        # ----------------------------------------------------------------
-        # STEP 5: Save CSV file to disk (our server's disk, not client's!)
-        # ----------------------------------------------------------------
-        try:
-            # Save the original CSV file to saved_csv/ directory
-            # This creates a backup copy on our server
-            with open(file_path, 'wb') as f:
-                # Reset file pointer to beginning
-                # (we already read it once in step 2, so need to rewind)
-                await file.seek(0)
-                content = await file.read()
-                f.write(content)
-            
-            print(f"✅ Saved to disk: {file_path}")
-        except Exception as file_error:
-            print(f"⚠️  Failed to save CSV file to disk: {file_error}")
-            # Continue anyway - database storage is what matters
-        
-        # ----------------------------------------------------------------
-        # STEP 6: Return metadata
-        # ----------------------------------------------------------------
-        return {
-            "id": new_csv.id,
-            "name": new_csv.name,
-            "file_path": new_csv.file_path,
-            "columns": columns,  # Return as array, not JSON string
-            "row_count": new_csv.row_count,
-            "uploaded_at": new_csv.uploaded_at.isoformat()
-        }
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions (400, 409) as-is
-        raise
-    except Exception as e:
-        # Catch any unexpected errors
-        print(f"❌ Error uploading CSV: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to upload CSV: {str(e)}"
-        )
 
-# ============================================================================
-# CSV LIST ENDPOINT
-# ============================================================================
-# GET /api/csv/list - Get a list of all uploaded CSV datasets
-#
-# HOW IT WORKS:
-# 1. Query database for all CSV datasets
-# 2. Return metadata only (name, columns, row count)
-# 3. Do NOT return the full data (can be very large)
-# 4. Order by upload date (newest first)
-#
-# WHY EXCLUDE FULL DATA?
-# - CSV data can be huge (8,640 rows = several MB)
-# - Listing all CSVs with full data would be very slow
-# - Frontend only needs metadata to show in picker dialog
-# - Full data is loaded separately when user selects a CSV
-#
-# EXAMPLE REQUEST (curl):
-# curl http://localhost:5000/api/csv/list
-#
-# EXAMPLE RESPONSE:
-# [
-#   {
-#     "id": 3,
-#     "name": "wind_24hr_realistic.csv",
-#     "columns": ["time_sec", "hour_of_day", "power_mw", "wind_speed_mph"],
-#     "row_count": 8640,
-#     "uploaded_at": "2026-02-06T06:00:00"
-#   },
-#   {
-#     "id": 2,
-#     "name": "solar_24hr_realistic.csv",
-#     "columns": ["time_sec", "hour_of_day", "power_mw", "irradiance_w_m2"],
-#     "row_count": 8640,
-#     "uploaded_at": "2026-02-06T05:00:00"
-#   }
-# ]
-@app.get("/api/csv/list")
-async def list_csv_datasets(db: Session = Depends(get_db)):
-    """
-    Get a list of all uploaded CSV datasets (metadata only).
-    
-    This endpoint:
-    1. Queries the database for all CSV datasets
-    2. Returns only metadata (id, name, columns, row count, upload time)
-    3. Excludes the full data field (for performance)
-    4. Orders by upload date (newest first)
-    
-    Use this to show users a list of available CSV datasets when
-    they want to associate a chart with a component.
-    
-    Args:
-        db: Database session (injected by FastAPI via Depends)
-    
-    Returns:
-        list: List of CSV dataset metadata objects
-    
-    Raises:
-        HTTPException 500: If database query fails
-    """
-    try:
-        # ----------------------------------------------------------------
-        # STEP 1: Query all CSV datasets from database
-        # ----------------------------------------------------------------
-        # This generates SQL: SELECT * FROM csv_datasets ORDER BY uploaded_at DESC
-        # .all() returns a list of all matching records
-        # .order_by(...desc()) sorts newest first
-        csv_datasets = db.query(CSVDataset).order_by(CSVDataset.uploaded_at.desc()).all()
-        
-        # ----------------------------------------------------------------
-        # STEP 2: Convert to response format (metadata only)
-        # ----------------------------------------------------------------
-        # We exclude the full data_json field (can be huge)
-        # Only return what the frontend needs for the picker dialog
-        result = []
-        for csv_dataset in csv_datasets:
-            # Parse columns JSON string back to array
-            columns = json.loads(csv_dataset.columns)
-            
-            item = {
-                "id": csv_dataset.id,
-                "name": csv_dataset.name,
-                "file_path": csv_dataset.file_path,
-                "columns": columns,  # Return as array
-                "row_count": csv_dataset.row_count,
-                "uploaded_at": csv_dataset.uploaded_at.isoformat()
-            }
-            result.append(item)
-        
-        print(f"✅ Listed {len(result)} CSV dataset(s)")
-        
-        return result
-        
-    except Exception as e:
-        # Database or other unexpected error
-        print(f"❌ Error listing CSV datasets: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to list CSV datasets: {str(e)}"
-        )
-
-# ============================================================================
-# CSV DATA RETRIEVAL ENDPOINT
-# ============================================================================
-# GET /api/csv/{name} - Get full data for a specific CSV dataset
-#
-# HOW IT WORKS:
-# 1. Extract CSV name from URL path parameter
-# 2. Query database for that specific CSV dataset
-# 3. Return full data (all rows) as JSON array
-# 4. Frontend uses this to show preview or load data for plotting
-#
-# WHY SEPARATE FROM LIST ENDPOINT?
-# - CSV data can be huge (8,640 rows = several MB)
-# - We only load full data when user needs it (on-demand)
-# - List endpoint shows metadata only (for picker dialog)
-# - This endpoint loads everything (for preview or chart rendering)
-#
-# EXAMPLE REQUEST (curl):
-# curl http://localhost:5000/api/csv/solar_24hr_realistic.csv
-#
-# EXAMPLE RESPONSE:
-# {
-#   "id": 1,
-#   "name": "solar_24hr_realistic.csv",
-#   "columns": ["time_sec", "hour_of_day", "power_mw", "irradiance_w_m2"],
-#   "row_count": 8640,
-#   "uploaded_at": "2026-02-06T05:00:00",
-#   "data": [
-#     {"time_sec": 0, "hour_of_day": 0.0, "power_mw": 0.0, "irradiance_w_m2": 0.0},
-#     {"time_sec": 10, "hour_of_day": 0.00278, "power_mw": 0.0, "irradiance_w_m2": 0.0},
-#     ...
-#   ]
-# }
-@app.get("/api/csv/{name}")
-async def get_csv_data(name: str, db: Session = Depends(get_db)):
-    """
-    Get full data for a specific CSV dataset by name.
-    
-    This endpoint:
-    1. Looks up the CSV dataset by name in the database
-    2. Returns the full metadata AND all data rows
-    3. Data is returned as a JSON array of objects
-    
-    Use this when:
-    - User wants to preview CSV data before associating with component
-    - Frontend needs to load data for plotting (during simulation)
-    - User wants to inspect what columns/values are available
-    
-    Args:
-        name: CSV dataset name (from URL path, e.g., "solar_24hr_realistic.csv")
-        db: Database session (injected by FastAPI via Depends)
-    
-    Returns:
-        dict: Full CSV dataset including metadata and all data rows
-    
-    Raises:
-        HTTPException 404: If CSV dataset not found
-        HTTPException 500: If database query or JSON parsing fails
-    """
-    try:
-        # ----------------------------------------------------------------
-        # STEP 1: Query database for this specific CSV by name
-        # ----------------------------------------------------------------
-        # This generates SQL: SELECT * FROM csv_datasets WHERE name = ?
-        # .first() returns the first matching record (or None if not found)
-        csv_dataset = db.query(CSVDataset).filter(CSVDataset.name == name).first()
-        
-        # ----------------------------------------------------------------
-        # STEP 2: Check if CSV exists
-        # ----------------------------------------------------------------
-        if not csv_dataset:
-            # No CSV with this name found in database
-            print(f"❌ CSV dataset not found: {name}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"CSV dataset '{name}' not found"
-            )
-        
-        # ----------------------------------------------------------------
-        # STEP 3: Parse JSON strings back to Python objects
-        # ----------------------------------------------------------------
-        # Database stores columns and data as JSON strings
-        # We need to convert them back to Python list/dict for response
-        columns = json.loads(csv_dataset.columns)
-        data_rows = json.loads(csv_dataset.data_json)
-        
-        # ----------------------------------------------------------------
-        # STEP 4: Build response with full data
-        # ----------------------------------------------------------------
-        result = {
-            "id": csv_dataset.id,
-            "name": csv_dataset.name,
-            "file_path": csv_dataset.file_path,
-            "columns": columns,
-            "row_count": csv_dataset.row_count,
-            "uploaded_at": csv_dataset.uploaded_at.isoformat(),
-            "data": data_rows  # Full data array (can be large!)
-        }
-        
-        print(f"✅ Retrieved CSV data: {name} ({csv_dataset.row_count} rows)")
-        
-        return result
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions (like 404)
-        raise
-    except Exception as e:
-        # Database or JSON parsing error
-        print(f"❌ Error retrieving CSV data: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve CSV data: {str(e)}"
-        )
-
-
-# ============================================================================
-# GET UNIQUE SIMULATIONS FROM CSV
-# ============================================================================
-# GET /api/csv/{name}/simulations - Extract unique simulation scenarios
-#
-# HOW IT WORKS:
-# 1. Load CSV dataset from database by name
-# 2. Parse the data_json to get all rows
-# 3. Extract the "simulation" column from each row
-# 4. Return unique values as an array
-#
-# EXAMPLE REQUEST:
-# GET /api/csv/LM2500-BESS-Integrated-Power-Node.csv/simulations
-#
-# EXAMPLE RESPONSE:
-# {
-#   "csv_name": "LM2500-BESS-Integrated-Power-Node.csv",
-#   "simulations": ["sim_Torsional", "sim_LVRT", "sim_SmallSignal"],
-#   "count": 3
-# }
-# This step creates the intelligence to dynamically discover which simulation scenarios are available in a CSV file. 
-# When a CSV is loaded (either from disk or database), the backend will scan through the simulation column and identify all unique values (like sim_Torsional, sim_LVRT, sim_SmallSignal). This list of available simulations becomes the foundation for dynamically generating simulation buttons in the UI. Instead of hard-coding which simulations exist, the system discovers them automatically from the data itself.
-# this is a backend endpoint /api/csv/{csv_name}/simulations that returns an array of unique simulation identifiers found in the CSV. The frontend will call this endpoint when a configuration with matching CSV data is loaded, storing the available simulations in state. This dynamic discovery means users can create CSV files with any number of simulation scenarios, and the UI will automatically adapt to show the right number of buttons - no code changes needed.
-
-@app.get("/api/csv/{name}/simulations")
-async def get_csv_simulations(name: str, db: Session = Depends(get_db)):
-    """
-    Extract unique simulation scenarios from a CSV's 'simulation' column.
-    
-    This endpoint scans the CSV data for unique values in the 'simulation' column
-    and returns them as an array. This enables dynamic simulation button generation
-    in the frontend based on what scenarios are actually in the data.
-    
-    Args:
-        name: CSV dataset name (e.g., "LM2500-BESS-Integrated-Power-Node.csv")
-        db: Database session
-    
-    Returns:
-        dict: {
-            "csv_name": str,
-            "simulations": list of unique simulation identifiers,
-            "count": int
-        }
-    
-    Raises:
-        HTTPException 404: If CSV not found
-        HTTPException 400: If CSV has no 'simulation' column
-        HTTPException 500: If data parsing fails
-    """
-    try:
-        # ----------------------------------------------------------------
-        # STEP 1: Get CSV dataset from database
-        # ----------------------------------------------------------------
-        csv_dataset = db.query(CSVDataset).filter(CSVDataset.name == name).first()
-        
-        if not csv_dataset:
-            print(f"❌ CSV dataset not found: {name}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"CSV dataset '{name}' not found"
-            )
-        
-        # ----------------------------------------------------------------
-        # STEP 2: Parse data and columns
-        # ----------------------------------------------------------------
-        columns = json.loads(csv_dataset.columns)
-        data_rows = json.loads(csv_dataset.data_json)
-        
-        # ----------------------------------------------------------------
-        # STEP 3: Check if 'simulation' column exists
-        # ----------------------------------------------------------------
-        if 'simulation' not in columns:
-            print(f"⚠️  CSV '{name}' has no 'simulation' column")
-            raise HTTPException(
-                status_code=400,
-                detail=f"CSV '{name}' does not have a 'simulation' column"
-            )
-        
-        # ----------------------------------------------------------------
-        # STEP 4: Extract unique simulation values
-        # ----------------------------------------------------------------
-        simulations = set()
-        for row in data_rows:
-            sim_value = row.get('simulation')
-            if sim_value:  # Skip empty/null values
-                simulations.add(sim_value)
-        
-        # Convert set to sorted list
-        simulations_list = sorted(list(simulations))
-        
-        print(f"✅ Found {len(simulations_list)} unique simulations in '{name}': {simulations_list}")
-        
-        # ----------------------------------------------------------------
-        # STEP 5: Return result
-        # ----------------------------------------------------------------
-        return {
-            "csv_name": name,
-            "simulations": simulations_list,
-            "count": len(simulations_list)
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Error extracting simulations: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to extract simulations: {str(e)}"
-        )
-
-
-# ============================================================================
-# CSV DELETE ENDPOINT
-# ============================================================================
-# DELETE /api/csv/{name} - Delete a specific CSV dataset
-#
-# HOW IT WORKS:
-# 1. Extract CSV name from URL path parameter
-# 2. Query database for that specific CSV dataset
-# 3. Delete the file from disk (saved_csv/ directory)
-# 4. Delete the database record
-# 5. Return success confirmation
-#
-# WHY DELETE BOTH DATABASE AND FILE?
-# - Database record contains metadata and parsed data
-# - File on disk is the original CSV (for backup/inspection)
-# - Both must be deleted to fully remove the dataset
-# - If file doesn't exist, we still delete the DB record (silent fail)
-#
-# EXAMPLE REQUEST (curl):
-# curl -X DELETE http://localhost:5000/api/csv/solar_24hr_realistic.csv
-#
-# EXAMPLE RESPONSE:
-# {
-#   "message": "CSV dataset deleted successfully",
-#   "name": "solar_24hr_realistic.csv",
-#   "file_deleted": true
-# }
-@app.delete("/api/csv/{name}")
-async def delete_csv_data(name: str, db: Session = Depends(get_db)):
-    """
-    Delete a specific CSV dataset by name.
-    
-    This endpoint:
-    1. Looks up the CSV dataset by name in the database
-    2. Deletes the physical file from disk (if it exists)
-    3. Deletes the database record
-    4. Returns confirmation
-    
-    Use this when:
-    - User wants to remove a CSV dataset
-    - User wants to overwrite an existing CSV (delete then re-upload)
-    - Cleanup of old/unused datasets
-    
-    Args:
-        name: CSV dataset name (from URL path, e.g., "solar_24hr_realistic.csv")
-        db: Database session (injected by FastAPI via Depends)
-    
-    Returns:
-        dict: Confirmation message with deletion status
-    
-    Raises:
-        HTTPException 404: If CSV dataset not found
-        HTTPException 500: If database deletion or file deletion fails
-    """
-    try:
-        # ----------------------------------------------------------------
-        # STEP 1: Query database for this specific CSV by name
-        # ----------------------------------------------------------------
-        csv_dataset = db.query(CSVDataset).filter(CSVDataset.name == name).first()
-        
-        # ----------------------------------------------------------------
-        # STEP 2: Check if CSV exists
-        # ----------------------------------------------------------------
-        if not csv_dataset:
-            print(f"❌ CSV dataset not found: {name}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"CSV dataset '{name}' not found"
-            )
-        
-        # ----------------------------------------------------------------
-        # STEP 3: Delete the physical file from disk (if it exists)
-        # ----------------------------------------------------------------
-        file_deleted = False
-        if csv_dataset.file_path and os.path.exists(csv_dataset.file_path):
+def _list_design_simulations(design_name: str) -> dict:
+    """Sync helper to list simulations in a design dir."""
+    design_dir = sanitize_design_name(design_name)
+    dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+    if not os.path.isdir(dir_path):
+        return {"design_name": design_name, "design_dir": design_dir, "simulations": []}
+    simulations = []
+    for f in os.listdir(dir_path):
+        if f.endswith(".sim.json"):
+            sim_name = f[:-9]
+            sim_path = os.path.join(dir_path, f)
             try:
-                os.remove(csv_dataset.file_path)
-                file_deleted = True
-                print(f"✅ Deleted file: {csv_dataset.file_path}")
-            except Exception as e:
-                # File deletion failed, but continue with DB deletion
-                print(f"⚠️  Failed to delete file: {e}")
-        else:
-            print(f"ℹ️  No file to delete (path: {csv_dataset.file_path})")
-        
-        # ----------------------------------------------------------------
-        # STEP 4: Delete the database record
-        # ----------------------------------------------------------------
-        db.delete(csv_dataset)
-        db.commit()
-        
-        print(f"✅ Deleted CSV dataset: {name}")
-        
-        # ----------------------------------------------------------------
-        # STEP 5: Return confirmation
-        # ----------------------------------------------------------------
-        return {
-            "message": "CSV dataset deleted successfully",
-            "name": name,
-            "file_deleted": file_deleted
-        }
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions (like 404)
-        raise
+                with open(sim_path, "r") as fp:
+                    sim_config = json.load(fp)
+                display_name = sim_config.get("display_name", sim_name)
+            except Exception:
+                display_name = sim_name
+            description = sim_config.get("description", "")
+            simulations.append({"id": sim_name, "display_name": display_name, "description": description})
+    simulations.sort(key=lambda s: s["display_name"])
+    return {"design_name": design_name, "design_dir": design_dir, "simulations": simulations}
+
+
+@app.get("/api/designs/{design_name}/simulations")
+async def list_design_simulations(design_name: str):
+    """
+    List available simulations for a design by scanning the design directory.
+    """
+    try:
+        return _list_design_simulations(design_name)
     except Exception as e:
-        # Database or file system error
-        print(f"❌ Error deleting CSV data: {e}")
-        db.rollback()  # Rollback any partial database changes
+        print(f"❌ Error listing simulations for {design_name}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete CSV data: {str(e)}"
+            detail=f"Failed to list simulations: {str(e)}"
         )
 
 
-# ============================================================================
-# SIMULATION CONFIG ENDPOINTS
-# ============================================================================
-# These endpoints manage simulation scenario configurations (JSON files)
-# that define which charts to show for each simulation scenario.
-#
-# GET  /api/sim-config/{design_name} - Retrieve simulation config
-# POST /api/sim-config/{design_name} - Save/update simulation config
-# ============================================================================
-
-@app.get("/api/sim-config/{design_name}")
-async def get_simulation_config(design_name: str, db: Session = Depends(get_db)):
+@app.get("/api/designs/{design_name}/simulations/{sim_name}")
+async def load_design_simulation(design_name: str, sim_name: str):
     """
-    Get simulation configuration for a specific design.
+    Load a specific simulation: .sim.json config + .data.csv data.
     
-    This endpoint retrieves the JSON configuration that defines:
-    - Display names for simulation buttons
-    - Which charts to show for each simulation scenario
-    - Event marker settings (colors, labels)
-    
-    Args:
-        design_name: Name of the design configuration
-        db: Database session
-    
-    Returns:
-        dict: Full simulation configuration with all scenarios
-    
-    Raises:
-        HTTPException 404: If simulation config not found
-        HTTPException 500: If JSON parsing fails
+    Returns both the simulation config (charts, event_markers) and the CSV data rows.
+    Used when user clicks a simulation button - no DB, all from design dir.
     """
     try:
-        # Query database for simulation config
-        sim_config = db.query(SimulationConfig).filter(
-            SimulationConfig.design_name == design_name
-        ).first()
+        design_dir = sanitize_design_name(design_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
         
-        if not sim_config:
-            print(f"⚠️  No simulation config found for design: {design_name}")
+        if not os.path.isdir(dir_path):
             raise HTTPException(
                 status_code=404,
-                detail=f"No simulation config found for design '{design_name}'"
+                detail=f"Design directory not found: {design_name}"
             )
         
-        # Parse JSON string to dict
-        config_data = json.loads(sim_config.json_data)
+        # Sim name from list endpoint is the filename without .sim.json (e.g. "ExampleSimulation")
+        sim_json_path = os.path.join(dir_path, f"{sim_name}.sim.json")
+        sim_csv_path = os.path.join(dir_path, f"{sim_name}.data.csv")
         
-        print(f"✅ Retrieved simulation config for: {design_name}")
+        if not os.path.isfile(sim_json_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Simulation config not found: {sim_name}"
+            )
+        
+        # Load sim config
+        with open(sim_json_path, 'r') as f:
+            sim_config = json.load(f)
+        
+        # Load CSV data
+        data_rows = []
+        if os.path.isfile(sim_csv_path):
+            with open(sim_csv_path, 'r') as f:
+                reader = csv.DictReader(f)
+                data_rows = list(reader)
         
         return {
-            "id": sim_config.id,
-            "design_name": sim_config.design_name,
-            "config": config_data,
-            "created_at": sim_config.created_at.isoformat(),
-            "updated_at": sim_config.updated_at.isoformat()
+            "design_name": design_name,
+            "sim_name": sim_name,
+            "sim_config": sim_config,
+            "data": data_rows,
+            "row_count": len(data_rows)
         }
-        
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error retrieving simulation config: {e}")
+        print(f"❌ Error loading simulation {design_name}/{sim_name}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve simulation config: {str(e)}"
+            detail=f"Failed to load simulation: {str(e)}"
         )
 
 
-@app.post("/api/sim-config/{design_name}")
-async def save_simulation_config(
-    design_name: str,
-    config_data: dict,
-    db: Session = Depends(get_db)
-):
+@app.post("/api/designs/{design_name}/simulations")
+async def create_simulation(design_name: str, body: CreateSimulationRequest):
     """
-    Save or update simulation configuration for a design.
-    
-    This endpoint:
-    1. Accepts simulation configuration JSON from frontend
-    2. Saves to database (creates new or updates existing)
-    3. Saves backup JSON file to saved_sim/ directory
-    4. Returns success response
-    
-    Args:
-        design_name: Name of the design configuration
-        config_data: Full simulation configuration dict
-        db: Database session
-    
-    Returns:
-        dict: Success message with saved config info
-    
-    Raises:
-        HTTPException 500: If save fails
+    Create a new simulation (empty .sim.json). Enables adding scenarios before uploading CSV.
     """
     try:
-        print(f"💾 Saving simulation config for: {design_name}")
-        
-        # Convert dict to JSON string for database storage
-        json_string = json.dumps(config_data, indent=2)
-        
-        # Check if config already exists
-        existing = db.query(SimulationConfig).filter(
-            SimulationConfig.design_name == design_name
-        ).first()
-        
-        if existing:
-            # Update existing
-            print(f"   🔄 Updating existing simulation config (ID: {existing.id})")
-            existing.json_data = json_string
-            existing.updated_at = datetime.utcnow()
-            db.commit()
-            db.refresh(existing)
-            sim_config = existing
-        else:
-            # Create new
-            print(f"   ➕ Creating new simulation config")
-            new_config = SimulationConfig(
-                design_name=design_name,
-                json_data=json_string
-            )
-            db.add(new_config)
-            db.commit()
-            db.refresh(new_config)
-            sim_config = new_config
-        
-        # Save backup JSON file to disk
-        try:
-            # Sanitize filename
-            sanitized_name = re.sub(r'[^\w\s-]', '', design_name)
-            sanitized_name = re.sub(r'[\s]+', '_', sanitized_name)
-            sanitized_name = sanitized_name.lower()
-            
-            if not sanitized_name:
-                sanitized_name = f"sim_config_{sim_config.id}"
-            
-            backup_path = f"saved_sim/{sanitized_name}.json"
-            
-            with open(backup_path, 'w') as f:
-                json.dump(config_data, f, indent=2)
-            
-            print(f"   ✅ Saved backup file: {backup_path}")
-        except Exception as backup_error:
-            print(f"   ⚠️  Backup file save failed: {backup_error}")
-        
-        print(f"✅ Simulation config saved: {design_name}")
-        
-        return {
-            "success": True,
-            "message": f"Simulation config saved for '{design_name}'",
-            "id": sim_config.id,
-            "design_name": sim_config.design_name,
-            "updated_at": sim_config.updated_at.isoformat()
+        sim_name = body.name.strip()
+        design_dir = sanitize_design_name(design_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        if not os.path.isdir(dir_path):
+            raise HTTPException(status_code=404, detail=f"Design directory not found: {design_name}")
+        safe_sim = re.sub(r'[^\w\-]', '', sim_name) or sim_name or "simulation"
+        sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
+        if os.path.isfile(sim_json_path):
+            raise HTTPException(status_code=409, detail=f"Simulation '{sim_name}' already exists")
+        sim_config = {
+            "display_name": sim_name.replace("_", " ").replace("-", " ").title(),
+            "description": "",
+            "charts_to_display": [],
+            "event_markers": {}
         }
-        
+        with open(sim_json_path, "w") as f:
+            json.dump(sim_config, f, indent=2)
+        print(f"✅ Created simulation: {safe_sim}.sim.json")
+        return {"design_name": design_name, "sim_name": safe_sim}
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"❌ Error saving simulation config: {e}")
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to save simulation config: {str(e)}"
-        )
+        print(f"❌ Error creating simulation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# STEP 3: Update simulation config (charts_to_display, event_markers)
+# ============================================================================
+# When the user adds or removes charts in the UI, we need to persist the new
+# configuration back to the .sim.json file. This endpoint reads the existing
+# file, merges in the new charts_to_display (and optionally event_markers),
+# and overwrites the file so the changes survive a reload.
+# ============================================================================
+
+@app.put("/api/designs/{design_name}/simulations/{sim_name}/config")
+async def update_simulation_config(design_name: str, sim_name: str, body: UpdateSimulationConfigRequest):
+    """
+    Update a simulation's .sim.json – overwrite charts_to_display and optionally event_markers.
+    Preserves display_name, description; replaces charts_to_display with the provided list.
+    """
+    try:
+        design_dir = sanitize_design_name(design_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        sim_json_path = os.path.join(dir_path, f"{sim_name}.sim.json")
+        if not os.path.isfile(sim_json_path):
+            raise HTTPException(status_code=404, detail=f"Simulation config not found: {sim_name}")
+        with open(sim_json_path, "r") as f:
+            sim_config = json.load(f)
+        sim_config["charts_to_display"] = body.charts_to_display
+        if body.event_markers is not None:
+            sim_config["event_markers"] = body.event_markers
+        if body.chart_sample_default is not None:
+            sim_config["chart_sample_default"] = body.chart_sample_default
+        with open(sim_json_path, "w") as f:
+            json.dump(sim_config, f, indent=2)
+        print(f"✅ Updated {sim_name}.sim.json ({len(body.charts_to_display)} charts)")
+        return {"design_name": design_name, "sim_name": sim_name, "chart_count": len(body.charts_to_display)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating sim config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/designs/{design_name}/simulations/{sim_name}/data")
+async def upload_simulation_data(design_name: str, sim_name: str, file: UploadFile = File(...)):
+    """
+    Upload CSV data for a simulation. Saves to designs/{dir}/{sim_name}.data.csv
+    Step 14: Per-sim CSV upload for design dir flow.
+    """
+    try:
+        if not file.filename or not file.filename.lower().endswith(".csv"):
+            raise HTTPException(status_code=400, detail="File must be a CSV (.csv extension)")
+        design_dir = sanitize_design_name(design_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        os.makedirs(dir_path, exist_ok=True)
+        safe_sim = re.sub(r'[^\w\-]', '', sim_name) or sim_name or "simulation"
+        csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
+        content = await file.read()
+        decoded = content.decode("utf-8-sig").strip()
+        if not decoded:
+            raise HTTPException(status_code=400, detail="Upload failed: File is empty.")
+
+        first_line = decoded.split("\n")[0] if "\n" in decoded else decoded
+        if "," not in first_line and "\t" not in first_line:
+            raise HTTPException(
+                status_code=400,
+                detail="Upload failed: File does not look like CSV (no comma or tab in header). Expected comma-separated columns."
+            )
+
+        rows = None
+        use_pandas = False
+
+        try:
+            reader = csv.DictReader(io.StringIO(decoded))
+            rows = list(reader)
+        except Exception:
+            use_pandas = True
+
+        if use_pandas:
+            try:
+                buf = io.StringIO(decoded)
+                try:
+                    df = pd.read_csv(buf, sep=",")
+                except (pd.errors.ParserError, pd.errors.EmptyDataError, ValueError):
+                    buf.seek(0)
+                    df = pd.read_csv(buf, sep=",", on_bad_lines="skip", engine="python")
+                if df.empty:
+                    raise HTTPException(status_code=400, detail="Upload failed: No data rows found.")
+                if len(df.columns) == 0:
+                    raise HTTPException(status_code=400, detail="Upload failed: No columns found. Ensure the first line contains comma-separated column names.")
+                rows = df.replace({float("nan"): None}).to_dict("records")
+                df.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
+            except HTTPException:
+                raise
+            except Exception as pe:
+                raise HTTPException(status_code=400, detail=f"Upload failed: {str(pe)}")
+        else:
+            with open(csv_path, "w", newline="") as f:
+                f.write(decoded)
+        # Create minimal .sim.json if it doesn't exist (so sim appears in list)
+        sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
+        if not os.path.isfile(sim_json_path):
+            sim_config = {
+                "display_name": sim_name.replace("_", " ").replace("-", " ").title(),
+                "description": "",
+                "charts_to_display": [],
+                "event_markers": {}
+            }
+            with open(sim_json_path, "w") as f:
+                json.dump(sim_config, f, indent=2)
+            print(f"   Created {safe_sim}.sim.json")
+        print(f"✅ Uploaded {len(rows)} rows to {csv_path}")
+        return {"design_name": design_name, "sim_name": safe_sim, "row_count": len(rows)}
+    except HTTPException:
+        raise
+    except UnicodeDecodeError as e:
+        raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
+    except Exception as e:
+        print(f"❌ Error uploading sim data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
@@ -1812,8 +1083,7 @@ async def startup_event():
     
     Tasks performed on startup:
     1. Initialize database (create tables if they don't exist)
-    2. Create saved_configs directory (for configuration file backups)
-    3. Create saved_csv directory (for CSV time-series data)
+    2. Create designs directory (per-design structure)
     4. Print helpful startup messages
     """
     print("=" * 60)
@@ -1822,7 +1092,7 @@ async def startup_event():
     
     # Initialize the database (create tables if they don't exist)
     # This calls database.init_db() which:
-    # 1. Imports all models (Configuration, CSVDataset, ChartAssociation)
+    # 1. Imports all models (Configuration)
     # 2. Reads their structure (columns, types, constraints)
     # 3. Creates the corresponding database tables
     # 4. If tables already exist, does nothing (idempotent)
@@ -1832,23 +1102,14 @@ async def startup_event():
         print(f"❌ Database initialization failed: {e}")
         print("   The server will continue, but database operations may fail.")
     
-    # Create saved_configs directory if it doesn't exist
-    # This directory stores JSON files as backups/redundancy for configurations
-    saved_configs_dir = "./saved_configs"
-    if not os.path.exists(saved_configs_dir):
-        os.makedirs(saved_configs_dir)
-        print(f"📁 Created directory: {saved_configs_dir}")
+    # Create designs directory (per-design structure)
+    # Each design has its own subdirectory: designs/{design_name}/
+    designs_dir = "./designs"
+    if not os.path.exists(designs_dir):
+        os.makedirs(designs_dir)
+        print(f"📁 Created directory: {designs_dir}")
     else:
-        print(f"📁 Directory exists: {saved_configs_dir}")
-    
-    # Create saved_csv directory if it doesn't exist
-    # This directory stores uploaded CSV files for time-series data
-    saved_csv_dir = "./saved_csv"
-    if not os.path.exists(saved_csv_dir):
-        os.makedirs(saved_csv_dir)
-        print(f"📁 Created directory: {saved_csv_dir}")
-    else:
-        print(f"📁 Directory exists: {saved_csv_dir}")
+        print(f"📁 Directory exists: {designs_dir}")
     
     print("=" * 60)
     print("✅ Health check available at: http://localhost:5000/health")

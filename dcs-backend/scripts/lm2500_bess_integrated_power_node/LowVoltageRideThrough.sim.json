@@ -1,0 +1,66 @@
+{
+  "display_name": "Low-Voltage Ride-Through",
+  "description": "LVRT test on bus",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bus-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bus_voltage_kv",
+      "title": "Bus Voltage (Critical LVRT Parameter)"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bus-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bus_frequency_hz",
+      "title": "Bus Frequency"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine1_current_a",
+      "title": "LM2500 #1 - Current Response"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-turbine-2",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine2_current_a",
+      "title": "LM2500 #2 - Current Response"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bess_power_mw",
+      "title": "BESS - Support Power"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-load-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "load_power_mw",
+      "title": "Data Center Load - Power Draw"
+    }
+  ],
+  "event_markers": {
+    "lvrt_active": {
+      "label": "LVRT Event (Voltage Sag)",
+      "color": "rgba(255, 0, 0, 0.15)",
+      "line_color": "rgba(255, 0, 0, 0.8)"
+    },
+    "bess_connected": {
+      "label": "BESS Supporting",
+      "color": "rgba(0, 255, 0, 0.1)",
+      "line_color": "rgba(0, 255, 0, 0.6)"
+    }
+  }
+}

@@ -2,247 +2,124 @@ import React, { useState, useEffect } from 'react';
 import './ColumnPickerDialog.css';
 
 /**
- * Column Picker Dialog Component
- * 
- * Shows columns from selected CSV and allows user to:
- * 1. Assign X-axis column
- * 2. Assign Y-axis column
- * 3. Preview data
- * 4. Confirm selection
- * 
- * Props:
- * - csvData: Selected CSV metadata (name, columns, etc.)
- * - componentName: Name of the component
- * - chartType: Type of chart
- * - onClose: Function to close the dialog
- * - onConfirm: Function called with { xColumn, yColumn, csvData }
+ * STEP 4: Column Picker Dialog for single-component charts
+ *
+ * When the user right-clicks a component and selects a chart type (2D, histogram, etc.)
+ * while in a simulation with CSV loaded, we show this dialog so they can pick which
+ * columns to use for the X and Y axes. The columns come from simulationMetadata.columns
+ * (the current simulation's CSV). On confirm, we pass the selection back so App.js can
+ * add the chart and persist it to .sim.json.
  */
-const ColumnPickerDialog = ({ csvData, componentName, chartType, onClose, onConfirm }) => {
-  const [xColumn, setXColumn] = useState(null);
-  const [yColumn, setYColumn] = useState(null);
-  const [previewData, setPreviewData] = useState([]);
-  const [loading, setLoading] = useState(false);
+const ColumnPickerDialog = ({
+  component,
+  chartType,
+  columns = [],
+  csvName,
+  onConfirm,
+  onClose
+}) => {
+  const [xColumn, setXColumn] = useState('');
+  const [yColumn, setYColumn] = useState('');
+  const [title, setTitle] = useState('');
   const [error, setError] = useState(null);
 
-  /**
-   * Auto-select common time/x columns
-   */
+  // Auto-select common columns when dialog opens (columns from simulation CSV)
   useEffect(() => {
-    // Common X-axis column names
-    const timeColumns = ['time', 'time_sec', 'timestamp', 'hour', 'hour_of_day', 'date'];
-    const autoXColumn = csvData.columns.find(col => 
-      timeColumns.some(t => col.toLowerCase().includes(t))
+    if (columns.length === 0) return;
+    const timeCol = columns.find(c =>
+      /time|timestamp|sec|_t$/i.test(String(c))
     );
-    
-    if (autoXColumn) {
-      setXColumn(autoXColumn);
-      console.log('📊 Auto-selected X column:', autoXColumn);
-    }
-    
-    // Auto-select first numeric-looking column for Y
-    const numericColumns = csvData.columns.filter(col => 
-      !timeColumns.some(t => col.toLowerCase().includes(t))
-    );
-    if (numericColumns.length > 0) {
-      setYColumn(numericColumns[0]);
-      console.log('📊 Auto-selected Y column:', numericColumns[0]);
-    }
-  }, [csvData.columns]);
+    if (timeCol) setXColumn(timeCol);
+    const firstOther = columns.find(c => c !== timeCol) || columns[0];
+    if (firstOther) setYColumn(firstOther);
+  }, [columns]);
 
-  /**
-   * Fetch preview data when columns change
-   */
-  useEffect(() => {
-    if (xColumn && yColumn) {
-      fetchPreview();
-    }
-  }, [xColumn, yColumn]);
+  const chartTypeLabels = {
+    '2d': '2D Plot (X vs Y)',
+    histogram: 'Histogram',
+    pie: 'Pie Chart',
+    bar: 'Bar Chart',
+    '3d': '3D Surface',
+    heatmap: 'Heatmap',
+    box: 'Box Plot'
+  };
 
-  /**
-   * Fetch preview data from backend
-   */
-  const fetchPreview = async () => {
-    setLoading(true);
+  const handleCreate = () => {
     setError(null);
-
-    try {
-      const response = await fetch(`http://localhost:5000/api/csv/${csvData.name}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch CSV data');
-      }
-
-      const data = await response.json();
-      
-      // Take first 10 rows for preview
-      const preview = data.data.slice(0, 10).map(row => ({
-        x: row[xColumn],
-        y: row[yColumn]
-      }));
-      
-      setPreviewData(preview);
-      console.log('📊 Preview data loaded:', preview.length, 'rows');
-    } catch (error) {
-      console.error('❌ Error fetching preview:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+    if (!xColumn || !yColumn) {
+      setError('Please select both X and Y columns.');
+      return;
     }
+    onConfirm({ xColumn, yColumn, title: title.trim() || undefined });
+    onClose();
   };
 
-  /**
-   * Handle confirm
-   */
-  const handleConfirm = () => {
-    if (xColumn && yColumn) {
-      onConfirm({
-        xColumn,
-        yColumn,
-        csvData
-      });
-    }
-  };
-
-  /**
-   * Get chart type label
-   */
-  const getChartTypeLabel = () => {
-    const labels = {
-      '2d': '2D Plot',
-      'histogram': 'Histogram',
-      'pie': 'Pie Chart',
-      'bar': 'Bar Chart',
-      '3d': '3D Surface',
-      'heatmap': 'Heatmap',
-      'box': 'Box Plot'
-    };
-    return labels[chartType] || chartType;
+  const handleOverlayClick = (e) => {
+    if (e.target.classList.contains('dialog-overlay')) onClose();
   };
 
   return (
-    <div className="column-picker-overlay" onClick={(e) => e.target.className === 'column-picker-overlay' && onClose()}>
-      <div className="column-picker-dialog">
-        <div className="column-picker-header">
-          <div className="column-picker-title">
-            Select Columns
-          </div>
-          <div className="column-picker-subtitle">
-            {getChartTypeLabel()} for <strong>{componentName}</strong>
-          </div>
-          <div className="column-picker-csv">
-            📄 {csvData.name}
-          </div>
-          <button className="column-picker-close" onClick={onClose}>×</button>
+    <div className="dialog-overlay column-picker-overlay" onClick={handleOverlayClick}>
+      <div className="column-picker-dialog" onClick={e => e.stopPropagation()}>
+        <div className="dialog-header">
+          <h2>📊 Select columns for {chartTypeLabels[chartType] || chartType}</h2>
+          <button className="dialog-close-btn" onClick={onClose}>✕</button>
         </div>
-
-        <div className="column-picker-content">
-          <div className="column-picker-grid">
-            {/* X-Axis Column Selector */}
-            <div className="column-picker-section">
-              <div className="column-picker-section-title">
-                X-Axis (Horizontal)
-              </div>
-              <div className="column-picker-section-desc">
-                Usually time, date, or independent variable
-              </div>
-              <div className="column-picker-columns">
-                {csvData.columns.map((col) => (
-                  <div
-                    key={col}
-                    className={`column-picker-column ${xColumn === col ? 'selected' : ''}`}
-                    onClick={() => setXColumn(col)}
-                  >
-                    <div className="column-picker-column-name">{col}</div>
-                    {xColumn === col && (
-                      <div className="column-picker-column-check">✓</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Y-Axis Column Selector */}
-            <div className="column-picker-section">
-              <div className="column-picker-section-title">
-                Y-Axis (Vertical)
-              </div>
-              <div className="column-picker-section-desc">
-                Usually measured value or dependent variable
-              </div>
-              <div className="column-picker-columns">
-                {csvData.columns.map((col) => (
-                  <div
-                    key={col}
-                    className={`column-picker-column ${yColumn === col ? 'selected' : ''}`}
-                    onClick={() => setYColumn(col)}
-                  >
-                    <div className="column-picker-column-name">{col}</div>
-                    {yColumn === col && (
-                      <div className="column-picker-column-check">✓</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="dialog-body">
+          <div className="column-picker-component">
+            <span className="component-icon">⚡</span>
+            <span>{component?.name || 'Component'}</span>
           </div>
-
-          {/* Preview Section */}
-          {xColumn && yColumn && (
-            <div className="column-picker-preview">
-              <div className="column-picker-preview-title">
-                📊 Data Preview (First 10 Rows)
-              </div>
-              
-              {loading && (
-                <div className="column-picker-preview-loading">
-                  <div className="column-picker-spinner"></div>
-                  Loading preview...
-                </div>
-              )}
-              
-              {error && (
-                <div className="column-picker-preview-error">
-                  ⚠️ {error}
-                </div>
-              )}
-              
-              {!loading && !error && previewData.length > 0 && (
-                <div className="column-picker-preview-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{xColumn}</th>
-                        <th>{yColumn}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.map((row, idx) => (
-                        <tr key={idx}>
-                          <td>{typeof row.x === 'number' ? row.x.toFixed(2) : row.x}</td>
-                          <td>{typeof row.y === 'number' ? row.y.toFixed(2) : row.y}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+          {error && (
+            <div className="dialog-error">⚠️ {error}</div>
           )}
+          <div className="dialog-section">
+            <label className="dialog-label">X-Axis Column</label>
+            <select
+              className="dialog-select"
+              value={xColumn}
+              onChange={e => setXColumn(e.target.value)}
+            >
+              <option value="">-- Select X Column --</option>
+              {columns.map(col => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
+          </div>
+          <div className="dialog-section">
+            <label className="dialog-label">Y-Axis Column</label>
+            <select
+              className="dialog-select"
+              value={yColumn}
+              onChange={e => setYColumn(e.target.value)}
+            >
+              <option value="">-- Select Y Column --</option>
+              {columns.map(col => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
+          </div>
+          <div className="dialog-section">
+            <label className="dialog-label">Chart Title (optional)</label>
+            <input
+              type="text"
+              className="dialog-input"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder={`e.g. ${component?.name || 'Component'} - ${yColumn || 'value'}`}
+            />
+          </div>
         </div>
-
-        <div className="column-picker-actions">
-          <button
-            className="column-picker-btn column-picker-btn-confirm"
-            onClick={handleConfirm}
-            disabled={!xColumn || !yColumn}
-          >
-            Associate Chart
+        <div className="dialog-footer">
+          <button className="dialog-btn dialog-btn-cancel" onClick={onClose}>
+            Cancel
           </button>
           <button
-            className="column-picker-btn column-picker-btn-cancel"
-            onClick={onClose}
+            className="dialog-btn dialog-btn-create"
+            onClick={handleCreate}
+            disabled={!xColumn || !yColumn}
           >
-            Cancel
+            ✓ Add Chart
           </button>
         </div>
       </div>

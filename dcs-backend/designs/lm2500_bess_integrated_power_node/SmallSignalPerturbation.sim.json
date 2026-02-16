@@ -1,0 +1,45 @@
+{
+  "display_name": "Small-Signal Perturbation",
+  "description": "Dynamic stability analysis",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bus-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bus_frequency_hz",
+      "title": "Bus Frequency Response"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine1_power_mw",
+      "title": "LM2500 #1 - Power Response"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-turbine-2",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine2_power_mw",
+      "title": "LM2500 #2 - Power Response"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-load-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "load_power_mw",
+      "title": "Load - Power Perturbation"
+    }
+  ],
+  "event_markers": {
+    "perturbation_active": {
+      "label": "Load Perturbation",
+      "color": "rgba(255, 165, 0, 0.15)",
+      "line_color": "rgba(255, 165, 0, 0.8)"
+    }
+  }
+}

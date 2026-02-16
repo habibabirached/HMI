@@ -1,0 +1,37 @@
+{
+  "display_name": "Torsional Vibration Analysis",
+  "description": "Steady-state validation with FFT analysis",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine1_torque_nm",
+      "title": "LM2500 #1 - Torque"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-turbine-2",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine2_torque_nm",
+      "title": "LM2500 #2 - Torque"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bess_power_mw",
+      "title": "BESS - Power Output"
+    }
+  ],
+  "event_markers": {
+    "bess_connected": {
+      "label": "BESS Online",
+      "color": "rgba(0, 255, 0, 0.15)",
+      "line_color": "rgba(0, 255, 0, 0.8)"
+    }
+  }
+}

@@ -83,7 +83,7 @@ COPY . .
 # Create the directory where we'll save configuration files to disk
 # mkdir -p means "create directory and any parent directories needed,
 # and don't error if it already exists"
-RUN mkdir -p /app/saved_configs
+RUN mkdir -p /app/designs
 
 # ----------------------------------------------------------------------------
 # EXPOSE PORT (Documentation)

@@ -58,6 +58,13 @@ class ConfigurationSaveRequest(BaseModel):
         example="Production configuration with dual turbines and redundant power supply"
     )
     
+    # SOURCE_NAME: For Save As - name of config to copy design dir from
+    # When provided and different from name, copies designs/{source}/ to designs/{new}/
+    source_name: Optional[str] = Field(
+        None,
+        description="For Save As: copy design directory from this config name"
+    )
+    
     # DATA: The actual configuration data (components, connections, etc.)
     # Any: Can be any valid JSON structure (dict, list, etc.)
     # This is flexible because the frontend structure might evolve
@@ -279,6 +286,32 @@ class ConfigurationListItem(BaseModel):
     
     class Config:
         from_attributes = True
+
+# ------------------------------------------------------------------------------------------------------
+# CREATE SIMULATION REQUEST
+# ------------------------------------------------------------------------------------------------------
+
+class CreateSimulationRequest(BaseModel):
+    """Request body for creating a new simulation scenario."""
+    name: str = Field(..., description="Name for the new simulation", min_length=1)
+
+
+# ------------------------------------------------------------------------------------------------------
+# UPDATE SIMULATION CONFIG REQUEST (Step 3 – persist charts to .sim.json)
+# ------------------------------------------------------------------------------------------------------
+
+class UpdateSimulationConfigRequest(BaseModel):
+    """
+    Request body for updating a simulation's .sim.json (charts_to_display, event_markers).
+    When the user adds or removes charts in the UI, we send the new charts_to_display
+    here so the backend can overwrite the file.
+    chart_sample_default: global sample rate (1, 2, 4, 8, 16 = plot every Nth row).
+    Each chart in charts_to_display may have an optional sample_step for per-chart override.
+    """
+    charts_to_display: list = Field(default_factory=list, description="Array of chart definitions (each may have sample_step)")
+    event_markers: Optional[dict] = Field(default=None, description="Event markers; if None, keep existing")
+    chart_sample_default: Optional[int] = Field(default=None, description="Global sample step (1,2,4,8,16); if None, keep existing")
+
 
 # ------------------------------------------------------------------------------------------------------
 # ERROR RESPONSE SCHEMA

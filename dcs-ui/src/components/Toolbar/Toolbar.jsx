@@ -15,7 +15,6 @@ const Toolbar = ({
   onSave,
   onSaveAs,
   onLoad,
-  onLoadCSV,
   hasComponents,
   canSave // Whether we can do a quick save (config name exists)
 }) => {
@@ -81,13 +80,6 @@ const Toolbar = ({
         )}
         <button className="btn-load" onClick={onLoad} title="Load Configuration">
           📂 Load Design
-        </button>
-      </div>
-
-      {/* CSV Data Section */}
-      <div className="toolbar-section">
-        <button className="btn-csv" onClick={onLoadCSV} title="Load CSV Data Files">
-          📊 Load CSV
         </button>
       </div>
 

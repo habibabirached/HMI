@@ -91,10 +91,7 @@ dcs-backend/
 ├── .env.example           # Environment variables template
 ├── .env                   # Your actual config (not committed)
 ├── datacenter.db          # SQLite database (created on first run)
-└── saved_configs/         # Saved configuration JSON files
-    ├── config-1.json
-    ├── config-2.json
-    └── ...
+└── designs/               # Per-design configs (designs/{name}/{name}.conf.json, .sim.json, .data.csv)
 ```
 
 ---

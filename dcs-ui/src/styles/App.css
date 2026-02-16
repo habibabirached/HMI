@@ -148,6 +148,12 @@ body {
   border: 1px solid var(--vernova-accent);
 }
 
+.config-status-badge .csv-status.csv-design-dir {
+  background: rgba(0, 212, 168, 0.1);
+  color: var(--vernova-accent);
+  border: 1px solid rgba(0, 212, 168, 0.4);
+}
+
 .config-status-badge .csv-status.csv-missing {
   background: rgba(255, 165, 0, 0.15);
   color: #ffa500;

@@ -1,0 +1,77 @@
+{
+  "display_name": "Torsional Vibration Analysis",
+  "description": "Steady-state validation with FFT analysis",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "turbine1_torque_nm",
+      "title": "LM2500 #1 - Torque"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bess_power_mw",
+      "title": "BESS - Power Output"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-load-1",
+      "chart_type": "2d",
+      "x_column": "time_sec",
+      "y_column": "bess_connected",
+      "title": "DC Load"
+    },
+    {
+      "type": "multi",
+      "chart_type": "multi-bar-chart",
+      "x_column": "time_sec",
+      "components": [
+        {
+          "id": "comp-load-1",
+          "name": "DC Load 50MW",
+          "type": "datacenter-load",
+          "columnName": "bus_voltage_kv"
+        },
+        {
+          "id": "comp-bus-1",
+          "name": "13.8kV Bus",
+          "type": "bus-mv",
+          "columnName": "bess_voltage_kv"
+        }
+      ],
+      "title": "Multi-Component Bar Chart"
+    },
+    {
+      "type": "multi",
+      "chart_type": "multi-line-chart",
+      "x_column": "time_sec",
+      "components": [
+        {
+          "id": "comp-load-1",
+          "name": "DC Load 50MW",
+          "type": "datacenter-load",
+          "columnName": "turbine2_torque_nm"
+        },
+        {
+          "id": "comp-bus-1",
+          "name": "13.8kV Bus",
+          "type": "bus-mv",
+          "columnName": "turbine1_torque_nm"
+        }
+      ],
+      "title": "Multi-Line 2D Plot"
+    }
+  ],
+  "event_markers": {
+    "bess_connected": {
+      "label": "BESS Online",
+      "color": "rgba(0, 255, 0, 0.15)",
+      "line_color": "rgba(0, 255, 0, 0.8)"
+    }
+  }
+}

@@ -20,10 +20,6 @@ dist/
 # Environment variables (contains sensitive data)
 .env
 
-# Saved configurations (user data - don't commit)
-saved_configs/*.json
-saved_configs/**/*.json
-
 # IDE
 .vscode/
 .idea/

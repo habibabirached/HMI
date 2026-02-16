@@ -1,0 +1,52 @@
+{
+  "display_name": "Arch V1 Nrel Load",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "Time ",
+      "y_column": "P_gen (MW)",
+      "title": "LM2500 #1 - P_gen (MW)"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "2d",
+      "x_column": "Time ",
+      "y_column": "P_BESS (MW)",
+      "title": "BESS - P_BESS (MW)"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-load-1",
+      "chart_type": "2d",
+      "x_column": "Time ",
+      "y_column": "P_load (MW)",
+      "title": "DC Load 50MW - P_load (MW)"
+    },
+    {
+      "type": "multi",
+      "chart_type": "multi-line-chart",
+      "x_column": "Time ",
+      "components": [
+        {
+          "id": "comp-turbine-1",
+          "name": "LM2500 #1",
+          "type": "gas-turbine-lm2500",
+          "columnName": "P_load (MW)"
+        },
+        {
+          "id": "comp-load-1",
+          "name": "DC Load 50MW",
+          "type": "datacenter-load",
+          "columnName": "P_gen (MW)"
+        }
+      ],
+      "title": "Multi-Line 2D Plot"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 512
+}

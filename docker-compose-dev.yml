@@ -72,6 +72,7 @@ services:
     build:
       context: ./dcs-backend
       dockerfile: Dockerfile
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
     environment:
       - https_proxy=${HTTPS_PROXY}
       - http_proxy=${HTTP_PROXY}
@@ -86,7 +87,7 @@ services:
           - dcs_backend
     volumes:
       - "./dcs-backend:/app"               # Mount backend code (live reload)
-      - "./dcs-backend/saved_configs:/app/saved_configs"  # Persist saved configs
+      - "./dcs-backend/designs:/app/designs"  # Persist design dirs (Save As, etc.)
     depends_on:
       - dcs-ui                             # Start UI first
 

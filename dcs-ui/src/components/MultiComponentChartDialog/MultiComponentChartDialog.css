@@ -11,9 +11,11 @@
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  z-index: 10001;
+  padding-top: 5vh;
+  overflow-y: auto;
+  z-index: 99999;
   animation: overlay-fade-in 0.2s ease-out;
 }
 
@@ -32,9 +34,10 @@
     0 0 40px rgba(0, 94, 96, 0.4);
   width: 90%;
   max-width: 700px;
-  max-height: 85vh;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   animation: dialog-slide-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -87,11 +90,12 @@
   color: #fff;
 }
 
-/* Dialog Body */
+/* Dialog Body – scrollable; min-height: 0 allows flex child to shrink */
 .dialog-body {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .dialog-body::-webkit-scrollbar {
@@ -132,6 +136,15 @@
 /* Dialog Sections */
 .dialog-section {
   margin-bottom: 24px;
+}
+
+.dialog-data-source {
+  padding: 12px 14px;
+  background: rgba(0, 94, 96, 0.15);
+  border: 1px solid rgba(0, 94, 96, 0.3);
+  border-radius: 6px;
+  color: var(--vernova-accent, #00d4a8);
+  font-size: 14px;
 }
 
 .dialog-label {

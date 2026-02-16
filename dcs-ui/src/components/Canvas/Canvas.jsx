@@ -23,6 +23,9 @@ const Canvas = forwardRef(({
   onAssociateChart,
   onOpenChart,
   onCreateMultiComponentChart,
+  canAddCharts,
+  simulationColumns = [],
+  simulationCsvName = '',
   zoom,
   pan,
   onPan,
@@ -41,30 +44,22 @@ const Canvas = forwardRef(({
   const [contextMenu, setContextMenu] = useState(null); // { component, position }
   const [showMultiChartDialog, setShowMultiChartDialog] = useState(false);
   const [multiChartComponents, setMultiChartComponents] = useState([]);
+  const [multiChartType, setMultiChartType] = useState('multi-bar-chart'); // 'multi-bar-chart' | 'multi-line-chart'
 
   // ========================================================================
-  // HELPER FUNCTION: snapToGrid
+  // HELPER: snapCenterToGrid – snap component CENTER to grid, return top-left
   // ========================================================================
-  // Snaps a position (x, y) to the nearest grid point.
-  // 
-  // OUR GRID: 50x50 pixels (you can see the dots every 50 pixels)
-  // 
-  // HOW IT WORKS:
-  // 1. Divide the position by grid size (50)
-  // 2. Round to nearest integer (snaps to nearest grid line)
-  // 3. Multiply back by grid size
-  // 
-  // EXAMPLE:
-  // Position 127 → 127/50 = 2.54 → round to 3 → 3*50 = 150 (snapped!)
-  // Position 23 → 23/50 = 0.46 → round to 0 → 0*50 = 0 (snapped!)
-  // 
-  // RESULT: Components align perfectly with grid dots!
+  // Snaps the center of gravity to the 50x50 grid, not the corner.
   // ========================================================================
-  const snapToGrid = (x, y) => {
-    const gridSize = 50;  // Must match the grid pattern in CSS (50x50)
+  const gridSize = 50;
+  const snapCenterToGrid = (topLeftX, topLeftY, width, height) => {
+    const centerX = topLeftX + width / 2;
+    const centerY = topLeftY + height / 2;
+    const snappedCenterX = Math.round(centerX / gridSize) * gridSize;
+    const snappedCenterY = Math.round(centerY / gridSize) * gridSize;
     return {
-      x: Math.round(x / gridSize) * gridSize,
-      y: Math.round(y / gridSize) * gridSize
+      x: snappedCenterX - width / 2,
+      y: snappedCenterY - height / 2
     };
   };
 
@@ -77,14 +72,11 @@ const Canvas = forwardRef(({
     const component = JSON.parse(componentData);
     const rect = canvasRef.current.getBoundingClientRect();
     
-    // Calculate raw position
     const rawX = (e.clientX - rect.left - pan.x) / zoom;
     const rawY = (e.clientY - rect.top - pan.y) / zoom;
     
-    // Snap to grid for perfect alignment
-    const snapped = snapToGrid(rawX, rawY);
-    
-    console.log('📍 Drop position: raw(', rawX.toFixed(1), ',', rawY.toFixed(1), ') → snapped(', snapped.x, ',', snapped.y, ')');
+    const { width, height } = getComponentDimensions(component.id);
+    const snapped = snapCenterToGrid(rawX, rawY, width, height);
 
     onAddComponent(component, snapped);
   };
@@ -216,19 +208,28 @@ const Canvas = forwardRef(({
   };
 
   /**
-   * Handle chart type selection from multi-component context menu
+   * Handle chart type selection from multi-component context menu.
+   * STEP 1: Gate – if not in a simulation, show instructive message and return.
    */
   const handleMultiComponentChartTypeSelected = (chartType) => {
+    if (!canAddCharts) {
+      alert('Run a simulation first to add or modify charts.\n\nClick a scenario button in the Simulation Controls panel.');
+      setContextMenu(null);
+      return;
+    }
     if (contextMenu && contextMenu.components) {
       console.log('📊 Multi-component chart selected:', chartType, 'for', contextMenu.components.length, 'components');
       console.log('Selected components:', contextMenu.components.map(c => c.name).join(', '));
       
-      // Open the multi-component chart dialog
       if (chartType === 'animated-bar-chart') {
+        setMultiChartType('multi-bar-chart');
+        setMultiChartComponents(contextMenu.components);
+        setShowMultiChartDialog(true);
+      } else if (chartType === 'multi-line-plot') {
+        setMultiChartType('multi-line-chart');
         setMultiChartComponents(contextMenu.components);
         setShowMultiChartDialog(true);
       } else {
-        // Other chart types not yet implemented
         console.log('⚠️ Chart type not yet implemented:', chartType);
       }
     }
@@ -269,14 +270,13 @@ const Canvas = forwardRef(({
     
     if (draggingComponent) {
       const rect = canvasRef.current.getBoundingClientRect();
-      
-      // Calculate raw position
       const rawX = (e.clientX - rect.left - pan.x) / zoom - dragOffset.x;
       const rawY = (e.clientY - rect.top - pan.y) / zoom - dragOffset.y;
-      
-      // Snap to grid for perfect alignment
-      const snapped = snapToGrid(rawX, rawY);
-      
+
+      const comp = components.find(c => c.id === draggingComponent);
+      const { width, height } = comp ? getComponentDimensions(comp.type) : { width: 100, height: 60 };
+      const snapped = snapCenterToGrid(rawX, rawY, width, height);
+
       onMoveComponent(draggingComponent, snapped);
     } else if (panning) {
       onPan({
@@ -833,9 +833,12 @@ const Canvas = forwardRef(({
       {/* Multi-Component Chart Configuration Dialog */}
       {showMultiChartDialog && (
         <MultiComponentChartDialog
+          chartType={multiChartType}
           components={multiChartComponents}
           onClose={() => setShowMultiChartDialog(false)}
           onCreateChart={handleCreateMultiChart}
+          simulationColumns={simulationColumns}
+          simulationCsvName={simulationCsvName}
         />
       )}
       

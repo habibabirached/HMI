@@ -26,7 +26,11 @@ const ChartPanel = ({
   selectedComponentId,
   simulationData,
   simulationMetadata,
-  eventMarkers
+  eventMarkers,
+  globalSampleStep = 1,
+  perChartSampleStep = {},
+  onGlobalSampleStepChange,
+  onPerChartSampleStepChange
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartY, setResizeStartY] = useState(0);
@@ -34,10 +38,25 @@ const ChartPanel = ({
   const [chartData, setChartData] = useState({}); // Store fetched CSV data by chart id
   const [loadingCharts, setLoadingCharts] = useState({}); // Track loading state per chart
 
+  const SAMPLE_OPTIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+  const getSampleStep = (chartId) => perChartSampleStep[chartId] ?? globalSampleStep ?? 1;
+
+  /**
+   * Get data for a chart: prefer simulationData (from design dir) when available
+   */
+  const getChartData = (chart) => {
+    if (simulationData && simulationData.length > 0) {
+      return simulationData;
+    }
+    return chartData[chart.id];
+  };
+
   /**
    * Fetch CSV data for all charts when they change
+   * Skip fetch when simulationData is provided (design dir flow)
    */
   useEffect(() => {
+    if (simulationData && simulationData.length > 0) return; // Use simulationData, no fetch
     charts.forEach(chart => {
       if (!chartData[chart.id]) {
         fetchChartData(chart);
@@ -80,6 +99,80 @@ const ChartPanel = ({
     } finally {
       setLoadingCharts(prev => ({ ...prev, [chart.id]: false }));
     }
+  };
+
+  /**
+   * Derive a readable Y-axis label from multi-component chart column names.
+   * E.g. turbine1_torque_nm → "Torque (Nm)", P_load (MW) → "Load (MW)"
+   */
+  const getMultiBarYAxisLabel = (chart) => {
+    if (!chart.components || chart.components.length === 0) return 'Value';
+    const col = chart.components[0].columnName;
+    const parts = col.split('_').filter(p => p && isNaN(parseFloat(p)));
+    const unitMap = { mw: 'MW', kw: 'kW', kv: 'kV', nm: 'Nm', a: 'A', hz: 'Hz', pct: '%' };
+    const lower = col.toLowerCase();
+    let unit = '';
+    let quantityPart = parts[parts.length - 1];
+    for (const [k, v] of Object.entries(unitMap)) {
+      if (lower.endsWith('_' + k) || lower.endsWith(k)) {
+        unit = v;
+        quantityPart = parts.length > 1 ? parts[parts.length - 2] : parts[parts.length - 1];
+        break;
+      }
+    }
+    const m = col.match(/\(([^)]+)\)\s*$/);
+    if (m) {
+      const u = m[1].toLowerCase().replace(/\s/g, '');
+      if (unitMap[u]) unit = unitMap[u];
+    }
+    const quantity = quantityPart ? quantityPart.replace(/^./, c => c.toUpperCase()).replace(/\s*\([^)]*\)\s*$/g, '').trim() : 'Value';
+    return unit ? `${quantity} (${unit})` : quantity;
+  };
+
+  /**
+   * Compute fixed Y-axis range for multi-bar chart (so bars animate, not the scale)
+   */
+  const getMultiBarYRange = (chart, data) => {
+    if (!data || data.length === 0) return null;
+    let min = Infinity;
+    let max = -Infinity;
+    chart.components.forEach(comp => {
+      data.forEach(row => {
+        const v = parseFloat(row[comp.columnName]);
+        if (!isNaN(v)) {
+          min = Math.min(min, v);
+          max = Math.max(max, v);
+        }
+      });
+    });
+    if (min === Infinity || max === -Infinity) return null;
+    const padding = (max - min) * 0.1 || 1;
+    return [min - padding, max + padding];
+  };
+
+  /**
+   * Generate multi-line 2D chart – one trace per component, X = time, Y = column value
+   */
+  const generateMultiComponentLineChart = (chart, data) => {
+    const colors = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
+    let filteredData = data;
+    if (simulationRunning && simulationTime !== undefined) {
+      filteredData = data.filter(row => {
+        const t = parseFloat(row[chart.timeColumn]);
+        return !isNaN(t) && t <= simulationTime;
+      });
+    }
+    const step = getSampleStep(chart.id);
+    const sampledData = step > 1 ? filteredData.filter((_, i) => i % step === 0) : filteredData;
+    return chart.components.map((comp, index) => ({
+      x: sampledData.map(row => parseFloat(row[chart.timeColumn]) || 0),
+      y: sampledData.map(row => parseFloat(row[comp.columnName]) || 0),
+      type: 'scatter',
+      mode: 'lines+markers',
+      name: comp.name,
+      line: { color: colors[index % colors.length], width: 2 },
+      marker: { size: 4, opacity: 0.7 }
+    }));
   };
 
   /**
@@ -186,20 +279,25 @@ const ChartPanel = ({
     if (chart.isMultiComponent && chart.chartType === 'multi-bar-chart') {
       return generateMultiComponentBarChart(chart, data);
     }
+    // Handle multi-line 2D charts
+    if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
+      return generateMultiComponentLineChart(chart, data);
+    }
 
     // Filter data based on simulation time if simulation is running
     let filteredData = data;
     if (simulationRunning && simulationTime !== undefined) {
-      // Assume X column is time in seconds
-      // Only show data points where X <= simulationTime
       filteredData = data.filter(row => {
         const xValue = parseFloat(row[chart.xColumn]);
         return !isNaN(xValue) && xValue <= simulationTime;
       });
     }
+    // Apply sampling
+    const step = getSampleStep(chart.id);
+    const sampledData = step > 1 ? filteredData.filter((_, i) => i % step === 0) : filteredData;
 
-    const xValues = filteredData.map(row => row[chart.xColumn]);
-    const yValues = filteredData.map(row => row[chart.yColumn]);
+    const xValues = sampledData.map(row => row[chart.xColumn]);
+    const yValues = sampledData.map(row => row[chart.yColumn]);
 
     switch (chart.chartType) {
       case '2d':
@@ -388,7 +486,7 @@ const ChartPanel = ({
   /**
    * Generate professional Plotly layout
    */
-  const generatePlotlyLayout = (chart) => {
+  const generatePlotlyLayout = (chart, data) => {
     const baseLayout = {
       // Professional dark theme
       paper_bgcolor: '#0d0d0d',
@@ -396,7 +494,7 @@ const ChartPanel = ({
       
       // Title
       title: {
-        text: chart.isMultiComponent ? chart.title : `${chart.componentName} - ${chart.chartType.toUpperCase()}`,
+        text: chart.isMultiComponent ? chart.title : (chart.title || `${chart.componentName} - ${chart.chartType.toUpperCase()}`),
         font: {
           family: 'Arial, sans-serif',
           size: 16,
@@ -442,8 +540,60 @@ const ChartPanel = ({
       autosize: true
     };
 
-    // Multi-component bar chart layout
+    // Multi-line 2D chart layout – X = time, Y = values
+    if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
+      const eventShapes = generateEventMarkerShapes();
+      return {
+        ...baseLayout,
+        shapes: eventShapes,
+        xaxis: {
+          title: {
+            text: chart.timeColumn || 'Time',
+            font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 }
+          },
+          gridcolor: '#2a2a2a',
+          gridwidth: 1,
+          showline: true,
+          linecolor: '#444',
+          linewidth: 2,
+          tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
+          zeroline: true,
+          zerolinecolor: '#444',
+          zerolinewidth: 2
+        },
+        yaxis: {
+          title: {
+            text: getMultiBarYAxisLabel(chart),
+            font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 }
+          },
+          gridcolor: '#2a2a2a',
+          gridwidth: 1,
+          showline: true,
+          linecolor: '#444',
+          linewidth: 2,
+          tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
+          zeroline: true,
+          zerolinecolor: '#444',
+          zerolinewidth: 2
+        },
+        showlegend: true,
+        legend: {
+          orientation: 'h',
+          x: 0.5,
+          xanchor: 'center',
+          y: -0.15,
+          yanchor: 'top',
+          font: { family: 'Arial, sans-serif', size: 12, color: '#e0e0e0' },
+          bgcolor: 'rgba(0, 0, 0, 0.5)',
+          bordercolor: 'rgba(0, 94, 96, 0.5)',
+          borderwidth: 2
+        }
+      };
+    }
+
+    // Multi-component bar chart layout (fixed Y range so bars animate, not scale)
     if (chart.isMultiComponent && chart.chartType === 'multi-bar-chart') {
+      const yRange = data && getMultiBarYRange(chart, data);
       return {
         ...baseLayout,
         xaxis: {
@@ -469,7 +619,7 @@ const ChartPanel = ({
         },
         yaxis: {
           title: {
-            text: 'Value',
+            text: getMultiBarYAxisLabel(chart),
             font: {
               family: 'Arial, sans-serif',
               size: 13,
@@ -489,7 +639,8 @@ const ChartPanel = ({
           },
           zeroline: true,
           zerolinecolor: '#444',
-          zerolinewidth: 2
+          zerolinewidth: 2,
+          ...(yRange ? { range: yRange } : {})
         },
         barmode: 'group', // Grouped bars
         showlegend: true, // Show legend for multi-component
@@ -781,6 +932,21 @@ const ChartPanel = ({
         <div className="chart-panel-title">
           📊 Charts ({charts.length})
         </div>
+        <div className="chart-panel-header-actions">
+          <label className="chart-panel-sample-label">
+            Sample:
+            <select
+              className="chart-panel-sample-select"
+              value={globalSampleStep}
+              onChange={(e) => onGlobalSampleStepChange?.(Number(e.target.value))}
+              title="Plot every Nth data point (all charts)"
+            >
+              {SAMPLE_OPTIONS.map((n) => (
+                <option key={n} value={n}>1 in {n}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <button className="chart-panel-close" onClick={onClose} title="Close Chart Panel">
           ×
         </button>
@@ -799,7 +965,7 @@ const ChartPanel = ({
             <div className="chart-panel-chart-header">
               <div className="chart-panel-chart-title">
                 <span className="chart-panel-chart-icon">
-                  {chart.isMultiComponent && '📊'}
+                  {chart.isMultiComponent && (chart.chartType === 'multi-line-chart' ? '📈' : '📊')}
                   {!chart.isMultiComponent && chart.chartType === '2d' && '📈'}
                   {!chart.isMultiComponent && chart.chartType === 'histogram' && '📊'}
                   {!chart.isMultiComponent && chart.chartType === 'pie' && '🥧'}
@@ -809,34 +975,19 @@ const ChartPanel = ({
                   {!chart.isMultiComponent && chart.chartType === 'box' && '📦'}
                 </span>
                 <span className="chart-panel-chart-name">
-                  {chart.isMultiComponent ? chart.title : chart.componentName}
-                </span>
-                <span className="chart-panel-chart-type">
-                  {chart.isMultiComponent 
-                    ? `(MULTI-BAR • ${chart.components.length} COMPONENTS)` 
-                    : `(${chart.chartType.toUpperCase()})`
-                  }
+                  {chart.isMultiComponent ? chart.title : (chart.title || chart.componentName)}
                 </span>
               </div>
-              <div className="chart-panel-chart-metadata">
-                <span className="chart-panel-chart-csv">{chart.csvName}</span>
-                {!chart.isMultiComponent && (
-                  <>
-                    <span className="chart-panel-chart-separator">•</span>
-                    <span className="chart-panel-chart-axes">
-                      X: {chart.xColumn} / Y: {chart.yColumn}
-                    </span>
-                  </>
-                )}
-                {chart.isMultiComponent && (
-                  <>
-                    <span className="chart-panel-chart-separator">•</span>
-                    <span className="chart-panel-chart-axes">
-                      Time: {chart.timeColumn}
-                    </span>
-                  </>
-                )}
-              </div>
+              <select
+                className="chart-panel-chart-sample"
+                value={getSampleStep(chart.id)}
+                onChange={(e) => onPerChartSampleStepChange?.(chart.id, Number(e.target.value))}
+                title="Plot every Nth point (this chart)"
+              >
+                {SAMPLE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>1 in {n}</option>
+                ))}
+              </select>
               <button 
                 className="chart-panel-chart-close"
                 onClick={() => onRemoveChart(chart.id)}
@@ -857,16 +1008,16 @@ const ChartPanel = ({
                 </svg>
               </button>
 
-              {/* Loading State */}
-              {loadingCharts[chart.id] && (
+              {/* Loading State (only when fetching CSV, not when using simulationData) */}
+              {!simulationData?.length && loadingCharts[chart.id] && (
                 <div className="chart-panel-chart-loading">
                   <div className="chart-panel-spinner"></div>
                   <div>Loading chart data...</div>
                 </div>
               )}
 
-              {/* Error State */}
-              {!loadingCharts[chart.id] && chartData[chart.id] === null && (
+              {/* Error State (fetch failed when not using simulationData) */}
+              {!simulationData?.length && !loadingCharts[chart.id] && chartData[chart.id] === null && (
                 <div className="chart-panel-chart-error">
                   <div className="chart-panel-error-icon">⚠️</div>
                   <div>Failed to load chart data</div>
@@ -874,10 +1025,10 @@ const ChartPanel = ({
               )}
 
               {/* Render Plotly Chart */}
-              {!loadingCharts[chart.id] && chartData[chart.id] && chartData[chart.id].length > 0 && (
+              {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length > 0 && (
                 <Plot
-                  data={generatePlotlyData(chart, chartData[chart.id])}
-                  layout={generatePlotlyLayout(chart)}
+                  data={generatePlotlyData(chart, getChartData(chart))}
+                  layout={generatePlotlyLayout(chart, getChartData(chart))}
                   config={plotlyConfig}
                   style={{ width: '100%', height: '100%' }}
                   useResizeHandler={true}
@@ -886,7 +1037,7 @@ const ChartPanel = ({
               )}
 
               {/* Empty State */}
-              {!loadingCharts[chart.id] && chartData[chart.id] && chartData[chart.id].length === 0 && (
+              {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length === 0 && (
                 <div className="chart-panel-chart-empty">
                   <div className="chart-panel-empty-icon">📊</div>
                   <div>No data available</div>

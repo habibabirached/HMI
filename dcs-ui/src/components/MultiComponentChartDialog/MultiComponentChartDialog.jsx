@@ -1,84 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './MultiComponentChartDialog.css';
 
-const MultiComponentChartDialog = ({ 
-  components, 
-  onClose, 
-  onCreateChart 
+/**
+ * MultiComponentChartDialog – configure a multi-component bar chart.
+ *
+ * DESIGN-DIR FLOW (preferred): When simulationColumns and simulationCsvName are provided,
+ * we use the current simulation's CSV columns directly. No fetch to /api/csv/list.
+ *
+ * LEGACY FLOW: When not provided, we used to fetch from /api/csv/list (deprecated).
+ * Now we require design-dir props – canAddCharts is only true when a simulation is loaded.
+ */
+const chartTypeConfig = {
+  'multi-bar-chart': { defaultTitle: 'Multi-Component Bar Chart', header: 'Configure Multi-Component Bar Chart', previewLabel: 'bars', timeHint: '(for animation; chart X = components, Y = your chosen columns)' },
+  'multi-line-chart': { defaultTitle: 'Multi-Line 2D Plot', header: 'Configure Multi-Line 2D Plot', previewLabel: 'lines', timeHint: '(X-axis = time; one line per component)' }
+};
+
+const MultiComponentChartDialog = ({
+  chartType = 'multi-bar-chart',
+  components,
+  onClose,
+  onCreateChart,
+  simulationColumns = [],
+  simulationCsvName = ''
 }) => {
-  const [csvFiles, setCsvFiles] = useState([]);
-  const [csvObjects, setCsvObjects] = useState([]); // Store full CSV objects
-  const [selectedCsv, setSelectedCsv] = useState(null);
+  const config = chartTypeConfig[chartType] || chartTypeConfig['multi-bar-chart'];
+  const [selectedCsv, setSelectedCsv] = useState('');
   const [csvColumns, setCsvColumns] = useState([]);
   const [columnMappings, setColumnMappings] = useState({});
   const [timeColumn, setTimeColumn] = useState('');
-  const [chartTitle, setChartTitle] = useState('Multi-Component Bar Chart');
-  const [loading, setLoading] = useState(false);
+  const [chartTitle, setChartTitle] = useState(config.defaultTitle);
   const [error, setError] = useState(null);
 
-  // Fetch available CSV files on mount
+  const useDesignDir = simulationColumns.length > 0 && !!simulationCsvName;
+  const initializedRef = useRef(false);
+
+  // Initialize from design-dir simulation data (once per dialog open)
   useEffect(() => {
-    fetchCsvFiles();
-  }, []);
-
-  const fetchCsvFiles = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://localhost:5000/api/csv/list');
-      const data = await response.json();
-      
-      // API returns array of CSV objects: [{ id, name, columns, ... }]
-      if (Array.isArray(data)) {
-        setCsvObjects(data); // Store full objects
-        const csvNames = data.map(csv => csv.name);
-        setCsvFiles(csvNames);
-        
-        // Auto-select the first CSV if only one exists
-        if (csvNames.length === 1) {
-          handleCsvSelect(csvNames[0]);
-        }
-      }
-      
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to fetch CSV files:', err);
-      setError('Failed to load CSV files');
-      setLoading(false);
-    }
-  };
-
-  const handleCsvSelect = (csvName) => {
-    setSelectedCsv(csvName);
-    setError(null);
-    
-    // Find the CSV object by name
-    const csvObj = csvObjects.find(csv => csv.name === csvName);
-    
-    if (csvObj && csvObj.columns) {
-      // Columns are already in the object from /api/csv/list
-      setCsvColumns(csvObj.columns);
-      
-      // Auto-detect time column
-      const timeCol = csvObj.columns.find(col => 
-        col.toLowerCase().includes('time') || 
-        col.toLowerCase().includes('timestamp') ||
-        col.toLowerCase().includes('seconds') ||
-        col.toLowerCase().includes('minute')
+    if (useDesignDir && !initializedRef.current) {
+      initializedRef.current = true;
+      setSelectedCsv(simulationCsvName);
+      setCsvColumns(simulationColumns);
+      const timeCol = simulationColumns.find(col =>
+        /time|timestamp|sec|_t$/i.test(String(col))
       );
-      if (timeCol) {
-        setTimeColumn(timeCol);
-      }
-      
-      // Initialize column mappings with empty values
+      if (timeCol) setTimeColumn(timeCol);
       const initialMappings = {};
-      components.forEach(comp => {
-        initialMappings[comp.id] = '';
-      });
+      components.forEach(comp => { initialMappings[comp.id] = ''; });
       setColumnMappings(initialMappings);
-    } else {
-      setError('Failed to load CSV columns');
     }
-  };
+  }, [useDesignDir, simulationColumns, simulationCsvName, components]);
 
   const handleColumnMapping = (componentId, columnName) => {
     setColumnMappings(prev => ({
@@ -100,10 +71,9 @@ const MultiComponentChartDialog = ({
       return;
     }
     
-    // Build chart configuration
     const chartConfig = {
-      type: 'multi-bar-chart',
-      csvFile: selectedCsv,
+      type: chartType,
+      csvFile: useDesignDir ? simulationCsvName : selectedCsv,
       timeColumn,
       title: chartTitle,
       components: components.map(comp => ({
@@ -119,15 +89,20 @@ const MultiComponentChartDialog = ({
     onClose();
   };
 
-  return (
+  const dialogContent = (
     <div className="dialog-overlay" onClick={onClose}>
       <div className="multi-chart-dialog" onClick={e => e.stopPropagation()}>
         <div className="dialog-header">
-          <h2>📊 Configure Multi-Component Bar Chart</h2>
+          <h2>📊 {config.header}</h2>
           <button className="dialog-close-btn" onClick={onClose}>✕</button>
         </div>
         
         <div className="dialog-body">
+          {!useDesignDir && (
+            <div className="dialog-error">
+              ⚠️ No simulation data. Load a simulation scenario first, then try again.
+            </div>
+          )}
           {error && (
             <div className="dialog-error">
               ⚠️ {error}
@@ -145,30 +120,22 @@ const MultiComponentChartDialog = ({
               placeholder="Enter chart title..."
             />
           </div>
-          
-          {/* CSV File Selection */}
-          <div className="dialog-section">
-            <label className="dialog-label">
-              Select CSV Data Source
-              {loading && <span className="loading-spinner">⏳</span>}
-            </label>
-            <select 
-              className="dialog-select"
-              value={selectedCsv || ''}
-              onChange={e => handleCsvSelect(e.target.value)}
-              disabled={loading}
-            >
-              <option value="">-- Select CSV File --</option>
-              {csvFiles.map(csv => (
-                <option key={csv} value={csv}>{csv}</option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Time Column Selection */}
-          {selectedCsv && csvColumns.length > 0 && (
+
+          {/* Data source – design-dir: show fixed CSV; no dropdown */}
+          {useDesignDir && (
             <div className="dialog-section">
-              <label className="dialog-label">Time Column (X-Axis)</label>
+              <label className="dialog-label">Data Source</label>
+              <div className="dialog-data-source">{simulationCsvName}</div>
+            </div>
+          )}
+          
+          {/* Time Column – drives animation when sim runs; chart X = components, Y = chosen column values */}
+          {csvColumns.length > 0 && (
+            <div className="dialog-section">
+              <label className="dialog-label">
+                Time Column
+                <span className="dialog-label-hint">{config.timeHint}</span>
+              </label>
               <select 
                 className="dialog-select"
                 value={timeColumn}
@@ -183,7 +150,7 @@ const MultiComponentChartDialog = ({
           )}
           
           {/* Component-to-Column Mapping */}
-          {selectedCsv && csvColumns.length > 0 && (
+          {csvColumns.length > 0 && (
             <div className="dialog-section">
               <label className="dialog-label">
                 Map Components to CSV Columns
@@ -221,18 +188,18 @@ const MultiComponentChartDialog = ({
           )}
           
           {/* Preview Info */}
-          {selectedCsv && Object.values(columnMappings).every(v => v) && timeColumn && (
+          {Object.values(columnMappings).every(v => v) && timeColumn && (
             <div className="dialog-preview">
               <div className="preview-header">📋 Chart Preview</div>
               <div className="preview-content">
                 <div className="preview-item">
-                  <strong>Data Source:</strong> {selectedCsv}
+                  <strong>Data Source:</strong> {useDesignDir ? simulationCsvName : selectedCsv}
                 </div>
                 <div className="preview-item">
                   <strong>Time Axis:</strong> {timeColumn}
                 </div>
                 <div className="preview-item">
-                  <strong>Components:</strong> {components.length} bars
+                  <strong>Components:</strong> {components.length} {config.previewLabel}
                 </div>
               </div>
             </div>
@@ -246,7 +213,7 @@ const MultiComponentChartDialog = ({
           <button 
             className="dialog-btn dialog-btn-create" 
             onClick={handleCreate}
-            disabled={!selectedCsv || !timeColumn || Object.values(columnMappings).some(v => !v)}
+            disabled={(!useDesignDir && !selectedCsv) || !timeColumn || Object.values(columnMappings).some(v => !v)}
           >
             ✓ Create Chart
           </button>
@@ -254,6 +221,8 @@ const MultiComponentChartDialog = ({
       </div>
     </div>
   );
+
+  return createPortal(dialogContent, document.body);
 };
 
 export default MultiComponentChartDialog;

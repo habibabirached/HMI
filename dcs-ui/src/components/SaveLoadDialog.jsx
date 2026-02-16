@@ -18,7 +18,7 @@ import '../styles/SaveLoadDialog.css';
 // Backend API URL (configured for Docker environment)
 const API_BASE_URL = 'http://localhost:5000';
 
-function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration }) {
+function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, currentConfigName }) {
   // State for save mode
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
@@ -84,13 +84,19 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration })
     
     try {
       // Prepare the configuration data to send to backend
+      const newName = saveName.trim();
       const configData = {
-        name: saveName.trim(),
+        name: newName,
         description: saveDescription.trim() || null,
         data: currentConfiguration
       };
+      // Save As: copy design dir from current config when saving under new name
+      if (currentConfigName && currentConfigName !== newName) {
+        configData.source_name = currentConfigName;
+        console.log('[DEBUG] SaveLoadDialog: Save As detected', { currentConfigName, newName, source_name: currentConfigName });
+      }
       
-      console.log('💾 Saving configuration:', configData.name);
+      console.log('💾 Saving configuration:', configData.name, configData.source_name ? `(Save As from ${configData.source_name})` : '');
       
       // POST request to /api/save
       const response = await fetch(`${API_BASE_URL}/api/save`, {

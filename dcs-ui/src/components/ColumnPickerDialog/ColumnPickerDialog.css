@@ -1,89 +1,72 @@
-/* ============================================================================
-   COLUMN PICKER DIALOG
-   ============================================================================ */
+/* Column Picker Dialog – matches MultiComponentChartDialog style */
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
-.column-picker-overlay {
+@keyframes dialog-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.column-picker-overlay.dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2600;
+  z-index: 99999;
+  animation: overlay-fade-in 0.2s ease-out;
 }
 
 .column-picker-dialog {
   background: #1a1a1a;
-  border: 1px solid #ff9800;
-  border-radius: 8px;
+  border: 2px solid var(--vernova-primary, #005E60);
+  border-radius: 12px;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(0, 94, 96, 0.3),
+    0 0 40px rgba(0, 94, 96, 0.4);
   width: 90%;
-  max-width: 900px;
-  max-height: 85vh;
+  max-width: 500px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(255, 152, 0, 0.4);
-  animation: column-picker-appear 0.2s ease-out;
+  animation: dialog-slide-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes column-picker-appear {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ============================================================================
-   HEADER
-   ============================================================================ */
-
-.column-picker-header {
-  position: relative;
+.column-picker-dialog .dialog-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #333;
-  background: rgba(255, 152, 0, 0.05);
+  background: linear-gradient(135deg, rgba(0, 94, 96, 0.2) 0%, rgba(0, 94, 96, 0.05) 100%);
+  border-bottom: 2px solid rgba(0, 94, 96, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.column-picker-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #ff9800;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
+.column-picker-dialog .dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--vernova-accent, #00d4a8);
+  letter-spacing: 0.5px;
 }
 
-.column-picker-subtitle {
-  font-size: 13px;
-  color: #999;
-  margin-bottom: 8px;
-}
-
-.column-picker-subtitle strong {
-  color: #e0e0e0;
-  font-weight: 600;
-}
-
-.column-picker-csv {
-  font-size: 12px;
-  color: #005E60;
-  font-family: 'Courier New', monospace;
-}
-
-.column-picker-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: none;
+.column-picker-dialog .dialog-close-btn {
+  background: transparent;
   border: none;
-  color: #999;
-  font-size: 32px;
+  color: #666;
+  font-size: 24px;
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -91,239 +74,138 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s;
-  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
-.column-picker-close:hover {
-  color: #ff9800;
+.column-picker-dialog .dialog-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
-/* ============================================================================
-   CONTENT
-   ============================================================================ */
-
-.column-picker-content {
+.column-picker-dialog .dialog-body {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
 }
 
-.column-picker-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+.column-picker-dialog .dialog-section {
   margin-bottom: 24px;
 }
 
-/* Column Sections */
-.column-picker-section {
-  background: #0d0d0d;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 16px;
-}
-
-.column-picker-section-title {
+.column-picker-dialog .dialog-label {
+  display: block;
+  margin-bottom: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #ff9800;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
-}
-
-.column-picker-section-desc {
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
-
-.column-picker-columns {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.column-picker-column {
-  position: relative;
-  padding: 12px 16px;
-  background: #1a1a1a;
-  border: 1px solid #444;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.column-picker-column:hover {
-  background: #222;
-  border-color: #ff9800;
-}
-
-.column-picker-column.selected {
-  background: rgba(255, 152, 0, 0.15);
-  border-color: #ff9800;
-  border-width: 2px;
-  padding: 11px 15px;
-}
-
-.column-picker-column-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #e0e0e0;
-  font-family: 'Courier New', monospace;
-}
-
-.column-picker-column-check {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  background: #ff9800;
-  color: #000;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-/* Preview Section */
-.column-picker-preview {
-  background: #0d0d0d;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 16px;
-}
-
-.column-picker-preview-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #005E60;
-  margin-bottom: 16px;
+  color: var(--vernova-secondary, #1a8b8d);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-.column-picker-preview-loading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-  color: #999;
-  font-size: 12px;
-  justify-content: center;
-}
-
-.column-picker-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #333;
-  border-top-color: #ff9800;
-  border-radius: 50%;
-  animation: column-picker-spin 0.8s linear infinite;
-}
-
-@keyframes column-picker-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.column-picker-preview-error {
-  padding: 20px;
-  color: #f44336;
-  font-size: 12px;
-  text-align: center;
-}
-
-.column-picker-preview-table {
-  overflow-x: auto;
-}
-
-.column-picker-preview-table table {
+.column-picker-dialog .dialog-input,
+.column-picker-dialog .dialog-select {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.column-picker-preview-table th {
-  padding: 10px 12px;
-  background: rgba(255, 152, 0, 0.1);
-  border: 1px solid #444;
-  color: #ff9800;
-  font-weight: 600;
-  text-align: left;
-  font-family: 'Courier New', monospace;
-}
-
-.column-picker-preview-table td {
-  padding: 8px 12px;
-  border: 1px solid #333;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 94, 96, 0.3);
+  border-radius: 6px;
   color: #e0e0e0;
-  font-family: 'Courier New', monospace;
-}
-
-.column-picker-preview-table tr:hover {
-  background: rgba(255, 152, 0, 0.05);
-}
-
-/* ============================================================================
-   ACTIONS
-   ============================================================================ */
-
-.column-picker-actions {
-  display: flex;
-  gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid #333;
-  justify-content: flex-end;
-}
-
-.column-picker-btn {
-  padding: 10px 20px;
-  border: none;
-  cursor: pointer;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 600;
-  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
   transition: all 0.2s;
 }
 
-.column-picker-btn:disabled {
+.column-picker-dialog .dialog-input:focus,
+.column-picker-dialog .dialog-select:focus {
+  outline: none;
+  border-color: var(--vernova-accent, #00d4a8);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(0, 212, 168, 0.1);
+}
+
+.column-picker-dialog .dialog-select {
+  cursor: pointer;
+}
+
+.column-picker-dialog .dialog-select option {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.column-picker-dialog .dialog-error {
+  padding: 12px 16px;
+  background: rgba(220, 53, 69, 0.15);
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  border-radius: 6px;
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.column-picker-dialog .dialog-footer {
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.column-picker-dialog .dialog-btn {
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  letter-spacing: 0.5px;
+}
+
+.column-picker-dialog .dialog-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ccc;
+}
+
+.column-picker-dialog .dialog-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.column-picker-dialog .dialog-btn-create {
+  background: linear-gradient(135deg, var(--vernova-primary, #005E60) 0%, var(--vernova-secondary, #1a8b8d) 100%);
+  color: #fff;
+  border: 1px solid var(--vernova-accent, #00d4a8);
+  box-shadow: 0 4px 12px rgba(0, 212, 168, 0.3);
+}
+
+.column-picker-dialog .dialog-btn-create:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 212, 168, 0.4);
+}
+
+.column-picker-dialog .dialog-btn-create:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-.column-picker-btn-confirm {
-  background: #ff9800;
-  color: #000;
+.column-picker-component {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 94, 96, 0.15);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: var(--vernova-accent, #00d4a8);
 }
 
-.column-picker-btn-confirm:hover:not(:disabled) {
-  background: #ffa726;
-  box-shadow: 0 0 16px rgba(255, 152, 0, 0.5);
-}
-
-.column-picker-btn-cancel {
-  background: #333;
-  color: #e0e0e0;
-  border: 1px solid #555;
-}
-
-.column-picker-btn-cancel:hover {
-  background: #444;
-  border-color: #666;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .column-picker-grid {
-    grid-template-columns: 1fr;
-  }
+.column-picker-component .component-icon {
+  font-size: 18px;
 }

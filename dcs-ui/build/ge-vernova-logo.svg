@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 100" width="280" height="100">
+  <!-- GE Monogram Circle -->
+  <g transform="translate(50, 50)">
+    <!-- Outer circle -->
+    <circle cx="0" cy="0" r="45" fill="none" stroke="#005E60" stroke-width="3"/>
+    
+    <!-- Swirling pattern elements -->
+    <path d="M -20 -15 Q -15 -20, -10 -15 Q -5 -10, 0 -15 Q 5 -10, 10 -15 Q 15 -20, 20 -15" 
+          fill="none" stroke="#005E60" stroke-width="2" opacity="0.6"/>
+    <path d="M -20 0 Q -15 5, -10 0 Q -5 -5, 0 0 Q 5 -5, 10 0 Q 15 5, 20 0" 
+          fill="none" stroke="#005E60" stroke-width="2" opacity="0.6"/>
+    <path d="M -20 15 Q -15 10, -10 15 Q -5 20, 0 15 Q 5 20, 10 15 Q 15 10, 20 15" 
+          fill="none" stroke="#005E60" stroke-width="2" opacity="0.6"/>
+    
+    <!-- GE letters -->
+    <text x="-21" y="12" font-family="Arial, sans-serif" font-size="34" font-weight="900" fill="#005E60">GE</text>
+  </g>
+  
+  <!-- GE Vernova text (centered vertically, no tagline) -->
+  <text x="100" y="58" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#005E60" letter-spacing="1">
+    GE Vernova
+  </text>
+</svg>
