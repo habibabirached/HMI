@@ -1,5 +1,6 @@
 /* ============================================================================
-   CHART PANEL - Bottom Resizable Panel
+   CHART PANEL STYLES
+   Resizable bottom panel for Plotly charts (Chrome DevTools style)
    ============================================================================ */
 
 .chart-panel {
@@ -7,47 +8,41 @@
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 1000;
   background: #0d0d0d;
-  border-top: 2px solid #005E60;
+  border-top: 2px solid #005e60;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  z-index: 1000;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
   animation: chart-panel-slide-up 0.3s ease-out;
 }
 
 @keyframes chart-panel-slide-up {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
 }
 
 .chart-panel.resizing {
   user-select: none;
+  -webkit-user-select: none;
 }
 
-/* ============================================================================
-   RESIZE HANDLE
-   ============================================================================ */
-
+/* Resize handle */
 .chart-panel-resize-handle {
   position: absolute;
-  top: -4px;
   left: 0;
   right: 0;
+  top: -4px;
   height: 8px;
+  z-index: 10;
   cursor: ns-resize;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
 }
 
 .chart-panel-resize-handle:hover .chart-panel-resize-bar {
-  background: #005E60;
+  background: #005e60;
   height: 4px;
 }
 
@@ -59,27 +54,24 @@
   transition: all 0.2s;
 }
 
-/* ============================================================================
-   PANEL HEADER - Thin & Elegant
-   ============================================================================ */
-
+/* Header */
 .chart-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 28px;
+  min-height: 28px;
   padding: 4px 12px;
   background: rgba(0, 188, 212, 0.05);
   border-bottom: 1px solid #333;
-  height: 28px;
-  min-height: 28px;
 }
 
 .chart-panel-title {
+  color: #005e60;
   font-size: 11px;
   font-weight: 600;
-  color: #005E60;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .chart-panel-header-actions {
@@ -92,11 +84,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
-  color: #888;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: #999;
+  font-size: 12px;
 }
 
 .chart-panel-sample-select {
@@ -104,205 +93,178 @@
   border: 1px solid #444;
   border-radius: 4px;
   color: #e0e0e0;
-  font-size: 11px;
-  padding: 2px 8px;
-  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
 }
 
 .chart-panel-sample-select:hover,
 .chart-panel-sample-select:focus {
-  border-color: #005E60;
+  border-color: #005e60;
   outline: none;
 }
 
+.chart-panel-clear-selection {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #999;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.chart-panel-clear-selection:hover {
+  border-color: #005e60;
+  color: #00d4a8;
+}
+
 .chart-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   background: none;
   border: none;
   color: #999;
   font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
   line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
 .chart-panel-close:hover {
   color: #f44336;
 }
 
-/* ============================================================================
-   PANEL CONTENT - No vertical padding
-   ============================================================================ */
-
+/* Content area */
 .chart-panel-content {
-  flex: 1;
+  flex: 1 1;
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
   padding: 0 16px;
   overflow-x: auto;
   overflow-y: hidden;
-  display: flex;
-  gap: 16px;
-  align-items: stretch;
 }
 
-/* ============================================================================
-   INDIVIDUAL CHARTS - Full height
-   ============================================================================ */
+.chart-panel-content::-webkit-scrollbar {
+  height: 8px;
+}
 
+.chart-panel-content::-webkit-scrollbar-track {
+  background: #0d0d0d;
+}
+
+.chart-panel-content::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.chart-panel-content::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Individual chart card */
 .chart-panel-chart {
+  flex: 1 1;
   min-width: 400px;
   max-width: 600px;
-  flex: 1;
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 6px;
-  display: flex;
-  flex-direction: column;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  margin: 0;
-  height: 100%;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ============================================================================
-   HIGHLIGHTED CHART - Sexy, Glossy, Cool Effect
-   ============================================================================ */
 .chart-panel-chart.highlighted {
-  /* Glowing teal border with pulsing animation */
-  border: 2px solid #005E60;
-  box-shadow: 
-    0 0 20px rgba(0, 94, 96, 0.6),
-    0 0 40px rgba(0, 94, 96, 0.4),
-    0 0 60px rgba(0, 94, 96, 0.2),
-    0 4px 16px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(0, 212, 168, 0.3);
-  
-  /* Glossy gradient overlay effect */
-  background: linear-gradient(
-    135deg,
-    #1a1a1a 0%,
-    rgba(0, 94, 96, 0.1) 50%,
-    #1a1a1a 100%
-  );
-  
-  /* Slight lift effect */
-  transform: translateY(-4px) scale(1.02);
-  
-  /* Pulsing glow animation */
-  animation: chart-highlight-pulse 2s ease-in-out infinite;
-  
-  /* Higher z-index to lift above other charts */
   z-index: 10;
+  border: 2px solid #005e60;
+  transform: translateY(-4px) scale(1.02);
+  background: linear-gradient(135deg, #1a1a1a, rgba(0, 94, 96, 0.1) 50%, #1a1a1a);
+  box-shadow: 0 0 20px rgba(0, 94, 96, 0.6), 0 0 40px rgba(0, 94, 96, 0.4),
+    0 0 60px rgba(0, 94, 96, 0.2), 0 4px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(0, 212, 168, 0.3);
+  animation: chart-highlight-pulse 2s ease-in-out infinite;
 }
 
-/* Glossy shine effect overlay - creates that "cool" reflective look */
 .chart-panel-chart.highlighted::before {
-  content: '';
+  content: "";
   position: absolute;
-  top: 0;
   left: 0;
   right: 0;
+  top: 0;
   height: 50%;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 212, 168, 0.15) 0%,
-    transparent 100%
-  );
   border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, rgba(0, 212, 168, 0.15), transparent);
   pointer-events: none;
   z-index: 1;
 }
 
-/* Animated border glow effect */
 .chart-panel-chart.highlighted::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: -3px;
   border-radius: 8px;
   padding: 3px;
-  background: linear-gradient(
-    45deg,
-    #005E60,
-    #00d4a8,
-    #005E60,
-    #00d4a8
-  );
+  background: linear-gradient(45deg, #005e60, #00d4a8, #005e60, #00d4a8);
   background-size: 300% 300%;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: chart-highlight-border-flow 3s linear infinite;
-  z-index: -1;
   opacity: 0.6;
+  z-index: -1;
+  animation: chart-highlight-border-flow 3s linear infinite;
 }
 
-/* Pulsing glow animation */
 @keyframes chart-highlight-pulse {
   0%, 100% {
-    box-shadow: 
-      0 0 20px rgba(0, 94, 96, 0.6),
-      0 0 40px rgba(0, 94, 96, 0.4),
-      0 0 60px rgba(0, 94, 96, 0.2),
-      0 4px 16px rgba(0, 0, 0, 0.5),
+    box-shadow: 0 0 20px rgba(0, 94, 96, 0.6), 0 0 40px rgba(0, 94, 96, 0.4),
+      0 0 60px rgba(0, 94, 96, 0.2), 0 4px 16px rgba(0, 0, 0, 0.5),
       inset 0 1px 0 rgba(0, 212, 168, 0.3);
   }
   50% {
-    box-shadow: 
-      0 0 30px rgba(0, 94, 96, 0.8),
-      0 0 60px rgba(0, 94, 96, 0.6),
-      0 0 90px rgba(0, 94, 96, 0.4),
-      0 6px 20px rgba(0, 0, 0, 0.6),
+    box-shadow: 0 0 30px rgba(0, 94, 96, 0.8), 0 0 60px rgba(0, 94, 96, 0.6),
+      0 0 90px rgba(0, 94, 96, 0.4), 0 6px 20px rgba(0, 0, 0, 0.6),
       inset 0 1px 0 rgba(0, 212, 168, 0.5);
   }
 }
 
-/* Animated flowing border */
 @keyframes chart-highlight-border-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
 }
 
-/* Make the chart header glow when highlighted */
 .chart-panel-chart.highlighted .chart-panel-chart-header {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 94, 96, 0.2) 0%,
-    rgba(0, 94, 96, 0.1) 50%,
-    rgba(0, 94, 96, 0.2) 100%
-  );
-  border-bottom-color: #005E60;
+  background: linear-gradient(90deg, rgba(0, 94, 96, 0.2), rgba(0, 94, 96, 0.1) 50%, rgba(0, 94, 96, 0.2));
+  border-bottom-color: #005e60;
 }
 
-/* Brighten the chart title when highlighted */
 .chart-panel-chart.highlighted .chart-panel-chart-name {
   color: #00d4a8;
-  text-shadow: 0 0 10px rgba(0, 212, 168, 0.5);
   font-weight: 700;
+  text-shadow: 0 0 10px rgba(0, 212, 168, 0.5);
 }
 
+/* Chart header */
 .chart-panel-chart-header {
-  position: relative;
-  padding: 6px 12px 6px 12px;
-  background: rgba(0, 188, 212, 0.05);
-  border-bottom: 1px solid #333;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   height: 32px;
   min-height: 32px;
+  padding: 6px 12px;
+  background: rgba(0, 188, 212, 0.05);
+  border-bottom: 1px solid #333;
+  position: relative;
 }
 
 .chart-panel-chart-title {
@@ -316,14 +278,14 @@
 }
 
 .chart-panel-chart-name {
+  color: #e0e0e0;
   font-size: 12px;
   font-weight: 600;
-  color: #e0e0e0;
 }
 
 .chart-panel-chart-type {
+  color: #005e60;
   font-size: 10px;
-  color: #005E60;
   font-weight: 600;
 }
 
@@ -331,9 +293,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 9px;
   color: #666;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
+  font-size: 9px;
 }
 
 .chart-panel-chart-csv {
@@ -342,7 +304,7 @@
 
 .chart-panel-chart-separator {
   color: #444;
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .chart-panel-chart-axes {
@@ -351,82 +313,81 @@
 
 .chart-panel-chart-sample {
   background: #1a1a1a;
-  border: 1px solid #333;
+  border: 1px solid #444;
   border-radius: 4px;
   color: #e0e0e0;
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 6px;
-  cursor: pointer;
-  margin-left: auto;
-  margin-right: 4px;
+  margin-right: 8px;
 }
 
 .chart-panel-chart-sample:hover,
 .chart-panel-chart-sample:focus {
-  border-color: #005E60;
+  border-color: #005e60;
   outline: none;
 }
 
 .chart-panel-chart-close {
-  flex-shrink: 0;
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   background: none;
   border: none;
   color: #666;
   font-size: 18px;
-  cursor: pointer;
-  padding: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
   line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
 .chart-panel-chart-close:hover {
   color: #f44336;
 }
 
+/* Chart body */
 .chart-panel-chart-body {
-  flex: 1;
-  padding: 0;
+  flex: 1 1;
   overflow: hidden;
+  padding: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
-/* ============================================================================
-   FULLSCREEN BUTTON - Elegant square button in top left
-   ============================================================================ */
-
+/* Fullscreen button */
 .chart-panel-fullscreen-btn {
   position: absolute;
-  top: 8px;
   left: 8px;
+  top: 8px;
   width: 28px;
   height: 28px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   border: 1px solid #444;
   border-radius: 4px;
   color: #999;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
 }
 
 .chart-panel-fullscreen-btn:hover {
   background: rgba(0, 188, 212, 0.2);
-  border-color: #005E60;
-  color: #005E60;
-  transform: scale(1.05);
+  border-color: #005e60;
   box-shadow: 0 0 8px rgba(0, 188, 212, 0.3);
+  color: #005e60;
+  transform: scale(1.05);
 }
 
 .chart-panel-fullscreen-btn:active {
@@ -438,35 +399,21 @@
   height: 14px;
 }
 
-/* Fullscreen styling for chart container */
-.chart-panel-chart:fullscreen {
-  background: #0d0d0d;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.chart-panel-chart:fullscreen .chart-panel-chart-body {
-  flex: 1;
-}
-
-/* WebKit prefix for Safari */
+/* Fullscreen mode */
+.chart-panel-chart:fullscreen,
 .chart-panel-chart:-webkit-full-screen {
   background: #0d0d0d;
-  padding: 0;
   display: flex;
   flex-direction: column;
+  padding: 0;
 }
 
+.chart-panel-chart:fullscreen .chart-panel-chart-body,
 .chart-panel-chart:-webkit-full-screen .chart-panel-chart-body {
-  flex: 1;
+  flex: 1 1;
 }
 
-/* ============================================================================
-   CHART STATES
-   ============================================================================ */
-
-/* Loading State */
+/* Loading state */
 .chart-panel-chart-loading {
   display: flex;
   flex-direction: column;
@@ -481,8 +428,8 @@
   width: 32px;
   height: 32px;
   border: 3px solid #333;
-  border-top-color: #005E60;
   border-radius: 50%;
+  border-top-color: #005e60;
   animation: chart-panel-spin 0.8s linear infinite;
 }
 
@@ -491,7 +438,7 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Error State */
+/* Error state */
 .chart-panel-chart-error {
   display: flex;
   flex-direction: column;
@@ -507,7 +454,7 @@
   opacity: 0.5;
 }
 
-/* Empty State */
+/* Empty state */
 .chart-panel-chart-empty {
   display: flex;
   flex-direction: column;
@@ -523,10 +470,7 @@
   opacity: 0.3;
 }
 
-/* ============================================================================
-   CHART PLACEHOLDER (Deprecated - keeping for fallback)
-   ============================================================================ */
-
+/* Placeholder */
 .chart-panel-chart-placeholder {
   display: flex;
   flex-direction: column;
@@ -544,8 +488,8 @@
 }
 
 .chart-panel-chart-placeholder-text {
-  font-size: 13px;
   color: #999;
+  font-size: 13px;
   margin-bottom: 16px;
   text-align: center;
 }
@@ -554,29 +498,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 11px;
-  font-family: 'Courier New', monospace;
   color: #666;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
   text-align: center;
-}
-
-/* ============================================================================
-   SCROLLBAR STYLING
-   ============================================================================ */
-
-.chart-panel-content::-webkit-scrollbar {
-  height: 8px;
-}
-
-.chart-panel-content::-webkit-scrollbar-track {
-  background: #0d0d0d;
-}
-
-.chart-panel-content::-webkit-scrollbar-thumb {
-  background: #444;
-  border-radius: 4px;
-}
-
-.chart-panel-content::-webkit-scrollbar-thumb:hover {
-  background: #555;
 }

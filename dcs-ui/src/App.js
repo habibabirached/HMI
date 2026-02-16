@@ -59,6 +59,7 @@ function App() {
   const [chartPanelHeight, setChartPanelHeight] = useState(300);
   const [globalSampleStep, setGlobalSampleStep] = useState(1); // Chart sampling: 1=every row, 2=every 2nd, etc.
   const [perChartSampleStep, setPerChartSampleStep] = useState({}); // Per-chart override: { chartId: step }
+  const [selectedRowIndices, setSelectedRowIndices] = useState(null); // Set<number> for cross-chart selection, null = none
 
   // STEP 4: Column picker – when user picks a chart type, we show this dialog to choose X/Y columns
   const [columnPickerContext, setColumnPickerContext] = useState(null); // { component, chartType } | null
@@ -1395,6 +1396,8 @@ function App() {
           onGlobalSampleStepChange={setGlobalSampleStep}
           onPerChartSampleStepChange={(chartId, step) => setPerChartSampleStep(prev => ({ ...prev, [chartId]: step }))}
           currentConfigName={currentConfigName}
+          selectedRowIndices={selectedRowIndices}
+          onSelectionChange={setSelectedRowIndices}
         />
       )}
 

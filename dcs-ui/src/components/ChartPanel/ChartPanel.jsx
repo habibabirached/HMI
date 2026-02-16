@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import './ChartPanel.css';
 
+// Store native selection listeners per chart so we can clean up on unmount
+const selectionListenersByChart = new Map();
+
 /**
  * Chart Panel Component
  * 
@@ -31,7 +34,9 @@ const ChartPanel = ({
   perChartSampleStep = {},
   onGlobalSampleStepChange,
   onPerChartSampleStepChange,
-  currentConfigName
+  currentConfigName,
+  selectedRowIndices = null,
+  onSelectionChange
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartY, setResizeStartY] = useState(0);
@@ -64,6 +69,20 @@ const ChartPanel = ({
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [charts]);
+
+  // Clean up selection listeners when charts are removed
+  useEffect(() => {
+    const chartIds = new Set(charts.map(c => c.id));
+    selectionListenersByChart.forEach((entry, chartId) => {
+      if (!chartIds.has(chartId) && entry?.handler && entry.gd) {
+        try {
+          entry.gd.removeListener('plotly_selected', entry.handler);
+          entry.gd.removeListener('plotly_selecting', entry.handler);
+        } catch (e) { /* ignore */ }
+        selectionListenersByChart.delete(chartId);
+      }
+    });
   }, [charts]);
 
   /**
@@ -114,6 +133,8 @@ const ChartPanel = ({
   };
 
   const CHART_COLORS = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
+  const SELECTION_HIGHLIGHT_COLOR = '#FFD700'; // Bright gold – high contrast on dark background
+  const SELECTION_MARKER_SIZE = 10;
 
   /**
    * Y-axis label for multi-component charts: use actual column names from CSV/Excel.
@@ -158,27 +179,44 @@ const ChartPanel = ({
 
   /**
    * Generate multi-line 2D chart – one trace per component, X = time, Y = column value
+   * Adds customdata (row indices) for cross-chart selection; opacity highlights selected points
    */
   const generateMultiComponentLineChart = (chart, data) => {
     const colors = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
-    let filteredData = data;
+    const indexed = data.map((row, i) => ({ row, i }));
+    let filtered = indexed;
     if (simulationRunning && simulationTime !== undefined) {
-      filteredData = data.filter(row => {
+      filtered = indexed.filter(({ row }) => {
         const t = parseFloat(row[chart.timeColumn]);
         return !isNaN(t) && t <= simulationTime;
       });
     }
     const step = getSampleStep(chart.id);
-    const sampledData = step > 1 ? filteredData.filter((_, i) => i % step === 0) : filteredData;
-    return chart.components.map((comp, index) => ({
-      x: sampledData.map(row => parseFloat(row[chart.timeColumn]) || 0),
-      y: sampledData.map(row => parseFloat(row[comp.columnName]) || 0),
-      type: 'scatter',
-      mode: 'lines+markers',
-      name: comp.name,
-      line: { color: colors[index % colors.length], width: 2 },
-      marker: { size: 4, opacity: 0.7 }
-    }));
+    const sampled = step > 1 ? filtered.filter((_, i) => i % step === 0) : filtered;
+    const sampledData = sampled.map(({ row }) => row);
+    const sampledRowIndices = sampled.map(({ i }) => i);
+    const hasSelection = selectedRowIndices && selectedRowIndices.size > 0;
+    const selectedSet = selectedRowIndices instanceof Set ? selectedRowIndices : new Set(selectedRowIndices || []);
+
+    return chart.components.map((comp, index) => {
+      const lineColor = colors[index % colors.length];
+      return {
+        x: sampledData.map(row => parseFloat(row[chart.timeColumn]) || 0),
+        y: sampledData.map(row => parseFloat(row[comp.columnName]) || 0),
+        customdata: sampledRowIndices,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: comp.name,
+        line: { color: lineColor, width: 2 },
+        marker: hasSelection
+          ? {
+              color: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_HIGHLIGHT_COLOR : lineColor)),
+              size: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_MARKER_SIZE : 4)),
+              opacity: sampledRowIndices.map(ri => (selectedSet.has(ri) ? 1 : 0.15))
+            }
+          : { color: lineColor, size: 4, opacity: 0.7 }
+      };
+    });
   };
 
   /**
@@ -290,39 +328,46 @@ const ChartPanel = ({
       return generateMultiComponentLineChart(chart, data);
     }
 
-    // Filter data based on simulation time if simulation is running
-    let filteredData = data;
+    // Filter data (keep row indices for cross-chart selection)
+    const indexed = data.map((row, i) => ({ row, i }));
+    let filtered = indexed;
     if (simulationRunning && simulationTime !== undefined) {
-      filteredData = data.filter(row => {
+      filtered = indexed.filter(({ row }) => {
         const xValue = parseFloat(row[chart.xColumn]);
         return !isNaN(xValue) && xValue <= simulationTime;
       });
     }
-    // Apply sampling
     const step = getSampleStep(chart.id);
-    const sampledData = step > 1 ? filteredData.filter((_, i) => i % step === 0) : filteredData;
+    const sampled = step > 1 ? filtered.filter((_, i) => i % step === 0) : filtered;
+    const sampledData = sampled.map(({ row }) => row);
+    const sampledRowIndices = sampled.map(({ i }) => i);
 
     const xValues = sampledData.map(row => row[chart.xColumn]);
     const yValues = sampledData.map(row => row[chart.yColumn]);
 
+    const hasSelection = selectedRowIndices && selectedRowIndices.size > 0;
+    const selectedSet = selectedRowIndices instanceof Set ? selectedRowIndices : new Set(selectedRowIndices || []);
+
     switch (chart.chartType) {
-      case '2d':
+      case '2d': {
+        const lineColor = '#005E60';
         return [{
           x: xValues,
           y: yValues,
+          customdata: sampledRowIndices,
           type: 'scatter',
           mode: 'lines+markers',
           name: chart.componentName,
-          line: {
-            color: '#005E60',
-            width: 2
-          },
-          marker: {
-            color: '#005E60',
-            size: 4,
-            opacity: 0.7
-          }
+          line: { color: lineColor, width: 2 },
+          marker: hasSelection
+            ? {
+                color: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_HIGHLIGHT_COLOR : lineColor)),
+                size: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_MARKER_SIZE : 4)),
+                opacity: sampledRowIndices.map(ri => (selectedSet.has(ri) ? 1 : 0.15))
+              }
+            : { color: lineColor, size: 4, opacity: 0.7 }
         }];
+      }
 
       case 'histogram':
         return [{
@@ -545,6 +590,12 @@ const ChartPanel = ({
       // Auto-size to fit container
       autosize: true
     };
+
+    // Use box-select as default for charts that support selection
+    const supportsSelection = chart.chartType === '2d' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+    if (supportsSelection) {
+      baseLayout.dragmode = 'select';
+    }
 
     // Multi-line 2D chart layout – X = time, Y = values (Y-axis title in margin, legend colors)
     if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
@@ -825,9 +876,9 @@ const ChartPanel = ({
    * Plotly configuration for professional controls
    */
   const plotlyConfig = {
-    // Toolbar buttons
+    // Toolbar buttons (keep select2d for cross-chart linked selection)
     displayModeBar: true,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    modeBarButtonsToRemove: ['lasso2d'],
     modeBarButtonsToAdd: [],
     
     // Responsive
@@ -862,6 +913,40 @@ const ChartPanel = ({
       duration: 500,
       redraw: false
     }
+  };
+
+  /**
+   * Handle Plotly box/lasso selection – extract row indices and sync across charts.
+   * Attach native plotly_selected/plotly_selecting via onInitialized (more reliable than
+   * react-plotly's onSelected/onSelecting which can fail to fire).
+   */
+  const attachSelectionListeners = (chartId, gd) => {
+    const prev = selectionListenersByChart.get(chartId);
+    if (prev?.handler && prev.gd) {
+      try {
+        prev.gd.removeListener('plotly_selected', prev.handler);
+        prev.gd.removeListener('plotly_selecting', prev.handler);
+      } catch (e) { /* ignore */ }
+      selectionListenersByChart.delete(chartId);
+    }
+    if (!onSelectionChange) return;
+    const handler = (event) => {
+      if (!event?.points?.length) return;
+      const indices = new Set();
+      event.points.forEach((p) => {
+        const trace = p.data;
+        const cd = trace?.customdata;
+        if (!cd) return;
+        const pn = p.pointNumber ?? p.pointIndex;
+        if (typeof pn !== 'number') return;
+        const idx = Array.isArray(cd) ? cd[pn] : cd;
+        if (typeof idx === 'number') indices.add(idx);
+      });
+      if (indices.size > 0) onSelectionChange(indices);
+    };
+    gd.on('plotly_selected', handler);
+    gd.on('plotly_selecting', handler);
+    selectionListenersByChart.set(chartId, { gd, handler });
   };
 
   /**
@@ -947,6 +1032,15 @@ const ChartPanel = ({
           📊 Charts ({charts.length})
         </div>
         <div className="chart-panel-header-actions">
+          {selectedRowIndices && selectedRowIndices.size > 0 && (
+            <button
+              className="chart-panel-clear-selection"
+              onClick={() => onSelectionChange?.(null)}
+              title="Clear selection"
+            >
+              Clear selection
+            </button>
+          )}
           <label className="chart-panel-sample-label">
             Sample:
             <select
@@ -1039,16 +1133,25 @@ const ChartPanel = ({
               )}
 
               {/* Render Plotly Chart */}
-              {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length > 0 && (
-                <Plot
-                  data={generatePlotlyData(chart, getChartData(chart))}
-                  layout={generatePlotlyLayout(chart, getChartData(chart))}
-                  config={plotlyConfig}
-                  style={{ width: '100%', height: '100%' }}
-                  useResizeHandler={true}
-                  {...(chart.isMultiComponent ? plotlyTransition : {})}
-                />
-              )}
+              {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length > 0 && (() => {
+                const data = getChartData(chart);
+                const plotlyData = generatePlotlyData(chart, data);
+                const layout = generatePlotlyLayout(chart, data);
+                const supportsSelection = chart.chartType === '2d' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+                return (
+                  <Plot
+                    data={plotlyData}
+                    layout={layout}
+                    config={plotlyConfig}
+                    style={{ width: '100%', height: '100%' }}
+                    useResizeHandler={true}
+                    {...(chart.isMultiComponent ? plotlyTransition : {})}
+                    {...(supportsSelection && onSelectionChange ? {
+                      onInitialized: (fig, gd) => attachSelectionListeners(chart.id, gd)
+                    } : {})}
+                  />
+                );
+              })()}
 
               {/* Empty State */}
               {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length === 0 && (
