@@ -45,6 +45,22 @@
         }
       ],
       "title": "Multi-Line 2D Plot"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bus-1",
+      "chart_type": "histogram",
+      "x_column": "Time ",
+      "y_column": "P_load (MW)",
+      "title": "13.8kV Bus - P_load (MW)"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bus-1",
+      "chart_type": "pie",
+      "x_column": "Time ",
+      "y_column": "P_load (MW)",
+      "title": "13.8kV Bus - P_load (MW)"
     }
   ],
   "event_markers": {},
