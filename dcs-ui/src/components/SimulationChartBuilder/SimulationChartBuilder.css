@@ -1,0 +1,208 @@
+/* SimulationChartBuilder - Property panel chart builder */
+
+.sim-chart-builder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  position: relative;
+}
+
+.sim-chart-builder-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sim-chart-builder-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #00d4a8;
+  font-weight: 600;
+}
+
+.sim-chart-builder-cancel {
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  color: #ff6b6b;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sim-chart-builder-cancel:hover {
+  background: rgba(255, 107, 107, 0.35);
+}
+
+.sim-chart-builder-columns {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sim-chart-builder-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-right: 1px solid #333;
+  min-width: 0;
+}
+
+.sim-chart-builder-col:last-child {
+  border-right: none;
+}
+
+.sim-chart-builder-col h4 {
+  margin: 0 0 10px 0;
+  font-size: 11px;
+  color: #005E60;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sim-chart-builder-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sim-chart-builder-item {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sim-chart-builder-item:hover:not(:disabled) {
+  background: rgba(0, 212, 168, 0.15);
+  border-color: #005E60;
+  color: #00d4a8;
+}
+
+.sim-chart-builder-item.selected {
+  background: rgba(0, 212, 168, 0.25);
+  border-color: #00d4a8;
+  color: #00d4a8;
+}
+
+.sim-chart-builder-item:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.sim-chart-builder-lit .sim-chart-builder-item:not(.selected) {
+  opacity: 1;
+}
+
+.sim-chart-builder-plot {
+  padding: 10px 12px;
+  background: rgba(0, 94, 96, 0.15);
+  border: 1px solid rgba(0, 94, 96, 0.3);
+  border-radius: 6px;
+  color: #7a9a9a;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sim-chart-builder-plot:hover:not(:disabled) {
+  background: rgba(0, 94, 96, 0.3);
+  border-color: #005E60;
+  color: #00d4a8;
+}
+
+.sim-chart-builder-plot.active {
+  background: rgba(0, 212, 168, 0.2);
+  border-color: #00d4a8;
+  color: #00d4a8;
+}
+
+.sim-chart-builder-plot:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.sim-chart-plot-icon {
+  font-size: 16px;
+}
+
+/* Selection mode: dim overlay, titles stay lit */
+.sim-chart-builder-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(3px);
+  z-index: 9998;
+  pointer-events: auto;
+}
+
+.sim-chart-builder-selecting .sim-chart-builder-titles {
+  position: relative;
+  z-index: 9999;
+}
+
+.sim-chart-builder-selecting .sim-chart-builder-dim {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Cursor-following hint */
+.sim-chart-builder-hint {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #005E60 0%, #003d3f 100%);
+  border: 1px solid #00d4a8;
+  border-radius: 8px;
+  color: #00d4a8;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  animation: sim-chart-hint-appear 0.2s ease-out;
+}
+
+@keyframes sim-chart-hint-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sim-chart-builder-empty {
+  padding: 24px;
+  color: #666;
+  text-align: center;
+}

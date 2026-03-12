@@ -50,10 +50,14 @@ const SimulationControls = ({
   useDesignDir,
   currentConfigName,
   onUploadSimData,
-  onAddSimulation
+  onDeleteSimulation,
+  onViewSimData,
+  onAddSimulation,
+  onAddSimulationsFromXlsx
 }) => {
   const [showAddSimForm, setShowAddSimForm] = React.useState(false);
   const [newSimName, setNewSimName] = React.useState('');
+  const xlsxInputRef = React.useRef(null);
   // ========================================================================
   // VISIBILITY CHECK
   // ========================================================================
@@ -196,7 +200,8 @@ const SimulationControls = ({
     // -----------------------------------------------------------------------
     // Breakers can be opened (disconnect circuit), closed (connect circuit),
     // or tripped (protection fault). This gives us three actions.
-    if (type.includes('breaker')) {
+    // Tie Breaker Network also gets these controls (connects both buses).
+    if (type.includes('breaker') || type === 'tie-breaker-network') {
       return (
         <>
           {/* ===============================================================
@@ -369,14 +374,39 @@ const SimulationControls = ({
         {useDesignDir && currentConfigName && onAddSimulation && (
           <div className="add-sim-section">
             {!showAddSimForm ? (
-              <button
-                type="button"
-                className="btn-add-sim"
-                onClick={() => setShowAddSimForm(true)}
-                title="Create a new simulation scenario"
-              >
-                + Add simulation scenario
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn-add-sim"
+                  onClick={() => setShowAddSimForm(true)}
+                  title="Create a new simulation scenario"
+                >
+                  + Add simulation scenario
+                </button>
+                {onAddSimulationsFromXlsx && (
+                  <>
+                    <input
+                      ref={xlsxInputRef}
+                      type="file"
+                      accept=".xlsx"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) onAddSimulationsFromXlsx(f);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-add-sim btn-add-sim-xlsx"
+                      onClick={() => xlsxInputRef.current?.click()}
+                      title="Import each sheet as a simulation scenario"
+                    >
+                      Add simulation scenarios from xlsx
+                    </button>
+                  </>
+                )}
+              </>
             ) : (
               <div className="add-sim-form">
                 <input
@@ -451,28 +481,55 @@ const SimulationControls = ({
                     >
                       ▶️ {displayName}
                     </button>
-                    {useDesignDir && onUploadSimData && currentConfigName && (
-                      <>
-                        <input
-                          type="file"
-                          accept=".csv"
-                          style={{ display: 'none' }}
-                          id={`upload-sim-${simId}`}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) onUploadSimData(simId, f);
-                            e.target.value = '';
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="control-btn control-btn-upload"
-                          onClick={() => document.getElementById(`upload-sim-${simId}`)?.click()}
-                          title={`Upload CSV data for ${displayName}`}
-                        >
-                          📤
-                        </button>
-                      </>
+                    {useDesignDir && currentConfigName && (
+                      simConfig?.simulations?.[simId]?.has_data ? (
+                        <>
+                          {onViewSimData && (
+                            <button
+                              type="button"
+                              className="control-btn control-btn-view"
+                              onClick={() => onViewSimData(simId)}
+                              title={`View data for ${displayName}`}
+                            >
+                              👁
+                            </button>
+                          )}
+                          {onDeleteSimulation && (
+                            <button
+                              type="button"
+                              className="control-btn control-btn-delete"
+                              onClick={() => onDeleteSimulation(simId)}
+                              title={`Delete ${displayName} and its data`}
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        onUploadSimData && (
+                          <>
+                            <input
+                              type="file"
+                              accept=".csv"
+                              style={{ display: 'none' }}
+                              id={`upload-sim-${simId}`}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) onUploadSimData(simId, f);
+                                e.target.value = '';
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="control-btn control-btn-upload"
+                              onClick={() => document.getElementById(`upload-sim-${simId}`)?.click()}
+                              title={`Upload CSV data for ${displayName}`}
+                            >
+                              📤
+                            </button>
+                          </>
+                        )
+                      )
                     )}
                   </div>
                 );

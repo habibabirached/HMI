@@ -307,10 +307,12 @@ class UpdateSimulationConfigRequest(BaseModel):
     here so the backend can overwrite the file.
     chart_sample_default: global sample rate (1, 2, 4, 8, 16 = plot every Nth row).
     Each chart in charts_to_display may have an optional sample_step for per-chart override.
+    chart_panel_height: chart panel height in pixels; if None, keep existing.
     """
     charts_to_display: list = Field(default_factory=list, description="Array of chart definitions (each may have sample_step)")
     event_markers: Optional[dict] = Field(default=None, description="Event markers; if None, keep existing")
     chart_sample_default: Optional[int] = Field(default=None, description="Global sample step (1,2,4,8,16); if None, keep existing")
+    chart_panel_height: Optional[int] = Field(default=None, description="Chart panel height in pixels; if None, keep existing")
 
 
 # ------------------------------------------------------------------------------------------------------

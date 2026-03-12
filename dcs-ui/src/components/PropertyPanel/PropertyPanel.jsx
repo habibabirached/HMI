@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './PropertyPanel.css';
+import SimulationChartBuilder from '../SimulationChartBuilder/SimulationChartBuilder';
 
 const PropertyPanel = ({
   selectedComponent,
   selectedConnection,
+  simulationMetadata,
+  simulationColumns = [],
+  canvasComponents = [],
   onUpdateComponent,
   onDeleteComponent,
   onDeleteConnection,
+  onAddChartFromBuilder,
   onClose,
   disabled
 }) => {
@@ -25,6 +30,17 @@ const PropertyPanel = ({
   }, [selectedComponent]);
 
   if (!selectedComponent && !selectedConnection) {
+    if (simulationMetadata && simulationColumns.length > 0) {
+      return (
+        <div className="property-panel">
+          <SimulationChartBuilder
+            columns={simulationColumns}
+            displayName={simulationMetadata.displayName}
+            onAddChart={onAddChartFromBuilder}
+          />
+        </div>
+      );
+    }
     return (
       <div className="property-panel empty">
         <div className="empty-message">

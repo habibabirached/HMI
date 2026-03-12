@@ -1,0 +1,25 @@
+{
+  "display_name": "Withbess Loadmeasurements",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "gas-turbine-lm2500",
+      "chart_type": "2d",
+      "x_column": "Domain",
+      "y_column": " V_BESS (p.u.)",
+      "title": "LM2500 -  V_BESS (p.u.)"
+    },
+    {
+      "type": "single",
+      "component_id": "gas-turbine-lm2500",
+      "chart_type": "histogram",
+      "x_column": "Domain",
+      "y_column": " Q_BESS (Mvar)",
+      "title": "LM2500 -  Q_BESS (Mvar)"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 32,
+  "chart_panel_height": 416
+}

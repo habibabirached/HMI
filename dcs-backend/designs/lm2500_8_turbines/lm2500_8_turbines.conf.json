@@ -1,0 +1,522 @@
+{
+  "name": "LM2500 8 Turbines",
+  "description": "",
+  "canvasComponents": [
+    {
+      "id": "comp-bus-left",
+      "type": "bus-hv",
+      "name": "34.5kV Bus L",
+      "fullName": "34.5 kV Bus Left",
+      "position": {
+        "x": 350,
+        "y": 380
+      },
+      "status": "online",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "kV"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bus-right",
+      "type": "bus-hv",
+      "name": "34.5kV Bus R",
+      "fullName": "34.5 kV Bus Right",
+      "position": {
+        "x": 850,
+        "y": 380
+      },
+      "status": "online",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "kV"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-tie-breaker",
+      "type": "tie-breaker-network",
+      "name": "Tie Breaker Network",
+      "fullName": "Tie Breaker Circuit Network",
+      "position": {
+        "x": 630,
+        "y": 355
+      },
+      "status": "online",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": ""
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-1",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #1",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 90,
+        "y": 150
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-2",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #2",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 90,
+        "y": 260
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-3",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #3",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 90,
+        "y": 370
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-4",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #4",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 90,
+        "y": 480
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bess-left",
+      "type": "bess-30mw",
+      "name": "BESS 30MW",
+      "fullName": "Battery Energy Storage System 30MW",
+      "position": {
+        "x": 90,
+        "y": 50
+      },
+      "status": "online",
+      "properties": {
+        "rating": 30,
+        "voltage": 34.5,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60,
+        "soc": 85
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-it-load-left",
+      "type": "it-rack-load",
+      "name": "IT Rack Load",
+      "fullName": "IT Rack Load",
+      "position": {
+        "x": 90,
+        "y": 590
+      },
+      "status": "online",
+      "properties": {
+        "rating": 50,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-aux-load-left",
+      "type": "auxiliary-loads",
+      "name": "Aux Loads",
+      "fullName": "Auxiliary Loads",
+      "position": {
+        "x": 95,
+        "y": 715
+      },
+      "status": "online",
+      "properties": {
+        "rating": 15,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-5",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #5",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 1110,
+        "y": 150
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-6",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #6",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 1110,
+        "y": 260
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-7",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #7",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 1110,
+        "y": 370
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-8",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 #8",
+      "fullName": "LM2500 Andritz A03 33.3MW",
+      "position": {
+        "x": 1110,
+        "y": 480
+      },
+      "status": "online",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bess-right",
+      "type": "bess-30mw",
+      "name": "BESS 30MW",
+      "fullName": "Battery Energy Storage System 30MW",
+      "position": {
+        "x": 1110,
+        "y": 50
+      },
+      "status": "online",
+      "properties": {
+        "rating": 30,
+        "voltage": 34.5,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60,
+        "soc": 85
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-it-load-right",
+      "type": "it-rack-load",
+      "name": "IT Rack Load",
+      "fullName": "IT Rack Load",
+      "position": {
+        "x": 1110,
+        "y": 590
+      },
+      "status": "online",
+      "properties": {
+        "rating": 50,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-aux-load-right",
+      "type": "auxiliary-loads",
+      "name": "Aux Loads",
+      "fullName": "Auxiliary Loads",
+      "position": {
+        "x": 1095,
+        "y": 715
+      },
+      "status": "online",
+      "properties": {
+        "rating": 15,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-t1-busL",
+      "from": "comp-turbine-1",
+      "to": "comp-bus-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t2-busL",
+      "from": "comp-turbine-2",
+      "to": "comp-bus-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t3-busL",
+      "from": "comp-turbine-3",
+      "to": "comp-bus-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t4-busL",
+      "from": "comp-turbine-4",
+      "to": "comp-bus-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-bessL-busL",
+      "from": "comp-bess-left",
+      "to": "comp-bus-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-itL-busL",
+      "from": "comp-bus-left",
+      "to": "comp-it-load-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-auxL-busL",
+      "from": "comp-bus-left",
+      "to": "comp-aux-load-left",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-busL-tie",
+      "from": "comp-bus-left",
+      "to": "comp-tie-breaker",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-tie-busR",
+      "from": "comp-tie-breaker",
+      "to": "comp-bus-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t5-busR",
+      "from": "comp-turbine-5",
+      "to": "comp-bus-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t6-busR",
+      "from": "comp-turbine-6",
+      "to": "comp-bus-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t7-busR",
+      "from": "comp-turbine-7",
+      "to": "comp-bus-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-t8-busR",
+      "from": "comp-turbine-8",
+      "to": "comp-bus-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-bessR-busR",
+      "from": "comp-bess-right",
+      "to": "comp-bus-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-itR-busR",
+      "from": "comp-bus-right",
+      "to": "comp-it-load-right",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-auxR-busR",
+      "from": "comp-bus-right",
+      "to": "comp-aux-load-right",
+      "type": "power",
+      "status": "idle"
+    }
+  ],
+  "systemState": {
+    "simulationRunning": false,
+    "zoom": 1,
+    "pan": {
+      "x": 0,
+      "y": 0
+    },
+    "mode": "design"
+  }
+}

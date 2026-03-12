@@ -1,6 +1,16 @@
 {
   "display_name": "Lvs Without Ppc",
   "description": "",
-  "charts_to_display": [],
-  "event_markers": {}
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "Time ",
+      "y_column": "V_load (p.u.)",
+      "title": "LM2500 #1 - V_load (p.u.)"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 512
 }

@@ -1,0 +1,17 @@
+{
+  "display_name": "Sheet1",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "Domain",
+      "y_column": " P_BESS",
+      "title": "LM2500 #1 -  P_BESS"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 256,
+  "chart_panel_height": 449
+}

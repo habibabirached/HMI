@@ -177,6 +177,13 @@ export const COMPONENT_VISUAL_CONFIG = {
     color: '#4caf50',
     shape: 'rounded-rect'
   },
+  'bess-30mw': {
+    width: 130,
+    height: 90,
+    icon: '🔋',
+    color: '#4caf50',
+    shape: 'rounded-rect'
+  },
   'bess-50mw': {
     width: 150,
     height: 100,
@@ -391,6 +398,13 @@ export const COMPONENT_VISUAL_CONFIG = {
     icon: '⏚',
     color: '#ff5722',
     shape: 'rect'
+  },
+  'tie-breaker-network': {
+    width: 140,
+    height: 90,
+    icon: '⟷',
+    color: '#4caf50',
+    shape: 'rounded-rect'
   },
   'recloser': {
     width: 50,

@@ -64,18 +64,18 @@ const Toolbar = ({
         <button 
           className="btn-save" 
           onClick={onSave} 
-          title={canSave ? "Save (overwrite current config)" : "Save As (first time save)"}
+          title={canSave ? "Save Design (overwrite current config)" : "Save Design As (first time save)"}
           disabled={!hasComponents}
         >
-          💾 {canSave ? 'Save' : 'Save As'}
+          💾 {canSave ? 'Save Design' : 'Save Design As'}
         </button>
         {canSave && (
           <button 
             className="btn-save-as" 
             onClick={onSaveAs} 
-            title="Save As (create new config)"
+            title="Save Design As (create new config)"
           >
-            💾 Save As
+            💾 Save Design As
           </button>
         )}
         <button className="btn-load" onClick={onLoad} title="Load Configuration">

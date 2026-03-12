@@ -1,76 +1,7 @@
 {
   "display_name": "Arch V1 Nrel Load",
   "description": "",
-  "charts_to_display": [
-    {
-      "type": "single",
-      "component_id": "comp-turbine-1",
-      "chart_type": "2d",
-      "x_column": "Time ",
-      "y_column": "P_gen (MW)",
-      "title": "LM2500 #1 - P_gen (MW)"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "2d",
-      "x_column": "Time ",
-      "y_column": "P_BESS (MW)",
-      "title": "BESS - P_BESS (MW)"
-    },
-    {
-      "type": "multi",
-      "chart_type": "multi-line-chart",
-      "x_column": "Time ",
-      "components": [
-        {
-          "id": "comp-turbine-1",
-          "name": "LM2500 #1",
-          "type": "gas-turbine-lm2500",
-          "columnName": "P_load (MW)"
-        },
-        {
-          "id": "comp-load-1",
-          "name": "DC Load 50MW",
-          "type": "datacenter-load",
-          "columnName": "P_gen (MW)"
-        }
-      ],
-      "title": "Multi-Line 2D Plot"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-load-1",
-      "chart_type": "histogram",
-      "x_column": "Time ",
-      "y_column": "P_load (MW)",
-      "title": "DC Load 50MW - P_load (MW)"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-load-1",
-      "chart_type": "pie",
-      "x_column": "Time ",
-      "y_column": "Q_load (MVar)",
-      "title": "DC Load 50MW - Q_load (MVar)"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "heatmap",
-      "x_column": "Time ",
-      "y_column": "Q_BESS (MVar)",
-      "title": "BESS - Q_BESS (MVar)"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "box",
-      "x_column": "Time ",
-      "y_column": "P_load (MW)",
-      "title": "BESS - P_load (MW)"
-    }
-  ],
+  "charts_to_display": [],
   "event_markers": {},
   "chart_sample_default": 512
 }

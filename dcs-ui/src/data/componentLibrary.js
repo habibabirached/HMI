@@ -56,6 +56,7 @@ export const COMPONENT_LIBRARY = [
     category: COMPONENT_CATEGORIES.ENERGY_STORAGE,
     components: [
       { id: 'bess', name: 'BESS', fullName: 'Battery Energy Storage System', type: 'battery', properties: { rating: 10, voltage: 0.48, unit: 'MWh' } },
+      { id: 'bess-30mw', name: 'BESS 30MW', fullName: 'Battery Energy Storage System 30MW', type: 'battery', properties: { rating: 30, voltage: 34.5, unit: 'MW' } },
       { id: 'bess-50mw', name: 'BESS 50MW', fullName: 'Battery Energy Storage System 50MW', type: 'battery', properties: { rating: 50, voltage: 34.5, unit: 'MWh' } },
       { id: 'battery-rack', name: 'Battery Rack', fullName: 'Battery Rack', type: 'battery', properties: { rating: 1, voltage: 0.48, unit: 'MWh' } },
       { id: 'battery-container', name: 'Battery Container', fullName: 'Battery Container', type: 'battery', properties: { rating: 5, voltage: 0.48, unit: 'MWh' } },
@@ -105,6 +106,7 @@ export const COMPONENT_LIBRARY = [
       { id: 'breaker-bess', name: 'BESS CB', fullName: 'BESS Circuit Breaker', type: 'breaker-bess', properties: { rating: 2000, voltage: 34.5, unit: 'A' } },
       { id: 'disconnect-switch', name: 'Disconnect', fullName: 'Disconnect Switch', type: 'disconnect', properties: { rating: 1200, voltage: 13.8, unit: 'A' } },
       { id: 'bus-tie-breaker', name: 'Bus Tie Bkr', fullName: 'Bus Tie Breaker', type: 'bus-tie', properties: { rating: 2000, voltage: 4.16, unit: 'A' } },
+      { id: 'tie-breaker-network', name: 'Tie Breaker Network', fullName: 'Tie Breaker Circuit Network', type: 'tie-breaker-network', properties: { rating: 0, voltage: 34.5, unit: '' } },
       { id: 'recloser', name: 'Recloser', fullName: 'Automatic Recloser', type: 'recloser', properties: { rating: 800, voltage: 13.8, unit: 'A' } },
       { id: 'protection-relay', name: 'Relay', fullName: 'Protection Relay', type: 'relay', properties: { rating: 0, voltage: 0, unit: '' } },
       { id: 'fuse', name: 'Fuse', fullName: 'Fuse', type: 'fuse', properties: { rating: 100, voltage: 0.48, unit: 'A' } }

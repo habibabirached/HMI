@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 import './ChartPanel.css';
 
@@ -36,11 +36,12 @@ const ChartPanel = ({
   onPerChartSampleStepChange,
   currentConfigName,
   selectedRowIndices = null,
-  onSelectionChange
+  onSelectionChange,
+  onFocus,
+  isFocused
 }) => {
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeStartY, setResizeStartY] = useState(0);
-  const [resizeStartHeight, setResizeStartHeight] = useState(0);
+  const resizeStartRef = useRef({ y: 0, height: 0 });
   const [chartData, setChartData] = useState({}); // Store fetched CSV data by chart id
   const [loadingCharts, setLoadingCharts] = useState({}); // Track loading state per chart
 
@@ -950,25 +951,26 @@ const ChartPanel = ({
   };
 
   /**
-   * Start resizing
+   * Start resizing - capture values in ref so they're available immediately
+   * (avoids "duck down" where stale state caused panel to jump on first move)
+   * Can be triggered from the resize handle or the header bar (except buttons/inputs).
    */
   const handleResizeStart = (e) => {
+    if (e.target.closest('button, select, input, label')) return;
     e.preventDefault();
+    resizeStartRef.current = { y: e.clientY, height };
     setIsResizing(true);
-    setResizeStartY(e.clientY);
-    setResizeStartHeight(height);
-    
-    // Add global mouse listeners
     document.addEventListener('mousemove', handleResizeMove);
     document.addEventListener('mouseup', handleResizeEnd);
   };
 
   /**
-   * Handle resize move
+   * Handle resize move - uses ref values so no jump on first move
    */
   const handleResizeMove = (e) => {
-    const deltaY = resizeStartY - e.clientY; // Inverted because panel grows upward
-    const newHeight = Math.max(200, Math.min(800, resizeStartHeight + deltaY));
+    const { y, height: startHeight } = resizeStartRef.current;
+    const deltaY = y - e.clientY; // Inverted because panel grows upward
+    const newHeight = Math.max(200, Math.min(800, startHeight + deltaY));
     onHeightChange(newHeight);
   };
 
@@ -1013,10 +1015,17 @@ const ChartPanel = ({
     return null;
   }
 
+  const handlePanelMouseDown = (e) => {
+    if (onFocus && !e.target.closest('button, select, input, a, [role="button"]')) {
+      onFocus(e);
+    }
+  };
+
   return (
-    <div 
+    <div
       className={`chart-panel ${isResizing ? 'resizing' : ''}`}
-      style={{ height: `${height}px` }}
+      style={{ height: `${height}px`, zIndex: isFocused ? 1100 : 1000 }}
+      onMouseDown={handlePanelMouseDown}
     >
       {/* Resize Handle */}
       <div 
@@ -1026,8 +1035,8 @@ const ChartPanel = ({
         <div className="chart-panel-resize-bar"></div>
       </div>
 
-      {/* Panel Header */}
-      <div className="chart-panel-header">
+      {/* Panel Header - also draggable for resize */}
+      <div className="chart-panel-header" onMouseDown={handleResizeStart}>
         <div className="chart-panel-title">
           📊 Charts ({charts.length})
         </div>

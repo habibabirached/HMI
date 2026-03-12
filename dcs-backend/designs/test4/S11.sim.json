@@ -1,0 +1,16 @@
+{
+  "display_name": "S11",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "datacenter-load",
+      "chart_type": "pie",
+      "x_column": "time_sec",
+      "y_column": "bus_frequency_hz",
+      "title": "DC Load - bus_frequency_hz"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 1
+}

@@ -54,7 +54,7 @@
   transition: all 0.2s;
 }
 
-/* Header */
+/* Header - draggable for resize */
 .chart-panel-header {
   display: flex;
   align-items: center;
@@ -64,6 +64,12 @@
   padding: 4px 12px;
   background: rgba(0, 188, 212, 0.05);
   border-bottom: 1px solid #333;
+  cursor: ns-resize;
+}
+
+.chart-panel-header button,
+.chart-panel-header select {
+  cursor: pointer;
 }
 
 .chart-panel-title {

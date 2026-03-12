@@ -246,7 +246,7 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
       <div className="dialog-content" onClick={(e) => e.stopPropagation()}>
         {/* Dialog Header */}
         <div className="dialog-header">
-          <h2>{mode === 'save' ? '💾 Save Configuration' : '📂 Load Configuration'}</h2>
+          <h2>{mode === 'save' ? '💾 Save Design' : '📂 Load Configuration'}</h2>
           <button className="dialog-close" onClick={onClose}>×</button>
         </div>
 
@@ -316,8 +316,11 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
                     <div
                       key={config.id}
                       className={`config-item ${selectedConfig?.id === config.id ? 'selected' : ''}`}
-                      onClick={() => setSelectedConfig(config)}
-                      onDoubleClick={() => handleLoad(config.id)}
+                      onClick={() => {
+                        if (loading) return;
+                        setSelectedConfig(config);
+                        handleLoad(config.id);
+                      }}
                     >
                       <div className="config-item-header">
                         <h3>{config.name}</h3>
@@ -355,21 +358,13 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
           <button className="btn-cancel" onClick={onClose} disabled={saving || loading}>
             Cancel
           </button>
-          {mode === 'save' ? (
+          {mode === 'save' && (
             <button 
               className="btn-primary" 
               onClick={handleSave} 
               disabled={saving || !saveName.trim()}
             >
-              {saving ? 'Saving...' : 'Save Configuration'}
-            </button>
-          ) : (
-            <button 
-              className="btn-primary" 
-              onClick={() => selectedConfig && handleLoad(selectedConfig.id)} 
-              disabled={loading || !selectedConfig}
-            >
-              {loading ? 'Loading...' : 'Load Configuration'}
+              {saving ? 'Saving...' : 'Save Design'}
             </button>
           )}
         </div>

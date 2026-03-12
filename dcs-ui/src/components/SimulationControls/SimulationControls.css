@@ -407,12 +407,12 @@
 }
 
 .control-btn-upload {
-  min-width: 40px;
-  padding: 8px 12px;
+  min-width: 32px;
+  padding: 4px 6px;
   background: rgba(0, 94, 96, 0.3);
   border: 1px solid #005E60;
   color: #fff;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
 }
@@ -422,9 +422,44 @@
   border-color: #00d4a8;
 }
 
+.control-btn-delete {
+  min-width: 32px;
+  padding: 4px 6px;
+  background: rgba(180, 50, 50, 0.3);
+  border: 1px solid #b43232;
+  color: #ff6b6b;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.control-btn-delete:hover {
+  background: rgba(180, 50, 50, 0.5);
+  border-color: #ff6b6b;
+}
+
+.control-btn-view {
+  min-width: 32px;
+  padding: 4px 6px;
+  background: rgba(0, 94, 96, 0.25);
+  border: 1px solid #005E60;
+  color: #00d4a8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.control-btn-view:hover {
+  background: rgba(0, 94, 96, 0.45);
+  border-color: #00d4a8;
+}
+
 /* Add simulation scenario - thin button at top */
 .add-sim-section {
   margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .btn-add-sim {

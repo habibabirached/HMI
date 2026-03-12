@@ -1,0 +1,16 @@
+{
+  "display_name": "Other Scenario",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "datacenter-load",
+      "chart_type": "pie",
+      "x_column": "time_sec",
+      "y_column": "bess_connected",
+      "title": "DC Load - bess_connected"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 1
+}

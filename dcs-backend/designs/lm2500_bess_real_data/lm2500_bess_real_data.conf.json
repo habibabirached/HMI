@@ -156,6 +156,7 @@
       "x": 0,
       "y": 0
     },
-    "mode": "design"
+    "mode": "design",
+    "chartPanelHeight": 521
   }
 }

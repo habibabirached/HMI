@@ -61,6 +61,9 @@ python-dateutil==2.8.2
 # Used for CSV data processing, time-series analysis, and simulation data
 pandas==2.2.0
 
+# openpyxl - Excel file support for pandas (read/write .xlsx)
+openpyxl==3.1.2
+
 # numpy - Numerical computing library
 # Used for mathematical operations, array processing, and signal analysis
 numpy==1.26.3

@@ -838,6 +838,8 @@ def _list_design_simulations(design_name: str) -> dict:
         if f.endswith(".sim.json"):
             sim_name = f[:-9]
             sim_path = os.path.join(dir_path, f)
+            csv_path = os.path.join(dir_path, f"{sim_name}.data.csv")
+            has_data = os.path.isfile(csv_path)
             try:
                 with open(sim_path, "r") as fp:
                     sim_config = json.load(fp)
@@ -845,7 +847,7 @@ def _list_design_simulations(design_name: str) -> dict:
             except Exception:
                 display_name = sim_name
             description = sim_config.get("description", "")
-            simulations.append({"id": sim_name, "display_name": display_name, "description": description})
+            simulations.append({"id": sim_name, "display_name": display_name, "description": description, "has_data": has_data})
     simulations.sort(key=lambda s: s["display_name"])
     return {"design_name": design_name, "design_dir": design_dir, "simulations": simulations}
 
@@ -953,6 +955,37 @@ async def create_simulation(design_name: str, body: CreateSimulationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/designs/{design_name}/simulations/{sim_name}")
+async def delete_simulation(design_name: str, sim_name: str):
+    """
+    Delete a simulation: removes .sim.json and .data.csv from the design dir.
+    """
+    try:
+        design_dir = sanitize_design_name(design_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        if not os.path.isdir(dir_path):
+            raise HTTPException(status_code=404, detail=f"Design directory not found: {design_name}")
+        safe_sim = re.sub(r'[^\w\-]', '', sim_name) or sim_name or "simulation"
+        sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
+        sim_csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
+        if not os.path.isfile(sim_json_path):
+            raise HTTPException(status_code=404, detail=f"Simulation '{sim_name}' not found")
+        removed = []
+        if os.path.isfile(sim_json_path):
+            os.remove(sim_json_path)
+            removed.append(f"{safe_sim}.sim.json")
+        if os.path.isfile(sim_csv_path):
+            os.remove(sim_csv_path)
+            removed.append(f"{safe_sim}.data.csv")
+        print(f"✅ Deleted simulation: {removed}")
+        return {"design_name": design_name, "sim_name": safe_sim, "removed": removed}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error deleting simulation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # STEP 3: Update simulation config (charts_to_display, event_markers)
 # ============================================================================
@@ -981,6 +1014,8 @@ async def update_simulation_config(design_name: str, sim_name: str, body: Update
             sim_config["event_markers"] = body.event_markers
         if body.chart_sample_default is not None:
             sim_config["chart_sample_default"] = body.chart_sample_default
+        if body.chart_panel_height is not None:
+            sim_config["chart_panel_height"] = body.chart_panel_height
         with open(sim_json_path, "w") as f:
             json.dump(sim_config, f, indent=2)
         print(f"✅ Updated {sim_name}.sim.json ({len(body.charts_to_display)} charts)")
@@ -1068,6 +1103,61 @@ async def upload_simulation_data(design_name: str, sim_name: str, file: UploadFi
         raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
     except Exception as e:
         print(f"❌ Error uploading sim data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/designs/{design_name}/simulations/from-xlsx")
+async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File(...)):
+    """
+    Import simulation scenarios from an xlsx file. Each sheet becomes a simulation:
+    - Sheet name → simulation name and {SheetName}.data.csv
+    - Sheet data → CSV content saved to design dir
+    """
+    try:
+        if not file.filename or not file.filename.lower().endswith(".xlsx"):
+            raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx)")
+        design_dir = sanitize_design_name(design_name)
+        dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+        if not os.path.isdir(dir_path):
+            raise HTTPException(status_code=404, detail=f"Design directory not found: {design_name}")
+        content = await file.read()
+        xlsx_path = os.path.join(dir_path, "_temp_import.xlsx")
+        with open(xlsx_path, "wb") as f:
+            f.write(content)
+        xl = pd.ExcelFile(xlsx_path, engine="openpyxl")
+        sheet_names = xl.sheet_names
+        if os.path.isfile(xlsx_path):
+            os.remove(xlsx_path)
+        if not sheet_names:
+            raise HTTPException(status_code=400, detail="No sheets found in the xlsx file.")
+        created = []
+        for sheet_name in sheet_names:
+            df = pd.read_excel(xl, sheet_name=sheet_name, engine="openpyxl")
+            if df.empty or len(df.columns) == 0:
+                continue
+            safe_sim = re.sub(r"[^\w\-]", "", sheet_name) or sheet_name or "simulation"
+            csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
+            df.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
+            sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
+            if not os.path.isfile(sim_json_path):
+                sim_config = {
+                    "display_name": sheet_name.replace("_", " ").replace("-", " ").title(),
+                    "description": "",
+                    "charts_to_display": [],
+                    "event_markers": {}
+                }
+                with open(sim_json_path, "w") as f:
+                    json.dump(sim_config, f, indent=2)
+            created.append({"name": sheet_name, "rows": len(df)})
+            print(f"   Created {safe_sim}.data.csv ({len(df)} rows)")
+        print(f"✅ Imported {len(created)} simulation(s) from xlsx")
+        return {"design_name": design_name, "created": created}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error importing xlsx: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

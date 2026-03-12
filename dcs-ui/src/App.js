@@ -7,6 +7,7 @@ import Toolbar from './components/Toolbar';
 import SaveLoadDialog from './components/SaveLoadDialog';
 import ChartPanel from './components/ChartPanel/ChartPanel';
 import ColumnPickerDialog from './components/ColumnPickerDialog/ColumnPickerDialog';
+import ViewDataModal from './components/ViewDataModal/ViewDataModal';
 import * as Scenarios from './scenarios/quickScenarios';
 import './styles/App.css';
 
@@ -47,6 +48,7 @@ function App() {
   // Save state
   const [currentConfigName, setCurrentConfigName] = useState(null); // Track current config name for "Save"
   const [isSaving, setIsSaving] = useState(false); // Saving spinner state
+  const [isUploading, setIsUploading] = useState(false); // Upload spinner state
   const [csvStatus, setCsvStatus] = useState(null); // CSV status for current configuration
   const [availableSimulations, setAvailableSimulations] = useState([]); // Unique simulations from CSV
   const [simConfig, setSimConfig] = useState(null); // Simulation configuration JSON (from backend)
@@ -64,7 +66,18 @@ function App() {
   // STEP 4: Column picker – when user picks a chart type, we show this dialog to choose X/Y columns
   const [columnPickerContext, setColumnPickerContext] = useState(null); // { component, chartType } | null
   
+  // View data modal – show first 200 rows of simulation CSV
+  const [viewModal, setViewModal] = useState(null); // { simName, displayName, data } | null
+  
+  // Panel focus for z-index (click-to-bring-forward)
+  const [focusedPanel, setFocusedPanel] = useState(null); // 'property' | 'simulation' | 'charts' | null
+  
   const canvasRef = useRef(null);
+
+  const handlePanelFocus = (panel, e) => {
+    if (e.target.closest('button, select, input, a, [role="button"]')) return;
+    setFocusedPanel(panel);
+  };
 
   // Add component to canvas
   const handleAddComponent = useCallback((componentDef, position) => {
@@ -635,6 +648,8 @@ function App() {
     
     console.log('🧹 Clearing existing charts...');
     setOpenCharts([]);
+    setSelectedComponent(null);
+    setSelectedConnection(null);
     
     try {
       let filteredRows;
@@ -669,13 +684,25 @@ function App() {
       setSimulationData(filteredRows);
       setSimulationMetadata(simulationMetadata);
       
-      // Set simConfig for event markers (ChartPanel expects simulations[id].event_markers)
-      if (scenarioConfig.event_markers) {
-        setSimConfig({ simulations: { [simulationId]: scenarioConfig } });
-      }
+      // Merge scenarioConfig for event markers; preserve existing simConfig (has_data for all sims)
+      setSimConfig(prev => {
+        const sims = prev?.simulations ? { ...prev.simulations } : {};
+        const existing = sims[simulationId] || {};
+        sims[simulationId] = {
+          ...existing,
+          display_name: scenarioConfig.display_name ?? existing.display_name,
+          description: scenarioConfig.description ?? existing.description,
+          has_data: true, // we just loaded it
+          event_markers: scenarioConfig.event_markers
+        };
+        return { simulations: sims };
+      });
       
       const chartsToDisplay = scenarioConfig.charts_to_display || [];
       setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
+      if (scenarioConfig.chart_panel_height != null && scenarioConfig.chart_panel_height >= 200 && scenarioConfig.chart_panel_height <= 800) {
+        setChartPanelHeight(scenarioConfig.chart_panel_height);
+      }
       const initialPerChart = {};
       if (chartsToDisplay.length > 0) {
         const newCharts = chartsToDisplay.map((chartDef, index) => {
@@ -731,7 +758,7 @@ function App() {
         const sims = list.simulations || [];
         setAvailableSimulations(sims.map(s => s.id));
         const simMap = {};
-        sims.forEach(s => { simMap[s.id] = { display_name: s.display_name, description: s.description || '' }; });
+        sims.forEach(s => { simMap[s.id] = { display_name: s.display_name, description: s.description || '', has_data: !!s.has_data }; });
         setSimConfig(sims.length > 0 ? { simulations: simMap } : null);
       }
     } catch (e) {
@@ -754,7 +781,21 @@ function App() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
       }
+      const result = await response.json();
       await refreshSimulationsList();
+      // Activate the new scenario so it's highlighted; upload button next to it targets this sim
+      const newSimId = result.sim_name;
+      const displayName = (result.sim_name || '').replace(/_/g, ' ').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      setSimulationMetadata({
+        id: newSimId,
+        displayName: displayName || newSimId,
+        description: '',
+        rowCount: 0,
+        columns: [],
+        timeRange: { min: 0, max: 0 }
+      });
+      setSimulationData([]);
+      setOpenCharts([]);
     } catch (e) {
       alert(`❌ Failed to add simulation: ${e.message}`);
     }
@@ -765,6 +806,8 @@ function App() {
    */
   const handleUploadSimData = async (simId, file) => {
     if (!currentConfigName || !file) return;
+    setIsUploading(true);
+    const uploadStartTime = Date.now();
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -778,9 +821,92 @@ function App() {
       }
       const result = await response.json();
       await refreshSimulationsList();
-      alert(`✅ Uploaded ${result.row_count} rows to ${simId}.data.csv`);
+      // Minimum 2 seconds spinner display
+      const elapsed = Date.now() - uploadStartTime;
+      const remainingTime = Math.max(0, 2000 - elapsed);
+      await new Promise((resolve) => setTimeout(resolve, remainingTime));
+      // Virtually "run" the simulation so user can create charts without clicking the button
+      await handleRunSimulation(simId);
     } catch (e) {
       alert(`❌ Upload failed: ${e.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  /**
+   * Add simulation scenarios from an xlsx file. Each sheet becomes a simulation:
+   * - Sheet name → button name and {SheetName}.data.csv
+   * - Sheet data → CSV content saved to design dir (handled by backend)
+   */
+  const handleAddSimulationsFromXlsx = async (file) => {
+    if (!currentConfigName || !file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/from-xlsx`,
+        { method: 'POST', body: formData }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      await refreshSimulationsList();
+      const count = result.created?.length ?? 0;
+      alert(`✅ Created ${count} simulation scenario(s) from xlsx.`);
+    } catch (e) {
+      alert(`❌ Failed to load xlsx: ${e.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  /**
+   * Delete a simulation (removes .sim.json and .data.csv)
+   */
+  const handleDeleteSimulation = async (simId) => {
+    if (!currentConfigName || !simId) return;
+    if (!window.confirm(`Delete simulation "${simId}" and its data? This cannot be undone.`)) return;
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`,
+        { method: 'DELETE' }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
+      }
+      await refreshSimulationsList();
+      if (simulationMetadata?.id === simId) {
+        setSimulationMetadata(null);
+        setSimulationData([]);
+        setOpenCharts([]);
+      }
+    } catch (e) {
+      alert(`❌ Delete failed: ${e.message}`);
+    }
+  };
+
+  /**
+   * View simulation data (first 200 rows in popup)
+   */
+  const handleViewSimData = async (simId) => {
+    if (!currentConfigName || !simId) return;
+    const displayName = simConfig?.simulations?.[simId]?.display_name || simId;
+    setViewModal({ simName: simId, displayName, data: null, loading: true });
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`
+      );
+      if (!response.ok) throw new Error('Failed to load simulation data');
+      const result = await response.json();
+      setViewModal({ simName: simId, displayName, data: result.data || [], loading: false });
+    } catch (e) {
+      setViewModal(null);
+      alert(`❌ Failed to load data: ${e.message}`);
     }
   };
 
@@ -893,8 +1019,11 @@ function App() {
    * The conversion maps our openCharts format (componentId, xColumn, etc.) to the
    * backend format (component_id, x_column, etc.) used in charts_to_display.
    */
-  const persistChartsToSimJson = useCallback(async (charts) => {
+  const persistChartsToSimJson = useCallback(async (charts, overrides = {}) => {
     if (!simulationMetadata?.id || !currentConfigName) return;
+    const effectiveGlobal = overrides.chart_sample_default ?? globalSampleStep;
+    const effectivePerChart = overrides.perChartSampleStep ?? perChartSampleStep;
+    const effectiveHeight = overrides.chart_panel_height ?? chartPanelHeight;
     try {
       const charts_to_display = charts.map(c => {
         let base;
@@ -916,10 +1045,10 @@ function App() {
             title: c.title || `${c.componentName || ''} - ${c.yColumn || 'chart'}`
           };
         }
-        if (perChartSampleStep[c.id] != null) base.sample_step = perChartSampleStep[c.id];
+        if (effectivePerChart[c.id] != null) base.sample_step = effectivePerChart[c.id];
         return base;
       });
-      const body = { charts_to_display, chart_sample_default: globalSampleStep };
+      const body = { charts_to_display, chart_sample_default: effectiveGlobal, chart_panel_height: effectiveHeight };
       const res = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationMetadata.id)}/config`,
         { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
@@ -928,7 +1057,19 @@ function App() {
     } catch (e) {
       console.warn('persistChartsToSimJson error:', e);
     }
-  }, [simulationMetadata?.id, currentConfigName, globalSampleStep, perChartSampleStep]);
+  }, [simulationMetadata?.id, currentConfigName, globalSampleStep, perChartSampleStep, chartPanelHeight]);
+
+  const persistChartPanelHeightRef = useRef(null);
+  const handleChartPanelHeightChange = useCallback((newHeight) => {
+    setChartPanelHeight(newHeight);
+    if (persistChartPanelHeightRef.current) clearTimeout(persistChartPanelHeightRef.current);
+    persistChartPanelHeightRef.current = setTimeout(() => {
+      if (simulationMetadata?.id && openCharts.length >= 0) {
+        persistChartsToSimJson(openCharts, { chart_panel_height: newHeight });
+      }
+      persistChartPanelHeightRef.current = null;
+    }, 400);
+  }, [simulationMetadata?.id, openCharts, persistChartsToSimJson]);
 
   /**
    * STEP 1 + STEP 4: Gate and column picker flow
@@ -1033,6 +1174,46 @@ function App() {
   };
 
   /**
+   * Add chart from SimulationChartBuilder (Property Panel when sim loaded).
+   * Receives { chartType, selections } - maps to xColumn/yColumn based on chart type.
+   */
+  const handleAddChartFromBuilder = ({ chartType, selections }) => {
+    if (!simulationMetadata || !selections?.length) return;
+    const cols = simulationMetadata.columns || [];
+    const csvName = `${simulationMetadata.id}.data.csv`;
+    const comp = canvasComponents[0];
+    const componentId = comp?.id || 'sim-data';
+    const componentName = comp?.name || simulationMetadata.displayName || 'Simulation';
+
+    let xColumn, yColumn, title;
+    if (chartType === '2d' || chartType === 'bar') {
+      xColumn = selections[0];
+      yColumn = selections[1];
+      title = `${componentName} - ${yColumn}`;
+    } else {
+      xColumn = cols[0] || selections[0];
+      yColumn = selections[0];
+      title = `${componentName} - ${selections[0]}`;
+    }
+
+    const openChart = {
+      id: `open-${Date.now()}`,
+      componentId,
+      componentName,
+      chartType,
+      csvName,
+      xColumn,
+      yColumn,
+      title
+    };
+    setOpenCharts(prev => {
+      const next = [...prev, openChart];
+      persistChartsToSimJson(next);
+      return next;
+    });
+  };
+
+  /**
    * Handle removing a chart from the bottom panel.
    * We compute the next chart list, update state, and persist to .sim.json so the
    * removal is saved and will persist across reloads.
@@ -1079,7 +1260,7 @@ function App() {
       const sims = loadedConfig.csv_status.available_simulations || [];
       setAvailableSimulations(sims.map(s => s.id));
       const simMap = {};
-      sims.forEach(s => { simMap[s.id] = { display_name: s.display_name, description: s.description || '' }; });
+      sims.forEach(s => { simMap[s.id] = { display_name: s.display_name, description: s.description || '', has_data: !!s.has_data }; });
       setSimConfig(sims.length > 0 ? { simulations: simMap } : null);
     } else {
       console.warn('⚠️ csv_status is missing from backend response!');
@@ -1121,18 +1302,8 @@ function App() {
       }
     }
     
-    // Restore chart panel state if it exists
-    if (data.chartPanelState) {
-      if (data.chartPanelState.openCharts) {
-        setOpenCharts(data.chartPanelState.openCharts);
-      }
-      if (data.chartPanelState.panelHeight) {
-        setChartPanelHeight(data.chartPanelState.panelHeight);
-      }
-    } else {
-      // Clear chart panel if no state saved
-      setOpenCharts([]);
-    }
+    // Never restore charts on load: design only. Charts appear when user clicks a simulation.
+    setOpenCharts([]);
     
     // Reset selection
     setSelectedComponent(null);
@@ -1168,10 +1339,6 @@ function App() {
         zoom,
         pan,
         mode
-      },
-      chartPanelState: {
-        openCharts,
-        panelHeight: chartPanelHeight
       }
     };
   };
@@ -1270,18 +1437,28 @@ function App() {
           systemState={systemState}
         />
 
-        <PropertyPanel
-          selectedComponent={selectedComponent}
-          selectedConnection={selectedConnection}
-          onUpdateComponent={handleUpdateComponent}
-          onDeleteComponent={handleDeleteComponent}
-          onDeleteConnection={handleDeleteConnection}
-          onClose={() => {
-            setSelectedComponent(null);
-            setSelectedConnection(null);
-          }}
-          disabled={mode === 'simulation'}
-        />
+        <div
+          className="panel-focus-wrapper"
+          style={{ position: 'relative', zIndex: focusedPanel === 'property' ? 1100 : 10 }}
+          onMouseDown={(e) => handlePanelFocus('property', e)}
+        >
+          <PropertyPanel
+            selectedComponent={selectedComponent}
+            selectedConnection={selectedConnection}
+            simulationMetadata={simulationMetadata}
+            simulationColumns={simulationMetadata?.columns || []}
+            canvasComponents={canvasComponents}
+            onUpdateComponent={handleUpdateComponent}
+            onDeleteComponent={handleDeleteComponent}
+            onDeleteConnection={handleDeleteConnection}
+            onAddChartFromBuilder={handleAddChartFromBuilder}
+            onClose={() => {
+              setSelectedComponent(null);
+              setSelectedConnection(null);
+            }}
+            disabled={mode === 'simulation'}
+          />
+        </div>
 
         {/* ================================================================
             SIMULATION CONTROLS PANEL
@@ -1323,33 +1500,42 @@ function App() {
             When the user clicks a scenario (e.g. "Low-Voltage Ride-Through"), simulationMetadata is set with its id.
             Passing activeSimulationId lets SimulationControls show a bright, glowing style on the active button
             so the user always knows which simulation they're viewing and editing charts for. */}
-        <SimulationControls
-          mode={mode}
-          viewMode={viewMode}
-          simulationRunning={simulationRunning}
-          activeSimulationId={simulationMetadata?.id ?? null}
-          selectedComponent={selectedComponent}
-          onTripComponent={handleTripComponent}
-          onRestartComponent={handleRestartComponent}
-          onOpenBreaker={handleOpenBreaker}
-          onCloseBreaker={handleCloseBreaker}
-          onTripBreaker={handleTripBreaker}
-          onTripRandomTurbine={handleTripRandomTurbine}
-          onTripAllTurbines={handleTripAllTurbines}
-          onGridLoss={handleGridLoss}
-          onOpenAllBreakers={handleOpenAllBreakers}
-          onResetSystem={handleResetSystem}
-          simulationTime={simulationTime}
-          simulationSpeed={simulationSpeed}
-          onSetSimulationSpeed={handleSetSimulationSpeed}
-          availableSimulations={availableSimulations}
-          simConfig={simConfig}
-          onRunSimulation={handleRunSimulation}
-          useDesignDir={!!csvStatus?.use_design_dir}
-          currentConfigName={currentConfigName}
-          onUploadSimData={handleUploadSimData}
-          onAddSimulation={handleAddSimulation}
-        />
+        <div
+          className="panel-focus-wrapper"
+          style={{ position: 'relative', zIndex: focusedPanel === 'simulation' ? 1100 : 10 }}
+          onMouseDown={(e) => handlePanelFocus('simulation', e)}
+        >
+          <SimulationControls
+            mode={mode}
+            viewMode={viewMode}
+            simulationRunning={simulationRunning}
+            activeSimulationId={simulationMetadata?.id ?? null}
+            selectedComponent={selectedComponent}
+            onTripComponent={handleTripComponent}
+            onRestartComponent={handleRestartComponent}
+            onOpenBreaker={handleOpenBreaker}
+            onCloseBreaker={handleCloseBreaker}
+            onTripBreaker={handleTripBreaker}
+            onTripRandomTurbine={handleTripRandomTurbine}
+            onTripAllTurbines={handleTripAllTurbines}
+            onGridLoss={handleGridLoss}
+            onOpenAllBreakers={handleOpenAllBreakers}
+            onResetSystem={handleResetSystem}
+            simulationTime={simulationTime}
+            simulationSpeed={simulationSpeed}
+            onSetSimulationSpeed={handleSetSimulationSpeed}
+            availableSimulations={availableSimulations}
+            simConfig={simConfig}
+            onRunSimulation={handleRunSimulation}
+            useDesignDir={!!csvStatus?.use_design_dir}
+            currentConfigName={currentConfigName}
+            onUploadSimData={handleUploadSimData}
+            onDeleteSimulation={handleDeleteSimulation}
+            onViewSimData={handleViewSimData}
+            onAddSimulation={handleAddSimulation}
+            onAddSimulationsFromXlsx={handleAddSimulationsFromXlsx}
+          />
+        </div>
       </div>
 
       {/* Save/Load Dialog */}
@@ -1384,7 +1570,7 @@ function App() {
           onClose={handleCloseChartPanel}
           onRemoveChart={handleRemoveChart}
           height={chartPanelHeight}
-          onHeightChange={setChartPanelHeight}
+          onHeightChange={handleChartPanelHeightChange}
           simulationTime={simulationTime}
           simulationRunning={simulationRunning}
           selectedComponentId={selectedComponent?.id}
@@ -1393,11 +1579,26 @@ function App() {
           eventMarkers={simConfig?.simulations?.[simulationMetadata?.id]?.event_markers}
           globalSampleStep={globalSampleStep}
           perChartSampleStep={perChartSampleStep}
-          onGlobalSampleStepChange={setGlobalSampleStep}
-          onPerChartSampleStepChange={(chartId, step) => setPerChartSampleStep(prev => ({ ...prev, [chartId]: step }))}
+          onGlobalSampleStepChange={(step) => {
+            setGlobalSampleStep(step);
+            if (simulationMetadata?.id && openCharts.length > 0) {
+              persistChartsToSimJson(openCharts, { chart_sample_default: step });
+            }
+          }}
+          onPerChartSampleStepChange={(chartId, step) => {
+            setPerChartSampleStep(prev => {
+              const next = { ...prev, [chartId]: step };
+              if (simulationMetadata?.id && openCharts.length > 0) {
+                persistChartsToSimJson(openCharts, { perChartSampleStep: next });
+              }
+              return next;
+            });
+          }}
           currentConfigName={currentConfigName}
           selectedRowIndices={selectedRowIndices}
           onSelectionChange={setSelectedRowIndices}
+          onFocus={(e) => handlePanelFocus('charts', e)}
+          isFocused={focusedPanel === 'charts'}
         />
       )}
 
@@ -1410,6 +1611,28 @@ function App() {
             <div className="saving-subtext">Please wait</div>
           </div>
         </div>
+      )}
+
+      {/* Upload Spinner Overlay */}
+      {isUploading && (
+        <div className="saving-overlay">
+          <div className="saving-spinner-container">
+            <div className="saving-spinner"></div>
+            <div className="saving-text">Uploading...</div>
+            <div className="saving-subtext">Please wait</div>
+          </div>
+        </div>
+      )}
+
+      {/* View Data Modal */}
+      {viewModal && (
+        <ViewDataModal
+          simName={viewModal.simName}
+          displayName={viewModal.displayName}
+          data={viewModal.data}
+          loading={viewModal.loading}
+          onClose={() => setViewModal(null)}
+        />
       )}
     </div>
   );
