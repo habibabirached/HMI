@@ -20,6 +20,9 @@ const selectionListenersByChart = new Map();
  */
 const ChartPanel = ({ 
   charts, 
+  chartStacks = [],
+  onStackCharts,
+  onUnstackCharts,
   onClose, 
   onRemoveChart, 
   height, 
@@ -42,8 +45,10 @@ const ChartPanel = ({
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ y: 0, height: 0 });
+  const [chartWidth, setChartWidth] = useState(500); // Base width for chart cards (min/max derived)
   const [chartData, setChartData] = useState({}); // Store fetched CSV data by chart id
   const [loadingCharts, setLoadingCharts] = useState({}); // Track loading state per chart
+  const [selectedChartIds, setSelectedChartIds] = useState(new Set()); // For stack/unstack
 
   const SAMPLE_OPTIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
   const getSampleStep = (chartId) => perChartSampleStep[chartId] ?? globalSampleStep ?? 1;
@@ -221,6 +226,111 @@ const ChartPanel = ({
   };
 
   /**
+   * Group Y columns by split type (phase, load, column)
+   */
+  const groupColumnsBySplit = (yColumns, splitBy, manualGroupBreaks) => {
+    if (!yColumns?.length) return [];
+    if (splitBy === 'manual') {
+      if (!manualGroupBreaks?.length) return [{ key: 'Group 1', cols: yColumns }];
+      const groups = [];
+      let start = 0;
+      for (const b of manualGroupBreaks) {
+        const slice = yColumns.slice(start, b - 1);
+        if (slice.length) groups.push({ key: `Group ${groups.length + 1}`, cols: slice });
+        start = b - 1;
+      }
+      if (start < yColumns.length) {
+        groups.push({ key: `Group ${groups.length + 1}`, cols: yColumns.slice(start) });
+      }
+      return groups.filter(g => g.cols.length > 0);
+    }
+    if (splitBy === 'column') {
+      return yColumns.map(col => ({ key: col, cols: [col] }));
+    }
+    if (splitBy === 'phase') {
+      const groups = {};
+      yColumns.forEach(col => {
+        const m = col.match(/[._-]([aAbBcC])[._-]|[._-]([aAbBcC])[\d.]|([aAbBcC])[._-]/i);
+        const letter = m ? (m[1] || m[2] || m[3]).toUpperCase() : 'Other';
+        if (!groups[letter]) groups[letter] = [];
+        groups[letter].push(col);
+      });
+      const order = ['A', 'B', 'C'];
+      const keys = [...order.filter(k => groups[k]?.length), ...(groups.Other?.length ? ['Other'] : [])];
+      return keys.map(k => ({ key: `Phase ${k}`, cols: groups[k] }));
+    }
+    if (splitBy === 'load') {
+      const groups = {};
+      yColumns.forEach(col => {
+        const m = col.match(/_(\d+)\b|\.(\d+)\b|load[_-]?(\d+)/i);
+        const num = m ? (m[1] || m[2] || m[3]) : 'Other';
+        if (!groups[num]) groups[num] = [];
+        groups[num].push(col);
+      });
+      const sorted = Object.entries(groups).sort((a, b) => {
+        if (a[0] === 'Other') return 1;
+        if (b[0] === 'Other') return -1;
+        return Number(a[0]) - Number(b[0]);
+      });
+      return sorted.map(([k, cols]) => ({ key: `Load ${k}`, cols: cols }));
+    }
+    return [{ key: 'All', cols: yColumns }];
+  };
+
+  /**
+   * Generate stacked nD chart data – grouped subplots, one trace per Y column
+   */
+  const generateStackedNdChartData = (chart, data) => {
+    const groups = groupColumnsBySplit(chart.yColumns, chart.splitBy || 'phase', chart.manualGroupBreaks);
+    if (groups.length === 0) return [];
+
+    const colors = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
+    const indexed = data.map((row, i) => ({ row, i }));
+    let filtered = indexed;
+    if (simulationRunning && simulationTime !== undefined) {
+      filtered = indexed.filter(({ row }) => {
+        const xVal = parseFloat(row[chart.xColumn]);
+        return !isNaN(xVal) && xVal <= simulationTime;
+      });
+    }
+    const step = getSampleStep(chart.id);
+    const sampled = step > 1 ? filtered.filter((_, i) => i % step === 0) : filtered;
+    const sampledData = sampled.map(({ row }) => row);
+    const sampledRowIndices = sampled.map(({ i }) => i);
+    const xValues = sampledData.map(row => parseFloat(row[chart.xColumn]) || 0);
+    const hasSelection = selectedRowIndices && selectedRowIndices.size > 0;
+    const selectedSet = selectedRowIndices instanceof Set ? selectedRowIndices : new Set(selectedRowIndices || []);
+
+    const traces = [];
+    groups.forEach((grp, rowIdx) => {
+      const yAxis = rowIdx === 0 ? 'y' : `y${rowIdx + 1}`;
+      grp.cols.forEach((yCol, colIdx) => {
+        const lineColor = colors[colIdx % colors.length];
+        const yValues = sampledData.map(row => parseFloat(row[yCol]) || 0);
+        traces.push({
+          x: xValues,
+          y: yValues,
+          customdata: sampledRowIndices,
+          type: 'scatter',
+          mode: 'lines+markers',
+          name: yCol,
+          xaxis: 'x',
+          yaxis: yAxis,
+          line: { color: lineColor, width: 2 },
+          marker: hasSelection
+            ? {
+                color: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_HIGHLIGHT_COLOR : lineColor)),
+                size: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_MARKER_SIZE : 4)),
+                opacity: sampledRowIndices.map(ri => (selectedSet.has(ri) ? 1 : 0.15))
+              }
+            : { color: lineColor, size: 4, opacity: 0.7 }
+        });
+      });
+    });
+    return traces;
+  };
+
+  /**
    * Generate nD chart data – one trace per Y column, shared X axis
    */
   const generateNdChartData = (chart, data) => {
@@ -374,6 +484,10 @@ const ChartPanel = ({
     // Handle nD charts (X + multiple Y columns)
     if (chart.chartType === 'nd' && chart.yColumns?.length) {
       return generateNdChartData(chart, data);
+    }
+    // Handle stacked nD (subplots by phase/load/column)
+    if (chart.chartType === 'stacked-nd' && chart.yColumns?.length) {
+      return generateStackedNdChartData(chart, data);
     }
 
     // Filter data (keep row indices for cross-chart selection)
@@ -639,10 +753,89 @@ const ChartPanel = ({
       autosize: true
     };
 
-    // Use box-select as default for charts that support selection
-    const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+    // Default to zoom mode; user can switch to select via toolbar
+    const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'stacked-nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
     if (supportsSelection) {
-      baseLayout.dragmode = 'select';
+      baseLayout.dragmode = 'zoom';
+    }
+
+    // Stacked nD layout – subplots with shared X, alternating backgrounds, Plotly legend (like nD)
+    if (chart.chartType === 'stacked-nd' && chart.yColumns?.length) {
+      const groups = groupColumnsBySplit(chart.yColumns, chart.splitBy || 'phase', chart.manualGroupBreaks);
+      const n = groups.length;
+      if (n === 0) return { ...baseLayout, xaxis: {}, yaxis: {} };
+
+      const rowHeight = 1 / n;
+      // Alternate pitch black and normal background for distinct groups
+      const groupBgColors = ['#000000', '#1a1a1a'];
+      const axisStyle = {
+        gridcolor: '#2a2a2a',
+        gridwidth: 1,
+        showline: true,
+        linecolor: '#444',
+        linewidth: 2,
+        tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
+        zeroline: true,
+        zerolinecolor: '#444',
+        zerolinewidth: 2
+      };
+
+      const shapes = [];
+      for (let i = 0; i < n; i++) {
+        const bottom = Math.max(0, 1 - (i + 2) * rowHeight);
+        const top = Math.min(1, 1 - i * rowHeight);
+        shapes.push({
+          type: 'rect',
+          xref: 'paper',
+          yref: 'paper',
+          x0: 0,
+          y0: bottom,
+          x1: 1,
+          y1: top,
+          fillcolor: groupBgColors[i % 2],
+          line: { width: 0 },
+          layer: 'below'
+        });
+      }
+
+      const layout = {
+        ...baseLayout,
+        title: { ...baseLayout.title, text: chart.title || `${chart.componentName || ''} - Stacked nD` },
+        showlegend: true,
+        legend: {
+          orientation: 'v',
+          x: 1.02,
+          xanchor: 'left',
+          y: 1,
+          yanchor: 'top',
+          font: { family: 'Arial, sans-serif', size: 11, color: '#e0e0e0' },
+          bgcolor: 'rgba(0, 0, 0, 0.6)',
+          bordercolor: '#444',
+          borderwidth: 2,
+          traceorder: 'normal'
+        },
+        margin: { l: 50, r: 200, t: 50, b: 50 },
+        shapes: [...(baseLayout.shapes || []), ...shapes],
+        xaxis: {
+          title: { text: chart.xColumn, font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 } },
+          domain: [0, 1],
+          anchor: 'y',
+          ...axisStyle
+        }
+      };
+
+      for (let i = 0; i < n; i++) {
+        const bottom = Math.max(0, 1 - (i + 2) * rowHeight);
+        const top = Math.min(1, 1 - i * rowHeight);
+        const yKey = i === 0 ? 'yaxis' : `yaxis${i + 1}`;
+        layout[yKey] = {
+          title: { text: groups[i].key, font: { family: 'Arial, sans-serif', size: 12, color: '#00d4a8', weight: 600 } },
+          domain: [bottom, top],
+          anchor: 'x',
+          ...axisStyle
+        };
+      }
+      return layout;
     }
 
     // Multi-line 2D chart layout – X = time, Y = values (Y-axis title in margin, legend colors)
@@ -1062,6 +1255,32 @@ const ChartPanel = ({
     return null;
   }
 
+  /** Build display structure: array of { type: 'stack'|'single', charts: Chart[], minIndex } */
+  const emitted = new Set();
+  const units = [];
+  chartStacks.forEach(stack => {
+    const stackCharts = stack.map(i => charts[i]).filter(Boolean);
+    if (stackCharts.length >= 2) {
+      const minIdx = Math.min(...stack);
+      units.push({ type: 'stack', charts: stackCharts, minIndex: minIdx });
+      stack.forEach(i => emitted.add(i));
+    }
+  });
+  charts.forEach((chart, i) => {
+    if (!emitted.has(i)) units.push({ type: 'single', charts: [chart], minIndex: i });
+  });
+  units.sort((a, b) => a.minIndex - b.minIndex);
+  const displayUnits = units;
+
+  const toggleChartSelection = (chartId) => {
+    setSelectedChartIds(prev => {
+      const next = new Set(prev);
+      if (next.has(chartId)) next.delete(chartId);
+      else next.add(chartId);
+      return next;
+    });
+  };
+
   const handlePanelMouseDown = (e) => {
     if (onFocus && !e.target.closest('button, select, input, a, [role="button"]')) {
       onFocus(e);
@@ -1088,6 +1307,25 @@ const ChartPanel = ({
           📊 Charts ({charts.length})
         </div>
         <div className="chart-panel-header-actions">
+          {selectedChartIds.size > 0 && onStackCharts && (
+            <>
+              <button
+                className="chart-panel-stack-btn"
+                onClick={() => { onStackCharts(selectedChartIds); setSelectedChartIds(new Set()); }}
+                disabled={selectedChartIds.size < 2}
+                title="Stack selected charts vertically"
+              >
+                Stack
+              </button>
+              <button
+                className="chart-panel-unstack-btn"
+                onClick={() => { onUnstackCharts?.(selectedChartIds); setSelectedChartIds(new Set()); }}
+                title="Unstack selected charts"
+              >
+                Unstack
+              </button>
+            </>
+          )}
           {selectedRowIndices && selectedRowIndices.size > 0 && (
             <button
               className="chart-panel-clear-selection"
@@ -1110,6 +1348,25 @@ const ChartPanel = ({
               ))}
             </select>
           </label>
+          <span className="chart-panel-size-arrow-gap" />
+          <button
+            type="button"
+            className="chart-panel-size-arrow"
+            onClick={() => setChartWidth(w => Math.max(300, w - 50))}
+            disabled={chartWidth <= 300}
+            title="Narrower chart windows"
+          >
+            ◀
+          </button>
+          <button
+            type="button"
+            className="chart-panel-size-arrow"
+            onClick={() => setChartWidth(w => Math.min(900, w + 50))}
+            disabled={chartWidth >= 900}
+            title="Wider chart windows"
+          >
+            ▶
+          </button>
         </div>
         <button className="chart-panel-close" onClick={onClose} title="Close Chart Panel">
           ×
@@ -1117,21 +1374,40 @@ const ChartPanel = ({
       </div>
 
       {/* Charts Container */}
-      <div className="chart-panel-content">
-        {charts.map((chart) => {
-          const isHighlighted = selectedComponentId === chart.componentId;
-          return (
-          <div 
-            key={chart.id} 
-            id={`chart-${chart.id}`} 
-            className={`chart-panel-chart ${isHighlighted ? 'highlighted' : ''}`}
-          >
-            <div className="chart-panel-chart-header">
-              <div className="chart-panel-chart-title">
+      <div
+        className="chart-panel-content"
+        style={{
+          '--chart-min-width': `${Math.max(200, chartWidth - 150)}px`,
+          '--chart-max-width': `${Math.min(1000, chartWidth + 150)}px`
+        }}
+      >
+        {displayUnits.map((unit) => (
+          unit.type === 'stack' ? (
+            <div key={`stack-${unit.charts.map(c => c.id).join('-')}`} className="chart-panel-stack">
+              {unit.charts.map((chart) => {
+                const isHighlighted = selectedComponentId === chart.componentId;
+                const isSelected = selectedChartIds.has(chart.id);
+                return (
+                  <div 
+                    key={chart.id} 
+                    id={`chart-${chart.id}`} 
+                    className={`chart-panel-chart chart-in-stack ${isHighlighted ? 'highlighted' : ''} ${isSelected ? 'selected' : ''}`}
+                  >
+                    <div className="chart-panel-chart-header">
+                      <input
+                        type="checkbox"
+                        className="chart-panel-chart-checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleChartSelection(chart.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Select for stack/unstack"
+                      />
+                      <div className="chart-panel-chart-title">
                 <span className="chart-panel-chart-icon">
                   {chart.isMultiComponent && (chart.chartType === 'multi-line-chart' ? '📈' : '📊')}
                   {!chart.isMultiComponent && chart.chartType === '2d' && '📈'}
                   {!chart.isMultiComponent && chart.chartType === 'nd' && '📉'}
+                  {!chart.isMultiComponent && chart.chartType === 'stacked-nd' && '📊'}
                   {!chart.isMultiComponent && chart.chartType === 'histogram' && '📊'}
                   {!chart.isMultiComponent && chart.chartType === 'pie' && '🥧'}
                   {!chart.isMultiComponent && chart.chartType === 'bar' && '📊'}
@@ -1194,7 +1470,7 @@ const ChartPanel = ({
                 const data = getChartData(chart);
                 const plotlyData = generatePlotlyData(chart, data);
                 const layout = generatePlotlyLayout(chart, data);
-                const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+                const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'stacked-nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
                 return (
                   <Plot
                     data={plotlyData}
@@ -1219,8 +1495,90 @@ const ChartPanel = ({
               )}
             </div>
           </div>
-          );
-        })}
+                );
+              })}
+            </div>
+          ) : (
+            (() => {
+              const chart = unit.charts[0];
+              const isHighlighted = selectedComponentId === chart.componentId;
+              const isSelected = selectedChartIds.has(chart.id);
+              return (
+                <div
+                  key={chart.id}
+                  id={`chart-${chart.id}`}
+                  className={`chart-panel-chart ${isHighlighted ? 'highlighted' : ''} ${isSelected ? 'selected' : ''}`}
+                >
+                  <div className="chart-panel-chart-header">
+                    <input
+                      type="checkbox"
+                      className="chart-panel-chart-checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleChartSelection(chart.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Select for stack/unstack"
+                    />
+                    <div className="chart-panel-chart-title">
+                      <span className="chart-panel-chart-icon">
+                        {chart.isMultiComponent && (chart.chartType === 'multi-line-chart' ? '📈' : '📊')}
+                        {!chart.isMultiComponent && chart.chartType === '2d' && '📈'}
+                        {!chart.isMultiComponent && chart.chartType === 'nd' && '📉'}
+                        {!chart.isMultiComponent && chart.chartType === 'histogram' && '📊'}
+                        {!chart.isMultiComponent && chart.chartType === 'pie' && '🥧'}
+                        {!chart.isMultiComponent && chart.chartType === 'bar' && '📊'}
+                        {!chart.isMultiComponent && chart.chartType === '3d' && '🗻'}
+                        {!chart.isMultiComponent && chart.chartType === 'heatmap' && '🔥'}
+                        {!chart.isMultiComponent && chart.chartType === 'box' && '📦'}
+                      </span>
+                      <span className="chart-panel-chart-name">
+                        {chart.isMultiComponent ? chart.title : (chart.title || chart.componentName)}
+                      </span>
+                    </div>
+                    <select
+                      className="chart-panel-chart-sample"
+                      value={getSampleStep(chart.id)}
+                      onChange={(e) => onPerChartSampleStepChange?.(chart.id, Number(e.target.value))}
+                      title="Plot every Nth point (this chart)"
+                    >
+                      {SAMPLE_OPTIONS.map((n) => (
+                        <option key={n} value={n}>1 in {n}</option>
+                      ))}
+                    </select>
+                    <button className="chart-panel-chart-close" onClick={() => onRemoveChart(chart.id)} title="Remove Chart">×</button>
+                  </div>
+                  <div className="chart-panel-chart-body">
+                    <button className="chart-panel-fullscreen-btn" onClick={() => handleFullscreen(chart.id)} title="Fullscreen (F)">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1h-4zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zM.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5z"/>
+                      </svg>
+                    </button>
+                    {!simulationData?.length && loadingCharts[chart.id] && (
+                      <div className="chart-panel-chart-loading"><div className="chart-panel-spinner"></div><div>Loading chart data...</div></div>
+                    )}
+                    {!simulationData?.length && !loadingCharts[chart.id] && chartData[chart.id] === null && (
+                      <div className="chart-panel-chart-error"><div className="chart-panel-error-icon">⚠️</div><div>Failed to load chart data</div></div>
+                    )}
+                    {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length > 0 && (() => {
+                      const data = getChartData(chart);
+                      const plotlyData = generatePlotlyData(chart, data);
+                      const layout = generatePlotlyLayout(chart, data);
+                      const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'stacked-nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+                      return (
+                        <Plot data={plotlyData} layout={layout} config={plotlyConfig} style={{ width: '100%', height: '100%' }} useResizeHandler={true}
+                          {...(chart.isMultiComponent ? plotlyTransition : {})}
+                          {...(supportsSelection && onSelectionChange ? { onInitialized: (fig, gd) => attachSelectionListeners(chart.id, gd) } : {})}
+                        />
+                      );
+                    })()}
+                    {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length === 0 && (
+                      <div className="chart-panel-chart-empty"><div className="chart-panel-empty-icon">📊</div><div>No data available</div></div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          )
+        ))}
       </div>
     </div>
   );

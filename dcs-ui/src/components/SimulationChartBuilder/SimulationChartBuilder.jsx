@@ -20,35 +20,50 @@ function getExcelColumnLetter(index) {
 const CHART_TYPES = [
   { id: '2d', label: '2D Plot', icon: '📈', selections: [{ hint: 'Pick X axis' }, { hint: 'Pick Y axis' }] },
   { id: 'nd', label: 'nD Plot', icon: '📉', selections: null }, // Variable: X + Y1, Y2, ... Yn; user clicks "Done" when finished
+  { id: 'stacked-nd', label: 'Stacked nD', icon: '📊', selections: null }, // X + Y columns + split by (phase/load/column)
   { id: 'histogram', label: 'Histogram', icon: '📊', selections: [{ hint: 'Pick column to bin' }] },
   { id: 'bar', label: 'Bar Chart', icon: '📊', selections: [{ hint: 'Pick X axis' }, { hint: 'Pick Y axis' }] },
   { id: 'pie', label: 'Pie Chart', icon: '🥧', selections: [{ hint: 'Pick values' }] },
   { id: 'box', label: 'Box Plot', icon: '📦', selections: [{ hint: 'Pick column' }] },
 ];
 
+const SPLIT_BY_OPTIONS = [
+  { id: 'phase', label: 'By phase (A/B/C)', desc: 'Groups columns containing _a_, _b_, _c_' },
+  { id: 'load', label: 'By load (_1/_2/...)', desc: 'Groups columns containing _1, _2, _3' },
+  { id: 'column', label: 'By column', desc: 'One subplot per Y column' },
+  { id: 'manual', label: 'Manual grouping', desc: 'Click Next group after each group of Y columns' },
+];
+
 function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCancel }) {
   const [selectedChartType, setSelectedChartType] = useState(null);
   const [selections, setSelections] = useState([]);
+  const [splitBy, setSplitBy] = useState('phase');
+  const [manualGroupBreaks, setManualGroupBreaks] = useState([]); // indices where each group ends (Y columns only)
   const [cursorHint, setCursorHint] = useState({ x: 0, y: 0, text: '', visible: false });
 
   const currentChart = selectedChartType ? CHART_TYPES.find(c => c.id === selectedChartType) : null;
   const isNdChart = currentChart?.id === 'nd';
-  const needed = isNdChart ? null : (currentChart?.selections?.length ?? 0);
+  const isStackedNdChart = currentChart?.id === 'stacked-nd';
+  const needed = isNdChart || isStackedNdChart ? null : (currentChart?.selections?.length ?? 0);
   const step = selections.length;
+  const showSplitBy = isStackedNdChart && selections.length >= 2;
   const inSelectionMode = isNdChart
     ? !!selectedChartType && (step < 1 || true) // nd: stay in mode until Done; need at least X
-    : !!(selectedChartType && needed > 0 && step < needed);
+    : isStackedNdChart
+      ? !!selectedChartType // stacked-nd: stay in mode until Done (can add columns or pick split-by)
+      : !!(selectedChartType && needed > 0 && step < needed);
 
   const ndHint = step === 0 ? 'Pick X axis' : step === 1 ? 'Pick Y1' : `Pick Y${step} (or click Done)`;
+  const stackedNdHint = step === 0 ? 'Pick X axis' : step === 1 ? 'Pick Y columns' : 'Pick more Y columns';
 
   useEffect(() => {
     if (inSelectionMode) {
-      const hintText = isNdChart ? ndHint : currentChart?.selections?.[step]?.hint ?? '';
+      const hintText = isNdChart ? ndHint : isStackedNdChart ? stackedNdHint : currentChart?.selections?.[step]?.hint ?? '';
       setCursorHint(prev => ({ ...prev, text: hintText, visible: true }));
     } else {
       setCursorHint(prev => ({ ...prev, visible: false }));
     }
-  }, [inSelectionMode, step, currentChart, isNdChart, ndHint]);
+  }, [inSelectionMode, step, currentChart, isNdChart, isStackedNdChart, ndHint, stackedNdHint]);
 
   useEffect(() => {
     if (!cursorHint.visible) return;
@@ -60,15 +75,17 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
   const handleChartTypeClick = (typeId) => {
     setSelectedChartType(typeId);
     setSelections([]);
+    setSplitBy('phase');
+    setManualGroupBreaks([]);
   };
 
   const handleTitleClick = (col) => {
     if (!currentChart) return;
-    if (!isNdChart && step >= needed) return;
+    if (!isNdChart && !isStackedNdChart && step >= needed) return;
     if (selections.includes(col)) return; // No duplicate columns
     const next = [...selections, col];
     setSelections(next);
-    if (!isNdChart && next.length >= needed) {
+    if (!isNdChart && !isStackedNdChart && next.length >= needed) {
       const chart = { chartType: selectedChartType, selections: next };
       onAddChart(chart);
       setSelectedChartType(null);
@@ -82,6 +99,26 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
     onAddChart(chart);
     setSelectedChartType(null);
     setSelections([]);
+  };
+
+  const handleStackedNdDone = () => {
+    if (!isStackedNdChart || selections.length < 2) return; // Need X + at least 1 Y
+    const chart = {
+      chartType: 'stacked-nd',
+      selections,
+      splitBy,
+      ...(splitBy === 'manual' ? { manualGroupBreaks: [...manualGroupBreaks] } : {})
+    };
+    onAddChart(chart);
+    setSelectedChartType(null);
+    setSelections([]);
+    setSplitBy('phase');
+    setManualGroupBreaks([]);
+  };
+
+  const handleNextGroup = () => {
+    if (splitBy !== 'manual' || selections.length < 3) return; // Need X + at least 2 Y for first group
+    setManualGroupBreaks(prev => [...prev, selections.length]);
   };
 
   const handleCancelSelection = () => {
@@ -113,6 +150,11 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
               ✓ Done
             </button>
           )}
+          {showSplitBy && (
+            <button className="sim-chart-builder-done" onClick={handleStackedNdDone} title="Create stacked chart">
+              ✓ Done
+            </button>
+          )}
           {inSelectionMode && (
             <button className="sim-chart-builder-cancel" onClick={handleCancelSelection} title="Cancel">
               ✕
@@ -136,15 +178,53 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
                 ✓ Done
               </button>
             )}
+            {showSplitBy && (
+              <button
+                type="button"
+                className="sim-chart-builder-done sim-chart-builder-done-top"
+                onClick={handleStackedNdDone}
+                title="Create stacked chart"
+              >
+                ✓ Done
+              </button>
+            )}
           </div>
+          {showSplitBy && (
+            <div className="sim-chart-builder-split-by-row">
+              <span className="sim-chart-builder-split-label">Split by:</span>
+              {SPLIT_BY_OPTIONS.map((opt) => (
+                <label key={opt.id} className="sim-chart-builder-split-option">
+                  <input
+                    type="radio"
+                    name="splitBy"
+                    value={opt.id}
+                    checked={splitBy === opt.id}
+                    onChange={() => {
+                      setSplitBy(opt.id);
+                      if (opt.id !== 'manual') setManualGroupBreaks([]);
+                    }}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+              {splitBy === 'manual' && (
+                <button
+                  type="button"
+                  className="sim-chart-builder-next-group"
+                  onClick={handleNextGroup}
+                  disabled={selections.length < 3}
+                  title="Start next group (select Y columns, then click to begin next group)"
+                >
+                  Next group
+                </button>
+              )}
+            </div>
+          )}
           <div className="sim-chart-builder-list">
             {columns.map((col, colIndex) => {
               const idx = selections.indexOf(col);
               const isSelected = idx >= 0;
-              const roleLabel = isNdChart
-                ? (idx === 0 ? 'X ✓' : `Y${idx} ✓`)
-                : (currentChart?.selections?.[idx]?.hint?.replace('Pick ', '') + ' ✓');
-              const label = isSelected ? roleLabel : col;
+              const label = isSelected ? `${col} ✓` : col;
               return (
                 <div key={col} className="sim-chart-builder-item-row">
                   {inSelectionMode && (
@@ -164,13 +244,25 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
                 </div>
               );
             })}
-            {isNdChart && inSelectionMode && selections.length >= 2 && (
+            {(isNdChart && inSelectionMode && selections.length >= 2) && (
               <div className="sim-chart-builder-done-footer">
                 <button
                   type="button"
                   className="sim-chart-builder-done sim-chart-builder-done-inline"
                   onClick={handleNdDone}
                   title="Create chart with selected columns"
+                >
+                  ✓ Done
+                </button>
+              </div>
+            )}
+            {showSplitBy && (
+              <div className="sim-chart-builder-done-footer">
+                <button
+                  type="button"
+                  className="sim-chart-builder-done sim-chart-builder-done-inline"
+                  onClick={handleStackedNdDone}
+                  title="Create stacked chart"
                 >
                   ✓ Done
                 </button>
@@ -190,7 +282,7 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
                 className={`sim-chart-builder-plot ${selectedChartType === ct.id ? 'active' : ''}`}
                 onClick={() => handleChartTypeClick(ct.id)}
                 disabled={inSelectionMode}
-                title={ct.id === 'nd' ? 'Pick X, then Y1, Y2... click Done when finished' : (ct.selections?.length === 1 ? 'Pick 1 column' : `Pick ${ct.selections?.length} columns (first = X, second = Y)`)}
+                title={ct.id === 'nd' ? 'Pick X, then Y1, Y2... click Done when finished' : ct.id === 'stacked-nd' ? 'Pick X, Y columns, choose split (phase/load/column)' : (ct.selections?.length === 1 ? 'Pick 1 column' : `Pick ${ct.selections?.length} columns (first = X, second = Y)`)}
               >
                 <span className="sim-chart-plot-icon">{ct.icon}</span>
                 <span>{ct.label}</span>

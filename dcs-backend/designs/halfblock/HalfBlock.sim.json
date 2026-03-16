@@ -30,9 +30,51 @@
         " Q_g4 (MVar)"
       ],
       "title": "BESS 50MW - nD"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " Vload_1 (p.u.)",
+        " V_BESS (p.u.)",
+        " V_g1 (p.u.)",
+        " V_g2 (p.u.)",
+        " Vload_2 (p.u.)",
+        " V_g3 (p.u.)",
+        " V_g4 (p.u.)"
+      ],
+      "title": "BESS 50MW - nD"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "stacked-nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " P_g1 (MW)",
+        " P_g2 (MW)",
+        " P_g4 (MW)",
+        " Qload_1 (MVar)",
+        " Q_g1 (MVar)",
+        " Q_g2 (MVar)"
+      ],
+      "split_by": "manual",
+      "manual_group_breaks": [
+        3,
+        5
+      ],
+      "title": "BESS 50MW - Stacked nD"
     }
   ],
   "event_markers": {},
   "chart_sample_default": 64,
-  "chart_panel_height": 508
+  "chart_panel_height": 619,
+  "chart_stacks": [
+    [
+      0,
+      1
+    ]
+  ]
 }

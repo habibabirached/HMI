@@ -1024,6 +1024,8 @@ async def update_simulation_config(design_name: str, sim_name: str, body: Update
         with open(sim_json_path, "r") as f:
             sim_config = json.load(f)
         sim_config["charts_to_display"] = body.charts_to_display
+        if body.chart_stacks is not None:
+            sim_config["chart_stacks"] = body.chart_stacks
         if body.event_markers is not None:
             sim_config["event_markers"] = body.event_markers
         if body.chart_sample_default is not None:

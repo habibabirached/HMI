@@ -94,6 +94,60 @@
   font-size: 12px;
 }
 
+.chart-panel-stack-btn,
+.chart-panel-unstack-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(0, 94, 96, 0.3);
+  border: 1px solid #005e60;
+  color: #00d4a8;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.chart-panel-stack-btn:hover:not(:disabled),
+.chart-panel-unstack-btn:hover {
+  background: rgba(0, 94, 96, 0.5);
+}
+
+.chart-panel-stack-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chart-panel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 1 1;
+  min-width: var(--chart-min-width, 400px);
+  max-width: var(--chart-max-width, 600px);
+  height: 100%;
+}
+
+.chart-panel-stack .chart-panel-chart {
+  flex: 1;
+  min-height: 120px;
+}
+
+.chart-panel-stack .chart-panel-chart:not(:last-child) {
+  border-bottom: 1px solid #333;
+}
+
+.chart-panel-chart-checkbox {
+  margin: 0 8px 0 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chart-panel-chart.selected {
+  outline: 2px solid #00d4a8;
+  outline-offset: -2px;
+}
+
 .chart-panel-sample-select {
   background: #1a1a1a;
   border: 1px solid #444;
@@ -107,6 +161,35 @@
 .chart-panel-sample-select:focus {
   border-color: #005e60;
   outline: none;
+}
+
+.chart-panel-size-arrow-gap {
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.chart-panel-size-arrow {
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  background: rgba(0, 94, 96, 0.25);
+  border: 1px solid #005e60;
+  color: #00d4a8;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-panel-size-arrow:hover:not(:disabled) {
+  background: rgba(0, 94, 96, 0.45);
+}
+
+.chart-panel-size-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .chart-panel-clear-selection {
@@ -173,11 +256,11 @@
   background: #555;
 }
 
-/* Individual chart card */
+/* Individual chart card - width controlled by --chart-min-width, --chart-max-width */
 .chart-panel-chart {
   flex: 1 1;
-  min-width: 400px;
-  max-width: 600px;
+  min-width: var(--chart-min-width, 400px);
+  max-width: var(--chart-max-width, 600px);
   height: 100%;
   margin: 0;
   display: flex;

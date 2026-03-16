@@ -58,6 +58,7 @@ function App() {
   
   // Chart Panel state
   const [openCharts, setOpenCharts] = useState([]); // Charts currently displayed in bottom panel
+  const [chartStacks, setChartStacks] = useState([]); // Array of stacks; each stack = array of chart indices
   const [chartPanelHeight, setChartPanelHeight] = useState(300);
   const [globalSampleStep, setGlobalSampleStep] = useState(1); // Chart sampling: 1=every row, 2=every 2nd, etc.
   const [perChartSampleStep, setPerChartSampleStep] = useState({}); // Per-chart override: { chartId: step }
@@ -706,6 +707,7 @@ function App() {
       });
       
       const chartsToDisplay = scenarioConfig.charts_to_display || [];
+      setChartStacks(scenarioConfig.chart_stacks || []);
       setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
       if (scenarioConfig.chart_panel_height != null && scenarioConfig.chart_panel_height >= 200 && scenarioConfig.chart_panel_height <= 800) {
         setChartPanelHeight(scenarioConfig.chart_panel_height);
@@ -730,6 +732,7 @@ function App() {
           const component = canvasComponents.find(c => c.id === chartDef.component_id);
           if (!component) return null;
           const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
+          const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
           return {
             id: chartId,
             componentId: component.id,
@@ -737,13 +740,19 @@ function App() {
             chartType: chartDef.chart_type || '2d',
             csvName: csvNameForCharts,
             xColumn: chartDef.x_column,
-            ...(isNd ? { yColumns: chartDef.y_columns } : { yColumn: chartDef.y_column }),
-            title: chartDef.title || (isNd ? `${component.name} - nD` : `${component.name} - ${chartDef.y_column}`)
+            ...(isNd ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
+            ...(isStackedNd ? {
+              yColumns: chartDef.y_columns,
+              splitBy: chartDef.split_by || 'phase',
+              ...(chartDef.split_by === 'manual' && chartDef.manual_group_breaks?.length && { manualGroupBreaks: chartDef.manual_group_breaks })
+            } : {}),
+            title: chartDef.title || (isNd ? `${component.name} - nD` : isStackedNd ? `${component.name} - Stacked nD` : `${component.name} - ${chartDef.y_column}`)
           };
         }).filter(Boolean);
         setOpenCharts(newCharts);
         setPerChartSampleStep(initialPerChart);
       } else {
+        setChartStacks([]);
         setPerChartSampleStep({});
       }
       
@@ -1032,6 +1041,7 @@ function App() {
     const effectiveGlobal = overrides.chart_sample_default ?? globalSampleStep;
     const effectivePerChart = overrides.perChartSampleStep ?? perChartSampleStep;
     const effectiveHeight = overrides.chart_panel_height ?? chartPanelHeight;
+    const effectiveStacks = overrides.chart_stacks ?? chartStacks;
     try {
       const charts_to_display = charts.map(c => {
         let base;
@@ -1052,6 +1062,17 @@ function App() {
             y_columns: c.yColumns,
             title: c.title || `${c.componentName || ''} - nD`
           };
+        } else if (c.chartType === 'stacked-nd' && c.yColumns?.length) {
+          base = {
+            type: 'single',
+            component_id: c.componentId,
+            chart_type: 'stacked-nd',
+            x_column: c.xColumn,
+            y_columns: c.yColumns,
+            split_by: c.splitBy || 'phase',
+            ...(c.splitBy === 'manual' && c.manualGroupBreaks?.length && { manual_group_breaks: c.manualGroupBreaks }),
+            title: c.title || `${c.componentName || ''} - Stacked nD`
+          };
         } else {
           base = {
             type: 'single',
@@ -1065,7 +1086,7 @@ function App() {
         if (effectivePerChart[c.id] != null) base.sample_step = effectivePerChart[c.id];
         return base;
       });
-      const body = { charts_to_display, chart_sample_default: effectiveGlobal, chart_panel_height: effectiveHeight };
+      const body = { charts_to_display, chart_stacks: effectiveStacks, chart_sample_default: effectiveGlobal, chart_panel_height: effectiveHeight };
       const res = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationMetadata.id)}/config`,
         { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
@@ -1074,7 +1095,7 @@ function App() {
     } catch (e) {
       console.warn('persistChartsToSimJson error:', e);
     }
-  }, [simulationMetadata?.id, currentConfigName, globalSampleStep, perChartSampleStep, chartPanelHeight]);
+  }, [simulationMetadata?.id, currentConfigName, globalSampleStep, perChartSampleStep, chartPanelHeight, chartStacks]);
 
   const persistChartPanelHeightRef = useRef(null);
   const handleChartPanelHeightChange = useCallback((newHeight) => {
@@ -1194,7 +1215,7 @@ function App() {
    * Add chart from SimulationChartBuilder (Property Panel when sim loaded).
    * Receives { chartType, selections } - maps to xColumn/yColumn based on chart type.
    */
-  const handleAddChartFromBuilder = ({ chartType, selections }) => {
+  const handleAddChartFromBuilder = ({ chartType, selections, splitBy, manualGroupBreaks }) => {
     if (!simulationMetadata || !selections?.length) return;
     const cols = simulationMetadata.columns || [];
     const csvName = `${simulationMetadata.id}.data.csv`;
@@ -1207,6 +1228,10 @@ function App() {
       xColumn = selections[0];
       yColumns = selections.slice(1);
       title = `${componentName} - nD`;
+    } else if (chartType === 'stacked-nd') {
+      xColumn = selections[0];
+      yColumns = selections.slice(1);
+      title = `${componentName} - Stacked nD`;
     } else if (chartType === '2d' || chartType === 'bar') {
       xColumn = selections[0];
       yColumn = selections[1];
@@ -1226,6 +1251,8 @@ function App() {
       xColumn,
       ...(yColumn != null && { yColumn }),
       ...(yColumns != null && { yColumns }),
+      ...(chartType === 'stacked-nd' && splitBy && { splitBy }),
+      ...(chartType === 'stacked-nd' && splitBy === 'manual' && manualGroupBreaks?.length && { manualGroupBreaks }),
       title
     };
     setOpenCharts(prev => {
@@ -1235,6 +1262,16 @@ function App() {
     });
   };
 
+  /** Reindex chartStacks when a chart at removedIdx is removed */
+  const reindexChartStacksAfterRemove = (stacks, removedIdx) => {
+    return stacks
+      .map(stack => stack
+        .filter(i => i !== removedIdx)
+        .map(i => i > removedIdx ? i - 1 : i)
+      )
+      .filter(stack => stack.length >= 2);
+  };
+
   /**
    * Handle removing a chart from the bottom panel.
    * We compute the next chart list, update state, and persist to .sim.json so the
@@ -1242,14 +1279,17 @@ function App() {
    */
   const handleRemoveChart = (openChartId) => {
     console.log('🗑️  Removing chart:', openChartId);
+    const removedIdx = openCharts.findIndex(c => c.id === openChartId);
     const nextCharts = openCharts.filter(c => c.id !== openChartId);
+    const nextStacks = removedIdx >= 0 ? reindexChartStacksAfterRemove(chartStacks, removedIdx) : chartStacks;
     setOpenCharts(nextCharts);
+    setChartStacks(nextStacks);
     setPerChartSampleStep(prev => {
       const next = { ...prev };
       delete next[openChartId];
       return next;
     });
-    persistChartsToSimJson(nextCharts);
+    persistChartsToSimJson(nextCharts, { chart_stacks: nextStacks });
   };
 
   /**
@@ -1260,8 +1300,37 @@ function App() {
   const handleCloseChartPanel = () => {
     console.log('❌ Closing chart panel');
     setOpenCharts([]);
+    setChartStacks([]);
     setPerChartSampleStep({});
-    persistChartsToSimJson([]);
+    persistChartsToSimJson([], { chart_stacks: [] });
+  };
+
+  const handleStackCharts = (selectedChartIds) => {
+    if (!selectedChartIds || selectedChartIds.size < 2) return;
+    const indices = openCharts
+      .map((c, i) => (selectedChartIds.has(c.id) ? i : -1))
+      .filter(i => i >= 0)
+      .sort((a, b) => a - b);
+    if (indices.length < 2) return;
+    const selectedSet = new Set(indices);
+    const nextStacks = chartStacks
+      .map(stack => stack.filter(i => !selectedSet.has(i)))
+      .filter(stack => stack.length >= 2);
+    nextStacks.push(indices);
+    setChartStacks(nextStacks);
+    persistChartsToSimJson(openCharts, { chart_stacks: nextStacks });
+  };
+
+  const handleUnstackCharts = (selectedChartIds) => {
+    if (!selectedChartIds || selectedChartIds.size === 0) return;
+    const selectedIndices = new Set(
+      openCharts.map((c, i) => (selectedChartIds.has(c.id) ? i : -1)).filter(i => i >= 0)
+    );
+    const nextStacks = chartStacks
+      .map(stack => stack.filter(i => !selectedIndices.has(i)))
+      .filter(stack => stack.length >= 2);
+    setChartStacks(nextStacks);
+    persistChartsToSimJson(openCharts, { chart_stacks: nextStacks });
   };
 
   /**
@@ -1624,6 +1693,9 @@ function App() {
       {openCharts.length > 0 && (
         <ChartPanel
           charts={openCharts}
+          chartStacks={chartStacks}
+          onStackCharts={handleStackCharts}
+          onUnstackCharts={handleUnstackCharts}
           onClose={handleCloseChartPanel}
           onRemoveChart={handleRemoveChart}
           height={chartPanelHeight}
