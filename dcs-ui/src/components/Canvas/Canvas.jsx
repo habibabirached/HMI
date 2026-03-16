@@ -20,6 +20,7 @@ const Canvas = forwardRef(({
   onMoveComponent,
   onAddComponent,
   onAddConnection,
+  onUpdateComponent,
   onAssociateChart,
   onOpenChart,
   onCreateMultiComponentChart,
@@ -45,6 +46,13 @@ const Canvas = forwardRef(({
   const [showMultiChartDialog, setShowMultiChartDialog] = useState(false);
   const [multiChartComponents, setMultiChartComponents] = useState([]);
   const [multiChartType, setMultiChartType] = useState('multi-bar-chart'); // 'multi-bar-chart' | 'multi-line-chart'
+  const [resizingComponent, setResizingComponent] = useState(null); // { id, handle: 'top'|'bottom'|'left'|'right' }
+  const resizeStateRef = useRef(null); // holds latest components, pan, zoom for document-level resize
+
+  const STRETCHABLE_VERTICAL = ['bus-hv-vertical'];
+  const STRETCHABLE_HORIZONTAL = ['bus-hv'];
+
+  resizeStateRef.current = { components, pan, zoom, onUpdateComponent, resizingComponent, canvasRef };
 
   // ========================================================================
   // HELPER: snapCenterToGrid – snap component CENTER to grid, return top-left
@@ -267,6 +275,50 @@ const Canvas = forwardRef(({
     if (contextMenu) {
       return;
     }
+
+    if (resizingComponent && onUpdateComponent) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const canvasX = (e.clientX - rect.left - pan.x) / zoom;
+      const canvasY = (e.clientY - rect.top - pan.y) / zoom;
+      const comp = components.find(c => c.id === resizingComponent.id);
+      if (!comp) return;
+      const baseConfig = getComponentVisualConfig(comp.type);
+      const currentWidth = comp.visualOverrides?.width ?? baseConfig.width;
+      const currentHeight = comp.visualOverrides?.height ?? baseConfig.height;
+      const vo = comp.visualOverrides || {};
+      if (resizingComponent.handle === 'bottom') {
+        const newHeight = Math.max(60, Math.min(800, canvasY - comp.position.y));
+        if (Math.abs(newHeight - currentHeight) > 1) {
+          onUpdateComponent(comp.id, { visualOverrides: { ...vo, height: Math.round(newHeight) } });
+        }
+      } else if (resizingComponent.handle === 'top') {
+        const compBottom = comp.position.y + currentHeight;
+        const newHeight = Math.max(60, Math.min(800, compBottom - canvasY));
+        const newY = compBottom - newHeight;
+        if (Math.abs(newHeight - currentHeight) > 1) {
+          onUpdateComponent(comp.id, {
+            position: { ...comp.position, y: newY },
+            visualOverrides: { ...vo, height: Math.round(newHeight) }
+          });
+        }
+      } else if (resizingComponent.handle === 'right') {
+        const newWidth = Math.max(80, Math.min(600, canvasX - comp.position.x));
+        if (Math.abs(newWidth - currentWidth) > 1) {
+          onUpdateComponent(comp.id, { visualOverrides: { ...vo, width: Math.round(newWidth) } });
+        }
+      } else if (resizingComponent.handle === 'left') {
+        const compRight = comp.position.x + currentWidth;
+        const newWidth = Math.max(80, Math.min(600, compRight - canvasX));
+        const newX = compRight - newWidth;
+        if (Math.abs(newWidth - currentWidth) > 1) {
+          onUpdateComponent(comp.id, {
+            position: { ...comp.position, x: newX },
+            visualOverrides: { ...vo, width: Math.round(newWidth) }
+          });
+        }
+      }
+      return;
+    }
     
     if (draggingComponent) {
       const rect = canvasRef.current.getBoundingClientRect();
@@ -297,10 +349,70 @@ const Canvas = forwardRef(({
     if (draggingComponent) {
       setDraggingComponent(null);
     }
+    if (resizingComponent) {
+      setResizingComponent(null);
+    }
     if (panning) {
       setPanning(false);
     }
   };
+
+  // Document-level resize: keep resize working when mouse leaves canvas
+  useEffect(() => {
+    if (!resizingComponent || !onUpdateComponent) return;
+    const onDocMove = (e) => {
+      const s = resizeStateRef.current;
+      if (!s?.resizingComponent || !s.canvasRef?.current) return;
+      const rect = s.canvasRef.current.getBoundingClientRect();
+      const canvasX = (e.clientX - rect.left - s.pan.x) / s.zoom;
+      const canvasY = (e.clientY - rect.top - s.pan.y) / s.zoom;
+      const comp = s.components.find(c => c.id === s.resizingComponent.id);
+      if (!comp) return;
+      const baseConfig = getComponentVisualConfig(comp.type);
+      const currentWidth = comp.visualOverrides?.width ?? baseConfig.width;
+      const currentHeight = comp.visualOverrides?.height ?? baseConfig.height;
+      const vo = comp.visualOverrides || {};
+      const handle = s.resizingComponent.handle;
+      if (handle === 'bottom') {
+        const newHeight = Math.max(60, Math.min(800, canvasY - comp.position.y));
+        if (Math.abs(newHeight - currentHeight) > 1) {
+          s.onUpdateComponent(comp.id, { visualOverrides: { ...vo, height: Math.round(newHeight) } });
+        }
+      } else if (handle === 'top') {
+        const compBottom = comp.position.y + currentHeight;
+        const newHeight = Math.max(60, Math.min(800, compBottom - canvasY));
+        const newY = compBottom - newHeight;
+        if (Math.abs(newHeight - currentHeight) > 1) {
+          s.onUpdateComponent(comp.id, {
+            position: { ...comp.position, y: newY },
+            visualOverrides: { ...vo, height: Math.round(newHeight) }
+          });
+        }
+      } else if (handle === 'right') {
+        const newWidth = Math.max(80, Math.min(600, canvasX - comp.position.x));
+        if (Math.abs(newWidth - currentWidth) > 1) {
+          s.onUpdateComponent(comp.id, { visualOverrides: { ...vo, width: Math.round(newWidth) } });
+        }
+      } else if (handle === 'left') {
+        const compRight = comp.position.x + currentWidth;
+        const newWidth = Math.max(80, Math.min(600, compRight - canvasX));
+        const newX = compRight - newWidth;
+        if (Math.abs(newWidth - currentWidth) > 1) {
+          s.onUpdateComponent(comp.id, {
+            position: { ...comp.position, x: newX },
+            visualOverrides: { ...vo, width: Math.round(newWidth) }
+          });
+        }
+      }
+    };
+    const onDocUp = () => setResizingComponent(null);
+    document.addEventListener('mousemove', onDocMove);
+    document.addEventListener('mouseup', onDocUp);
+    return () => {
+      document.removeEventListener('mousemove', onDocMove);
+      document.removeEventListener('mouseup', onDocUp);
+    };
+  }, [resizingComponent, onUpdateComponent]);
 
   const handleComponentMouseUp = (e, component) => {
     if (connecting && connecting !== component.id) {
@@ -483,10 +595,29 @@ const Canvas = forwardRef(({
             const toWidth = toComp.visualOverrides?.width || toVisual.width;
             const toHeight = toComp.visualOverrides?.height || toVisual.height;
             
-            const fromCenterX = fromComp.position.x + (fromWidth / 2);
-            const fromCenterY = fromComp.position.y + (fromHeight / 2);
-            const toCenterX = toComp.position.x + (toWidth / 2);
-            const toCenterY = toComp.position.y + (toHeight / 2);
+            let fromCenterX = fromComp.position.x + (fromWidth / 2);
+            let fromCenterY = fromComp.position.y + (fromHeight / 2);
+            let toCenterX = toComp.position.x + (toWidth / 2);
+            let toCenterY = toComp.position.y + (toHeight / 2);
+
+            // Vertical bus: use edge connection so lines are horizontal at the bus
+            const VERTICAL_BUS_TYPES = ['bus-hv-vertical'];
+            const fromIsVerticalBus = VERTICAL_BUS_TYPES.includes(fromComp.type);
+            const toIsVerticalBus = VERTICAL_BUS_TYPES.includes(toComp.type);
+            if (fromIsVerticalBus) {
+              const busLeft = fromComp.position.x;
+              const busRight = fromComp.position.x + fromWidth;
+              const busEdgeX = toCenterX < fromCenterX ? busLeft : busRight;
+              fromCenterX = busEdgeX;
+              fromCenterY = toCenterY;
+            }
+            if (toIsVerticalBus) {
+              const busLeft = toComp.position.x;
+              const busRight = toComp.position.x + toWidth;
+              const busEdgeX = fromCenterX < toCenterX ? busRight : busLeft;
+              toCenterX = busEdgeX;
+              toCenterY = fromCenterY;
+            }
 
             // Check if this connection is currently selected by the user
             const isSelected = selectedConnection?.id === conn.id;
@@ -761,6 +892,68 @@ const Canvas = forwardRef(({
                       );
                     })}
                   </g>
+                )}
+
+                {/* Resize handles - rendered on top so they're visible and clickable */}
+                {mode === 'design' && isSelected && onUpdateComponent && (
+                  <>
+                    {STRETCHABLE_VERTICAL.includes(component.type) && (
+                      <>
+                        <rect
+                          x={centerX - 6}
+                          y={0}
+                          width={12}
+                          height={10}
+                          fill="#005E60"
+                          stroke="#00d4a8"
+                          strokeWidth={1}
+                          rx={2}
+                          style={{ cursor: 'ns-resize' }}
+                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'top' }); }}
+                        />
+                        <rect
+                          x={centerX - 6}
+                          y={height - 10}
+                          width={12}
+                          height={10}
+                          fill="#005E60"
+                          stroke="#00d4a8"
+                          strokeWidth={1}
+                          rx={2}
+                          style={{ cursor: 'ns-resize' }}
+                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'bottom' }); }}
+                        />
+                      </>
+                    )}
+                    {STRETCHABLE_HORIZONTAL.includes(component.type) && (
+                      <>
+                        <rect
+                          x={0}
+                          y={centerY - 6}
+                          width={10}
+                          height={12}
+                          fill="#005E60"
+                          stroke="#00d4a8"
+                          strokeWidth={1}
+                          rx={2}
+                          style={{ cursor: 'ew-resize' }}
+                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'left' }); }}
+                        />
+                        <rect
+                          x={width - 10}
+                          y={centerY - 6}
+                          width={10}
+                          height={12}
+                          fill="#005E60"
+                          stroke="#00d4a8"
+                          strokeWidth={1}
+                          rx={2}
+                          style={{ cursor: 'ew-resize' }}
+                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'right' }); }}
+                        />
+                      </>
+                    )}
+                  </>
                 )}
                 </g> {/* Close rotation wrapper */}
               </g>

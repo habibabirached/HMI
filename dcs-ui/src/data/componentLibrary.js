@@ -104,6 +104,7 @@ export const COMPONENT_LIBRARY = [
       { id: 'breaker-lv', name: 'LV Breaker', fullName: 'Low Voltage Circuit Breaker', type: 'breaker-lv', properties: { rating: 4000, voltage: 0.48, unit: 'A' } },
       { id: 'breaker-dc', name: 'DC Breaker', fullName: 'DC Circuit Breaker', type: 'breaker-dc', properties: { rating: 3000, voltage: 0.48, unit: 'A' } },
       { id: 'breaker-bess', name: 'BESS CB', fullName: 'BESS Circuit Breaker', type: 'breaker-bess', properties: { rating: 2000, voltage: 34.5, unit: 'A' } },
+      { id: 'breaker-gen-13.8', name: 'Gen CB 13.8kV', fullName: 'Generator Circuit Breaker 13.8kV', type: 'breaker-gen', properties: { rating: 2000, voltage: 13.8, unit: 'A' } },
       { id: 'disconnect-switch', name: 'Disconnect', fullName: 'Disconnect Switch', type: 'disconnect', properties: { rating: 1200, voltage: 13.8, unit: 'A' } },
       { id: 'bus-tie-breaker', name: 'Bus Tie Bkr', fullName: 'Bus Tie Breaker', type: 'bus-tie', properties: { rating: 2000, voltage: 4.16, unit: 'A' } },
       { id: 'tie-breaker-network', name: 'Tie Breaker Network', fullName: 'Tie Breaker Circuit Network', type: 'tie-breaker-network', properties: { rating: 0, voltage: 34.5, unit: '' } },
@@ -132,7 +133,9 @@ export const COMPONENT_LIBRARY = [
   {
     category: COMPONENT_CATEGORIES.BUSES,
     components: [
+      { id: 'bus-knot', name: '•', fullName: 'Connection Point (knot)', type: 'bus-knot', properties: { rating: 0, voltage: 0, unit: '' } },
       { id: 'bus-hv', name: 'HV Bus', fullName: 'High Voltage Bus', type: 'bus-hv', properties: { rating: 0, voltage: 34.5, unit: 'kV' } },
+      { id: 'bus-hv-vertical', name: 'HV Bus (V)', fullName: 'High Voltage Bus (Vertical)', type: 'bus-hv-vertical', properties: { rating: 0, voltage: 34.5, unit: 'kV' } },
       { id: 'bus-mv', name: 'MV Bus', fullName: 'Medium Voltage Bus', type: 'bus-mv', properties: { rating: 0, voltage: 4.16, unit: 'kV' } },
       { id: 'bus-lv', name: 'LV Bus', fullName: 'Low Voltage Bus', type: 'bus-lv', properties: { rating: 0, voltage: 0.48, unit: 'kV' } },
       { id: 'bus-dc', name: 'DC Bus', fullName: 'DC Bus', type: 'bus-dc', properties: { rating: 0, voltage: 0.8, unit: 'kV' } },

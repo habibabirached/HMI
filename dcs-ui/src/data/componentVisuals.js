@@ -385,6 +385,13 @@ export const COMPONENT_VISUAL_CONFIG = {
     color: '#f44336',
     shape: 'rect'
   },
+  'breaker-gen-13.8': {
+    width: 50,
+    height: 60,
+    icon: '⏚',
+    color: '#ff9800',
+    shape: 'rect'
+  },
   'disconnect-switch': {
     width: 45,
     height: 55,
@@ -491,6 +498,13 @@ export const COMPONENT_VISUAL_CONFIG = {
   // ============================================================================
   // BUSES (Very wide, thin bars)
   // ============================================================================
+  'bus-knot': {
+    width: 24,
+    height: 24,
+    icon: '',
+    color: '#b0b0b0',
+    shape: 'circle'
+  },
   'bus-main': {
     width: 200,
     height: 40,  // WIDE, thin (electrical bar)
@@ -504,6 +518,13 @@ export const COMPONENT_VISUAL_CONFIG = {
     icon: '═══',
     color: '#f44336',
     shape: 'bus-bar'
+  },
+  'bus-hv-vertical': {
+    width: 40,
+    height: 200,
+    icon: '║',
+    color: '#f44336',
+    shape: 'bus-bar-vertical'
   },
   'bus-mv': {
     width: 180,

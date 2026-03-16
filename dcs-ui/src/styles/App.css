@@ -154,6 +154,54 @@ body {
   border: 1px solid rgba(0, 212, 168, 0.4);
 }
 
+/* Tri-state design view switch (Canvas | Image | Split) */
+.design-view-tri-state {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--vernova-border);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.design-view-tri-state .tri-state-btn {
+  padding: 6px 14px;
+  font-size: 16px;
+  line-height: 1;
+  background: transparent;
+  color: var(--vernova-text-dim);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 38px;
+}
+
+.design-view-tri-state .tri-state-btn .tri-state-icon {
+  display: block;
+  opacity: 0.85;
+}
+
+.design-view-tri-state .tri-state-btn:hover {
+  color: var(--vernova-text);
+  background: rgba(0, 94, 96, 0.25);
+}
+
+.design-view-tri-state .tri-state-btn.active {
+  background: linear-gradient(180deg, var(--vernova-primary) 0%, #004a4c 100%);
+  color: white;
+  box-shadow: 0 0 12px rgba(0, 94, 96, 0.4);
+}
+
+.design-view-tri-state .tri-state-btn.active .tri-state-icon {
+  opacity: 1;
+}
+
+.design-view-tri-state .tri-state-btn + .tri-state-btn {
+  border-left: 1px solid var(--vernova-border);
+}
+
 .config-status-badge .csv-status.csv-missing {
   background: rgba(255, 165, 0, 0.15);
   color: #ffa500;
@@ -223,9 +271,64 @@ body {
   overflow: hidden;
 }
 
+/* Design view wrapper: canvas / image / split modes */
+.design-view-wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.design-view-wrapper.mode-canvas .design-view-image-panel {
+  display: none;
+}
+
+.design-view-wrapper.mode-image .design-view-image-panel {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.design-view-wrapper.mode-split {
+  flex-direction: row;
+}
+
+.design-view-wrapper.mode-split .design-view-image-panel {
+  border-right: 2px solid var(--vernova-border);
+}
+
+.design-view-wrapper.mode-split .design-view-image-panel,
+.design-view-wrapper.mode-split .canvas-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.design-view-image-panel {
+  background: var(--vernova-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 16px;
+}
+
+.design-view-image-panel img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .app-main > aside:last-child {
   display: flex;
   flex-direction: column;
+}
+
+/* Right-side panels (PropertyPanel, SimulationControls) - ensure they fill height for scrolling */
+.panel-focus-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Utility classes */

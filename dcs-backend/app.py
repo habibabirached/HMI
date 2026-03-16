@@ -43,6 +43,7 @@ from models import Configuration
 from schemas import ConfigurationSaveRequest, ConfigurationResponse, ConfigurationListItem, CreateSimulationRequest, UpdateSimulationConfigRequest
 # Additional imports for CSV handling
 from fastapi import File, UploadFile
+from fastapi.responses import FileResponse
 import csv
 import io
 import pandas as pd
@@ -850,6 +851,19 @@ def _list_design_simulations(design_name: str) -> dict:
             simulations.append({"id": sim_name, "display_name": display_name, "description": description, "has_data": has_data})
     simulations.sort(key=lambda s: s["display_name"])
     return {"design_name": design_name, "design_dir": design_dir, "simulations": simulations}
+
+
+@app.get("/api/designs/{design_name}/image")
+async def get_design_image(design_name: str):
+    """
+    Serve the design diagram image (designs/{design_dir}/{design_dir}.png).
+    Returns 404 if the image does not exist.
+    """
+    design_dir = sanitize_design_name(design_name)
+    img_path = os.path.join(DESIGNS_ROOT, design_dir, f"{design_dir}.png")
+    if not os.path.isfile(img_path):
+        raise HTTPException(status_code=404, detail=f"Design image not found: {design_name}")
+    return FileResponse(img_path, media_type="image/png")
 
 
 @app.get("/api/designs/{design_name}/simulations")

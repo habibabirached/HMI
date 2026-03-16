@@ -70,9 +70,16 @@ function App() {
   const [viewModal, setViewModal] = useState(null); // { simName, displayName, data } | null
   
   // Panel focus for z-index (click-to-bring-forward)
-  const [focusedPanel, setFocusedPanel] = useState(null); // 'property' | 'simulation' | 'charts' | null
+  const [focusedPanel, setFocusedPanel] = useState(null); // 'canvas' | 'property' | 'simulation' | 'charts' | null
+  
+  // Design view: canvas (interactive), image (PNG only), split (both side by side)
+  const [designViewMode, setDesignViewMode] = useState('canvas'); // 'canvas' | 'image' | 'split'
   
   const canvasRef = useRef(null);
+
+  const designImageUrl = currentConfigName && csvStatus?.use_design_dir
+    ? `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/image`
+    : null;
 
   const handlePanelFocus = (panel, e) => {
     if (e.target.closest('button, select, input, a, [role="button"]')) return;
@@ -722,6 +729,7 @@ function App() {
           }
           const component = canvasComponents.find(c => c.id === chartDef.component_id);
           if (!component) return null;
+          const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
           return {
             id: chartId,
             componentId: component.id,
@@ -729,8 +737,8 @@ function App() {
             chartType: chartDef.chart_type || '2d',
             csvName: csvNameForCharts,
             xColumn: chartDef.x_column,
-            yColumn: chartDef.y_column,
-            title: chartDef.title || `${component.name} - ${chartDef.y_column}`
+            ...(isNd ? { yColumns: chartDef.y_columns } : { yColumn: chartDef.y_column }),
+            title: chartDef.title || (isNd ? `${component.name} - nD` : `${component.name} - ${chartDef.y_column}`)
           };
         }).filter(Boolean);
         setOpenCharts(newCharts);
@@ -1035,6 +1043,15 @@ function App() {
             components: c.components || [],
             title: c.title || ''
           };
+        } else if (c.chartType === 'nd' && c.yColumns?.length) {
+          base = {
+            type: 'single',
+            component_id: c.componentId,
+            chart_type: 'nd',
+            x_column: c.xColumn,
+            y_columns: c.yColumns,
+            title: c.title || `${c.componentName || ''} - nD`
+          };
         } else {
           base = {
             type: 'single',
@@ -1185,8 +1202,12 @@ function App() {
     const componentId = comp?.id || 'sim-data';
     const componentName = comp?.name || simulationMetadata.displayName || 'Simulation';
 
-    let xColumn, yColumn, title;
-    if (chartType === '2d' || chartType === 'bar') {
+    let xColumn, yColumn, yColumns, title;
+    if (chartType === 'nd') {
+      xColumn = selections[0];
+      yColumns = selections.slice(1);
+      title = `${componentName} - nD`;
+    } else if (chartType === '2d' || chartType === 'bar') {
       xColumn = selections[0];
       yColumn = selections[1];
       title = `${componentName} - ${yColumn}`;
@@ -1203,7 +1224,8 @@ function App() {
       chartType,
       csvName,
       xColumn,
-      yColumn,
+      ...(yColumn != null && { yColumn }),
+      ...(yColumns != null && { yColumns }),
       title
     };
     setOpenCharts(prev => {
@@ -1304,6 +1326,7 @@ function App() {
     
     // Never restore charts on load: design only. Charts appear when user clicks a simulation.
     setOpenCharts([]);
+    setDesignViewMode('canvas');
     
     // Reset selection
     setSelectedComponent(null);
@@ -1357,9 +1380,29 @@ function App() {
             <div className="config-status-badge">
               <span className="config-name">{currentConfigName}</span>
               {csvStatus && (
-                <span className={`csv-status ${csvStatus.exists ? 'csv-loaded' : csvStatus.use_design_dir ? 'csv-design-dir' : 'csv-missing'}`}>
-                  {csvStatus.exists ? '✅ Data loaded' : csvStatus.use_design_dir ? 'Click simulation to load' : '⚠️ No CSV data'}
-                </span>
+                csvStatus.use_design_dir ? (
+                  <div className="design-view-tri-state" role="group" aria-label="Design view mode">
+                    {[
+                      { id: 'canvas', icon: '◉', label: 'Interactive' },
+                      { id: 'image', icon: '▣', label: 'Diagram' },
+                      { id: 'split', icon: '⊞', label: 'Split' }
+                    ].map(({ id, icon, label }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`tri-state-btn ${designViewMode === id ? 'active' : ''}`}
+                        onClick={() => setDesignViewMode(id)}
+                        title={label}
+                      >
+                        <span className="tri-state-icon">{icon}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className={`csv-status ${csvStatus.exists ? 'csv-loaded' : 'csv-missing'}`}>
+                    {csvStatus.exists ? '✅ Data loaded' : '⚠️ No CSV data'}
+                  </span>
+                )
               )}
             </div>
           )}
@@ -1407,35 +1450,49 @@ function App() {
           />
         )}
 
-        <Canvas
-          ref={canvasRef}
-          components={canvasComponents}
-          connections={connections}
-          selectedComponent={selectedComponent}
-          selectedConnection={selectedConnection}
-          onSelectComponent={setSelectedComponent}
-          onSelectConnection={setSelectedConnection}
-          selectedComponents={selectedComponents}
-          onMultiSelect={handleMultiSelect}
-          onClearMultiSelection={handleClearMultiSelection}
-          isComponentMultiSelected={isComponentMultiSelected}
-          onMoveComponent={handleMoveComponent}
-          onAddComponent={handleAddComponent}
-          onAddConnection={handleAddConnection}
-          onAssociateChart={handleAssociateChart}
-          onOpenChart={handleOpenChart}
-          onCreateMultiComponentChart={handleCreateMultiComponentChart}
-          canAddCharts={simulationMetadata != null && simulationData && simulationData.length > 0}
-          simulationColumns={simulationMetadata?.columns || []}
-          simulationCsvName={simulationMetadata?.id ? `${simulationMetadata.id}.data.csv` : ''}
-          zoom={zoom}
-          pan={pan}
-          onPan={setPan}
-          mode={mode}
-          viewMode={viewMode}
-          simulationRunning={simulationRunning}
-          systemState={systemState}
-        />
+        <div
+          className={`panel-focus-wrapper design-view-wrapper ${designImageUrl ? `mode-${designViewMode}` : ''}`}
+          style={{ position: 'relative', zIndex: focusedPanel === 'canvas' ? 1100 : 10 }}
+          onMouseDown={(e) => handlePanelFocus('canvas', e)}
+        >
+          {designImageUrl && (designViewMode === 'image' || designViewMode === 'split') && (
+            <div className="design-view-image-panel">
+              <img src={designImageUrl} alt={`${currentConfigName} design diagram`} />
+            </div>
+          )}
+          {(designViewMode === 'canvas' || designViewMode === 'split') && (
+            <Canvas
+              ref={canvasRef}
+              components={canvasComponents}
+              connections={connections}
+              selectedComponent={selectedComponent}
+              selectedConnection={selectedConnection}
+              onSelectComponent={setSelectedComponent}
+              onSelectConnection={setSelectedConnection}
+              selectedComponents={selectedComponents}
+              onMultiSelect={handleMultiSelect}
+              onClearMultiSelection={handleClearMultiSelection}
+              isComponentMultiSelected={isComponentMultiSelected}
+              onMoveComponent={handleMoveComponent}
+              onAddComponent={handleAddComponent}
+              onAddConnection={handleAddConnection}
+              onUpdateComponent={handleUpdateComponent}
+              onAssociateChart={handleAssociateChart}
+              onOpenChart={handleOpenChart}
+              onCreateMultiComponentChart={handleCreateMultiComponentChart}
+              canAddCharts={simulationMetadata != null && simulationData && simulationData.length > 0}
+              simulationColumns={simulationMetadata?.columns || []}
+              simulationCsvName={simulationMetadata?.id ? `${simulationMetadata.id}.data.csv` : ''}
+              zoom={zoom}
+              pan={pan}
+              onPan={setPan}
+              mode={mode}
+              viewMode={viewMode}
+              simulationRunning={simulationRunning}
+              systemState={systemState}
+            />
+          )}
+        </div>
 
         <div
           className="panel-focus-wrapper"

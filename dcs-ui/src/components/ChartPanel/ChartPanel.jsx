@@ -221,6 +221,49 @@ const ChartPanel = ({
   };
 
   /**
+   * Generate nD chart data – one trace per Y column, shared X axis
+   */
+  const generateNdChartData = (chart, data) => {
+    const colors = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
+    const indexed = data.map((row, i) => ({ row, i }));
+    let filtered = indexed;
+    if (simulationRunning && simulationTime !== undefined) {
+      filtered = indexed.filter(({ row }) => {
+        const xVal = parseFloat(row[chart.xColumn]);
+        return !isNaN(xVal) && xVal <= simulationTime;
+      });
+    }
+    const step = getSampleStep(chart.id);
+    const sampled = step > 1 ? filtered.filter((_, i) => i % step === 0) : filtered;
+    const sampledData = sampled.map(({ row }) => row);
+    const sampledRowIndices = sampled.map(({ i }) => i);
+    const xValues = sampledData.map(row => parseFloat(row[chart.xColumn]) || 0);
+    const hasSelection = selectedRowIndices && selectedRowIndices.size > 0;
+    const selectedSet = selectedRowIndices instanceof Set ? selectedRowIndices : new Set(selectedRowIndices || []);
+
+    return chart.yColumns.map((yCol, index) => {
+      const lineColor = colors[index % colors.length];
+      const yValues = sampledData.map(row => parseFloat(row[yCol]) || 0);
+      return {
+        x: xValues,
+        y: yValues,
+        customdata: sampledRowIndices,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: yCol,
+        line: { color: lineColor, width: 2 },
+        marker: hasSelection
+          ? {
+              color: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_HIGHLIGHT_COLOR : lineColor)),
+              size: sampledRowIndices.map(ri => (selectedSet.has(ri) ? SELECTION_MARKER_SIZE : 4)),
+              opacity: sampledRowIndices.map(ri => (selectedSet.has(ri) ? 1 : 0.15))
+            }
+          : { color: lineColor, size: 4, opacity: 0.7 }
+      };
+    });
+  };
+
+  /**
    * Generate multi-component bar chart data
    * Creates one bar trace per component, all sharing the same X-axis (time)
    */
@@ -327,6 +370,10 @@ const ChartPanel = ({
     // Handle multi-line 2D charts
     if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
       return generateMultiComponentLineChart(chart, data);
+    }
+    // Handle nD charts (X + multiple Y columns)
+    if (chart.chartType === 'nd' && chart.yColumns?.length) {
+      return generateNdChartData(chart, data);
     }
 
     // Filter data (keep row indices for cross-chart selection)
@@ -593,7 +640,7 @@ const ChartPanel = ({
     };
 
     // Use box-select as default for charts that support selection
-    const supportsSelection = chart.chartType === '2d' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+    const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
     if (supportsSelection) {
       baseLayout.dragmode = 'select';
     }
@@ -745,7 +792,7 @@ const ChartPanel = ({
     }
 
     // Chart-specific layout
-    if (chart.chartType === '2d' || chart.chartType === 'bar') {
+    if (chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'bar') {
       const eventShapes = generateEventMarkerShapes();
       
       return {
@@ -776,7 +823,7 @@ const ChartPanel = ({
         },
         yaxis: {
           title: {
-            text: chart.yColumn,
+            text: chart.chartType === 'nd' ? 'Value' : chart.yColumn,
             font: {
               family: 'Arial, sans-serif',
               size: 13,
@@ -1084,6 +1131,7 @@ const ChartPanel = ({
                 <span className="chart-panel-chart-icon">
                   {chart.isMultiComponent && (chart.chartType === 'multi-line-chart' ? '📈' : '📊')}
                   {!chart.isMultiComponent && chart.chartType === '2d' && '📈'}
+                  {!chart.isMultiComponent && chart.chartType === 'nd' && '📉'}
                   {!chart.isMultiComponent && chart.chartType === 'histogram' && '📊'}
                   {!chart.isMultiComponent && chart.chartType === 'pie' && '🥧'}
                   {!chart.isMultiComponent && chart.chartType === 'bar' && '📊'}
@@ -1146,7 +1194,7 @@ const ChartPanel = ({
                 const data = getChartData(chart);
                 const plotlyData = generatePlotlyData(chart, data);
                 const layout = generatePlotlyLayout(chart, data);
-                const supportsSelection = chart.chartType === '2d' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
+                const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
                 return (
                   <Plot
                     data={plotlyData}

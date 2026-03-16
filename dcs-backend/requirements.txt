@@ -67,3 +67,9 @@ openpyxl==3.1.2
 # numpy - Numerical computing library
 # Used for mathematical operations, array processing, and signal analysis
 numpy==1.26.3
+
+# Pillow - Image processing (for design diagram fixes, etc.)
+Pillow>=10.0.0
+
+# scipy - Scientific computing (ndimage for image morphology)
+scipy>=1.11.0
