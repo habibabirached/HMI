@@ -1,0 +1,38 @@
+{
+  "name": "Arch_v2_PNNLload",
+  "description": "",
+  "canvasComponents": [
+    {
+      "id": "gas-turbine-lm2500",
+      "type": "aeroderivative",
+      "name": "LM2500",
+      "fullName": "Gas Turbine LM2500",
+      "properties": {
+        "rating": 25,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "position": {
+        "x": 280,
+        "y": 260
+      },
+      "status": "idle",
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      }
+    }
+  ],
+  "connections": [],
+  "systemState": {
+    "simulationRunning": false,
+    "zoom": 1,
+    "pan": {
+      "x": 0,
+      "y": 0
+    },
+    "mode": "design"
+  }
+}

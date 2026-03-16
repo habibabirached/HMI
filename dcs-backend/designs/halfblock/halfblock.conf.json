@@ -1,0 +1,746 @@
+{
+  "name": "HalfBlock",
+  "description": "",
+  "canvasComponents": [
+    {
+      "id": "comp-bess-1",
+      "type": "bess-50mw",
+      "name": "BESS 50MW",
+      "fullName": "Battery Energy Storage System 50MW",
+      "position": {
+        "x": 125,
+        "y": 50
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 50,
+        "voltage": 34.5,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60,
+        "soc": 85
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-1",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 Andritz #1",
+      "fullName": "LM2500 Andritz A03 33.3 MW",
+      "position": {
+        "x": 125,
+        "y": 207.5
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-2",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 Andritz #2",
+      "fullName": "LM2500 Andritz A03 33.3 MW",
+      "position": {
+        "x": 120,
+        "y": 340
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-3",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 Andritz #3",
+      "fullName": "LM2500 Andritz A03 33.3 MW",
+      "position": {
+        "x": 120,
+        "y": 460
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-turbine-4",
+      "type": "gas-turbine-lm2500-andritz",
+      "name": "LM2500 Andritz #4",
+      "fullName": "LM2500 Andritz A03 33.3 MW",
+      "position": {
+        "x": 125,
+        "y": 607.5
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 33.3,
+        "voltage": 13.8,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bus-main",
+      "type": "bus-hv-vertical",
+      "name": "34.5kV Main Bus",
+      "fullName": "Main Distribution Bus 34.5kV",
+      "position": {
+        "x": 430,
+        "y": 54.76190355088977
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "kV"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false,
+      "visualOverrides": {
+        "height": 672
+      }
+    },
+    {
+      "id": "comp-xfmr-1",
+      "type": "datacenter-transformer",
+      "name": "GSU 34.5:480V 50MVA",
+      "fullName": "GSU 34.5kV:480V 50 MVA",
+      "position": {
+        "x": 655,
+        "y": 55
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 50,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-knot-1",
+      "type": "bus-knot",
+      "name": "",
+      "fullName": "Connection Point",
+      "position": {
+        "x": 788,
+        "y": 88
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 0,
+        "unit": ""
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-dc-cb-1",
+      "type": "breaker-dc",
+      "name": "DC CB 480V",
+      "fullName": "DC Circuit Breaker 480V",
+      "position": {
+        "x": 875,
+        "y": 70
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 3000,
+        "voltage": 0.48,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-inverter-1",
+      "type": "inverter",
+      "name": "Inverter",
+      "fullName": "DC-AC Inverter",
+      "position": {
+        "x": 1160,
+        "y": 70
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 0.4,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.4,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-it-rack-1",
+      "type": "it-rack-load",
+      "name": "IT Rack Load 1",
+      "fullName": "IT Rack Load",
+      "position": {
+        "x": 1315,
+        "y": 50
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 0.4,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.4,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-aux-1",
+      "type": "auxiliary-loads",
+      "name": "Aux Loads 1",
+      "fullName": "Auxiliary Loads",
+      "position": {
+        "x": 745,
+        "y": 215
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 5,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-knot-dc-1",
+      "type": "bus-knot",
+      "name": "",
+      "fullName": "Connection Point",
+      "position": {
+        "x": 1088,
+        "y": 88
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 0,
+        "unit": ""
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-rectifier-1",
+      "type": "rectifier",
+      "name": "Rectifier",
+      "fullName": "AC-DC Rectifier",
+      "position": {
+        "x": 960,
+        "y": 70
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ups-1",
+      "type": "ups",
+      "name": "UPS 1",
+      "fullName": "UPS / LV UPS 400Vdc",
+      "position": {
+        "x": 1055,
+        "y": 215
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 5,
+        "voltage": 0.4,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.4,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-xfmr-2",
+      "type": "datacenter-transformer",
+      "name": "GSU 34.5:480V 50MVA",
+      "fullName": "GSU 34.5kV:480V 50 MVA",
+      "position": {
+        "x": 655,
+        "y": 455
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 50,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-knot-2",
+      "type": "bus-knot",
+      "name": "",
+      "fullName": "Connection Point",
+      "position": {
+        "x": 788,
+        "y": 488
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 0,
+        "unit": ""
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-dc-cb-2",
+      "type": "breaker-dc",
+      "name": "DC CB 480V",
+      "fullName": "DC Circuit Breaker 480V",
+      "position": {
+        "x": 875,
+        "y": 470
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 3000,
+        "voltage": 0.48,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-knot-dc-2",
+      "type": "bus-knot",
+      "name": "",
+      "fullName": "Connection Point",
+      "position": {
+        "x": 1138,
+        "y": 488
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 0,
+        "unit": ""
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-rectifier-2",
+      "type": "rectifier",
+      "name": "Rectifier",
+      "fullName": "AC-DC Rectifier",
+      "position": {
+        "x": 1010,
+        "y": 470
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ups-2",
+      "type": "ups",
+      "name": "UPS 2",
+      "fullName": "UPS / LV UPS 400Vdc",
+      "position": {
+        "x": 1105,
+        "y": 615
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 5,
+        "voltage": 0.4,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.4,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-inverter-2",
+      "type": "inverter",
+      "name": "Inverter",
+      "fullName": "DC-AC Inverter",
+      "position": {
+        "x": 1210,
+        "y": 470
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 0.4,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.4,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-it-rack-2",
+      "type": "it-rack-load",
+      "name": "IT Rack Load 2",
+      "fullName": "IT Rack Load",
+      "position": {
+        "x": 1365,
+        "y": 450
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 25,
+        "voltage": 0.4,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.4,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-aux-2",
+      "type": "auxiliary-loads",
+      "name": "Aux Loads 2",
+      "fullName": "Auxiliary Loads",
+      "position": {
+        "x": 745,
+        "y": 615
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 5,
+        "voltage": 0.48,
+        "unit": "MW"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 0.48,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-1",
+      "from": "comp-bess-1",
+      "to": "comp-bus-main",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-2",
+      "from": "comp-turbine-1",
+      "to": "comp-bus-main",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-3",
+      "from": "comp-turbine-2",
+      "to": "comp-bus-main",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-4",
+      "from": "comp-turbine-3",
+      "to": "comp-bus-main",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-5",
+      "from": "comp-turbine-4",
+      "to": "comp-bus-main",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-6",
+      "from": "comp-bus-main",
+      "to": "comp-xfmr-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-7",
+      "from": "comp-xfmr-1",
+      "to": "comp-knot-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-7b",
+      "from": "comp-knot-1",
+      "to": "comp-dc-cb-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-9",
+      "from": "comp-knot-1",
+      "to": "comp-aux-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-10",
+      "from": "comp-dc-cb-1",
+      "to": "comp-rectifier-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-10b",
+      "from": "comp-rectifier-1",
+      "to": "comp-knot-dc-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-10c",
+      "from": "comp-knot-dc-1",
+      "to": "comp-inverter-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-10d",
+      "from": "comp-knot-dc-1",
+      "to": "comp-ups-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-10e",
+      "from": "comp-ups-1",
+      "to": "comp-knot-dc-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-8",
+      "from": "comp-inverter-1",
+      "to": "comp-it-rack-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-11",
+      "from": "comp-bus-main",
+      "to": "comp-xfmr-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-12",
+      "from": "comp-xfmr-2",
+      "to": "comp-knot-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-12b",
+      "from": "comp-knot-2",
+      "to": "comp-dc-cb-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-14",
+      "from": "comp-knot-2",
+      "to": "comp-aux-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-15",
+      "from": "comp-dc-cb-2",
+      "to": "comp-rectifier-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-15b",
+      "from": "comp-rectifier-2",
+      "to": "comp-knot-dc-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-15c",
+      "from": "comp-knot-dc-2",
+      "to": "comp-inverter-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-15d",
+      "from": "comp-knot-dc-2",
+      "to": "comp-ups-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-15e",
+      "from": "comp-ups-2",
+      "to": "comp-knot-dc-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-13",
+      "from": "comp-inverter-2",
+      "to": "comp-it-rack-2",
+      "type": "power",
+      "status": "idle"
+    }
+  ],
+  "systemState": {
+    "simulationRunning": false,
+    "zoom": 0.7000000000000001,
+    "pan": {
+      "x": 53,
+      "y": 4
+    },
+    "mode": "design"
+  }
+}
