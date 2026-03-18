@@ -5,6 +5,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import './SimulationChartBuilder.css';
+import FormulaCalculator from '../FormulaCalculator/FormulaCalculator';
 
 /** Excel-style column letter: 0->a, 1->b, ..., 26->aa, 27->ab, ... */
 function getExcelColumnLetter(index) {
@@ -34,12 +35,13 @@ const SPLIT_BY_OPTIONS = [
   { id: 'manual', label: 'Manual grouping', desc: 'Click Next group after each group of Y columns' },
 ];
 
-function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCancel }) {
+function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDerivedVariable, displayName, onAddChart, onCancel }) {
   const [selectedChartType, setSelectedChartType] = useState(null);
   const [selections, setSelections] = useState([]);
   const [splitBy, setSplitBy] = useState('phase');
   const [manualGroupBreaks, setManualGroupBreaks] = useState([]); // indices where each group ends (Y columns only)
   const [cursorHint, setCursorHint] = useState({ x: 0, y: 0, text: '', visible: false });
+  const [formulaCalculatorOpen, setFormulaCalculatorOpen] = useState(false);
 
   const currentChart = selectedChartType ? CHART_TYPES.find(c => c.id === selectedChartType) : null;
   const isNdChart = currentChart?.id === 'nd';
@@ -127,6 +129,15 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
     onCancel?.();
   };
 
+  // Step 4: Merge CSV columns + derived variables. Derived vars: ƒ badge, formula in tooltip on hover.
+  const allColumns = columns;
+  const formulaByColumn = Object.fromEntries(derivedVariables.map((d) => [d.name, d.formula]));
+
+  const handleFormulaDone = (formula, variableName) => {
+    onAddDerivedVariable?.(formula, variableName);
+    setFormulaCalculatorOpen(false);
+  };
+
   if (columns.length === 0) {
     return (
       <div className="sim-chart-builder">
@@ -189,6 +200,20 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
               </button>
             )}
           </div>
+          {/* Formula Builder button – opens calculator modal */}
+          {(isNdChart || isStackedNdChart || currentChart?.id === '2d') && (
+            <div className="sim-chart-builder-formula-trigger">
+              <button
+                type="button"
+                className="sim-chart-builder-formula-btn"
+                onClick={() => setFormulaCalculatorOpen(true)}
+                title="Build a formula from variables"
+              >
+                <span className="sim-chart-builder-formula-btn-icon">ƒ</span>
+                Formula Builder
+              </button>
+            </div>
+          )}
           {showSplitBy && (
             <div className="sim-chart-builder-split-by-row">
               <span className="sim-chart-builder-split-label">Split by:</span>
@@ -221,23 +246,28 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
             </div>
           )}
           <div className="sim-chart-builder-list">
-            {columns.map((col, colIndex) => {
+            {allColumns.map((col, colIndex) => {
               const idx = selections.indexOf(col);
               const isSelected = idx >= 0;
+              const isDerived = formulaByColumn[col] != null;
               const label = isSelected ? `${col} ✓` : col;
+              const tooltip = isDerived ? formulaByColumn[col] : col;
               return (
                 <div key={col} className="sim-chart-builder-item-row">
                   {inSelectionMode && (
-                    <span className="sim-chart-builder-item-letter" title={`Column ${getExcelColumnLetter(colIndex)}`}>
-                      {getExcelColumnLetter(colIndex)}
+                    <span
+                      className={`sim-chart-builder-item-letter ${isDerived ? 'sim-chart-builder-item-derived' : ''}`}
+                      title={isDerived ? 'Formula variable' : `Column ${getExcelColumnLetter(colIndex)}`}
+                    >
+                      {isDerived ? 'ƒ' : getExcelColumnLetter(colIndex)}
                     </span>
                   )}
                   <button
                     type="button"
-                    className={`sim-chart-builder-item ${isSelected ? 'selected' : ''}`}
+                    className={`sim-chart-builder-item ${isSelected ? 'selected' : ''} ${isDerived ? 'sim-chart-builder-item-derived' : ''}`}
                     onClick={() => handleTitleClick(col)}
                     disabled={!inSelectionMode}
-                    title={col}
+                    title={tooltip}
                   >
                     {label}
                   </button>
@@ -310,6 +340,15 @@ function SimulationChartBuilder({ columns = [], displayName, onAddChart, onCance
           {cursorHint.text}
         </div>
       )}
+
+      {/* Formula Calculator modal */}
+      <FormulaCalculator
+        open={formulaCalculatorOpen}
+        onClose={() => setFormulaCalculatorOpen(false)}
+        variables={allColumns}
+        onChange={(formula) => console.log('Formula:', formula)}
+        onDone={handleFormulaDone}
+      />
     </div>
   );
 }

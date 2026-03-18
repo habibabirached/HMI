@@ -300,6 +300,12 @@ class CreateSimulationRequest(BaseModel):
 # UPDATE SIMULATION CONFIG REQUEST (Step 3 – persist charts to .sim.json)
 # ------------------------------------------------------------------------------------------------------
 
+class DerivedVariableSchema(BaseModel):
+    """A derived variable: name + formula."""
+    name: str = Field(..., description="Display name for the variable")
+    formula: str = Field(..., description="Formula expression (e.g. Pload_1 (MW) + P_BESS (MW))")
+
+
 class UpdateSimulationConfigRequest(BaseModel):
     """
     Request body for updating a simulation's .sim.json (charts_to_display, event_markers).
@@ -308,12 +314,14 @@ class UpdateSimulationConfigRequest(BaseModel):
     chart_sample_default: global sample rate (1, 2, 4, 8, 16 = plot every Nth row).
     Each chart in charts_to_display may have an optional sample_step for per-chart override.
     chart_panel_height: chart panel height in pixels; if None, keep existing.
+    derived_variables: formula-based columns (name + formula); computed at runtime, not stored in CSV.
     """
     charts_to_display: list = Field(default_factory=list, description="Array of chart definitions (each may have sample_step)")
     chart_stacks: Optional[list] = Field(default=None, description="Array of stacks; each stack is array of chart indices. If None, keep existing.")
     event_markers: Optional[dict] = Field(default=None, description="Event markers; if None, keep existing")
     chart_sample_default: Optional[int] = Field(default=None, description="Global sample step (1,2,4,8,16); if None, keep existing")
     chart_panel_height: Optional[int] = Field(default=None, description="Chart panel height in pixels; if None, keep existing")
+    derived_variables: Optional[list] = Field(default=None, description="Derived variables [{name, formula}]; if None, keep existing")
 
 
 # ------------------------------------------------------------------------------------------------------

@@ -66,6 +66,39 @@
 }
 
 /* Split-by row: inside Columns panel, right below header */
+.sim-chart-builder-formula-trigger {
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.sim-chart-builder-formula-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(0, 94, 96, 0.25) 0%, rgba(0, 94, 96, 0.1) 100%);
+  border: 1px solid rgba(0, 212, 168, 0.35);
+  border-radius: 8px;
+  color: #00d4a8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sim-chart-builder-formula-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 94, 96, 0.4) 0%, rgba(0, 94, 96, 0.2) 100%);
+  border-color: #00d4a8;
+  box-shadow: 0 0 12px rgba(0, 212, 168, 0.2);
+}
+
+.sim-chart-builder-formula-btn-icon {
+  font-size: 16px;
+  font-weight: 400;
+  opacity: 0.95;
+}
+
 .sim-chart-builder-split-by-row {
   display: flex;
   align-items: center;
@@ -209,6 +242,14 @@
   min-width: 24px;
   text-align: right;
   flex-shrink: 0;
+}
+
+.sim-chart-builder-item-letter.sim-chart-builder-item-derived {
+  color: #00d4a8;
+}
+
+.sim-chart-builder-item.sim-chart-builder-item-derived {
+  border-color: rgba(0, 212, 168, 0.3);
 }
 
 .sim-chart-builder-item-row .sim-chart-builder-item {

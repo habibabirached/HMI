@@ -1,6 +1,12 @@
 {
   "display_name": "Halfblock",
   "description": "",
+  "derived_variables": [
+    {
+      "name": "C2",
+      "formula": "Pload_1 (MW) +  P_BESS (MW)"
+    }
+  ],
   "charts_to_display": [
     {
       "type": "single",
@@ -45,7 +51,8 @@
         " V_g3 (p.u.)",
         " V_g4 (p.u.)"
       ],
-      "title": "BESS 50MW - nD"
+      "title": "BESS 50MW - nD",
+      "sample_step": 64
     },
     {
       "type": "single",
@@ -53,12 +60,28 @@
       "chart_type": "stacked-nd",
       "x_column": "Time (s)",
       "y_columns": [
-        " P_g1 (MW)",
-        " P_g2 (MW)",
-        " P_g4 (MW)",
-        " Qload_1 (MVar)",
-        " Q_g1 (MVar)",
-        " Q_g2 (MVar)"
+        " VD3_A_1 (p.u.)",
+        " VD3_B_1 (p.u.)",
+        " VD3_C_1 (p.u.)",
+        " VD1_A_1 (p.u.)",
+        " VD1_B_1 (p.u.)",
+        " VD1_C_1 (p.u.)"
+      ],
+      "split_by": "phase",
+      "title": "BESS 50MW - Stacked nD"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "stacked-nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " Pload_1 (MW)",
+        " P_BESS (MW)",
+        " Pload_2 (MW)",
+        " P_g3 (MW)",
+        " VD3_A_1 (p.u.)",
+        " VUPS_A_1 (p.u.)"
       ],
       "split_by": "manual",
       "manual_group_breaks": [
@@ -66,11 +89,35 @@
         5
       ],
       "title": "BESS 50MW - Stacked nD"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "2d",
+      "x_column": "Time (s)",
+      "y_column": " P_BESS (MW)",
+      "title": "BESS 50MW -  P_BESS (MW)"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "stacked-nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " Pload_1 (MW)",
+        " P_BESS (MW)",
+        "C2"
+      ],
+      "split_by": "manual",
+      "manual_group_breaks": [
+        3
+      ],
+      "title": "BESS 50MW - Stacked nD"
     }
   ],
   "event_markers": {},
   "chart_sample_default": 64,
-  "chart_panel_height": 619,
+  "chart_panel_height": 572,
   "chart_stacks": [
     [
       0,

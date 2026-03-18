@@ -678,18 +678,21 @@ function App() {
         alert(`⚠️ No data found for simulation "${simulationId}".`);
         return;
       }
-      
-      const timeValues = filteredRows.map(r => Number(r.time_sec) || 0);
+
+      const derivedVariables = scenarioConfig.derived_variables || [];
+      const augmentedRows = (await import('./utils/formulaEvaluator')).augmentRowsWithDerived(filteredRows, derivedVariables);
+      const timeValues = augmentedRows.map(r => Number(r['Time (s)'] ?? r.time_sec) ?? 0);
       const simulationMetadata = {
         id: simulationId,
         displayName: scenarioConfig.display_name || simConfig?.simulations?.[simulationId]?.display_name || simulationId,
         description: scenarioConfig.description || '',
-        rowCount: filteredRows.length,
+        rowCount: augmentedRows.length,
         timeRange: { min: Math.min(...timeValues), max: Math.max(...timeValues) },
-        columns: Object.keys(filteredRows[0] || {})
+        columns: Object.keys(augmentedRows[0] || {}),
+        derivedVariables
       };
       
-      setSimulationData(filteredRows);
+      setSimulationData(augmentedRows);
       setSimulationMetadata(simulationMetadata);
       
       // Merge scenarioConfig for event markers; preserve existing simConfig (has_data for all sims)
@@ -1042,6 +1045,7 @@ function App() {
     const effectivePerChart = overrides.perChartSampleStep ?? perChartSampleStep;
     const effectiveHeight = overrides.chart_panel_height ?? chartPanelHeight;
     const effectiveStacks = overrides.chart_stacks ?? chartStacks;
+    const effectiveDerived = overrides.derived_variables ?? simulationMetadata?.derivedVariables;
     try {
       const charts_to_display = charts.map(c => {
         let base;
@@ -1086,7 +1090,13 @@ function App() {
         if (effectivePerChart[c.id] != null) base.sample_step = effectivePerChart[c.id];
         return base;
       });
-      const body = { charts_to_display, chart_stacks: effectiveStacks, chart_sample_default: effectiveGlobal, chart_panel_height: effectiveHeight };
+      const body = {
+        charts_to_display,
+        chart_stacks: effectiveStacks,
+        chart_sample_default: effectiveGlobal,
+        chart_panel_height: effectiveHeight,
+        ...(effectiveDerived != null && { derived_variables: effectiveDerived })
+      };
       const res = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationMetadata.id)}/config`,
         { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
@@ -1095,7 +1105,7 @@ function App() {
     } catch (e) {
       console.warn('persistChartsToSimJson error:', e);
     }
-  }, [simulationMetadata?.id, currentConfigName, globalSampleStep, perChartSampleStep, chartPanelHeight, chartStacks]);
+  }, [simulationMetadata?.id, simulationMetadata?.derivedVariables, currentConfigName, globalSampleStep, perChartSampleStep, chartPanelHeight, chartStacks]);
 
   const persistChartPanelHeightRef = useRef(null);
   const handleChartPanelHeightChange = useCallback((newHeight) => {
@@ -1261,6 +1271,24 @@ function App() {
       return next;
     });
   };
+
+  /**
+   * Add a derived variable (formula-based column). Persists to .sim.json.
+   * Re-augments simulationData with the new computed column.
+   */
+  const handleAddDerivedVariable = useCallback(async (formula, variableName) => {
+    if (!simulationMetadata?.id || !currentConfigName || !simulationData?.length) return;
+    const newDerived = [...(simulationMetadata.derivedVariables || []), { name: variableName, formula }];
+    const { augmentRowsWithDerived } = await import('./utils/formulaEvaluator');
+    const augmented = augmentRowsWithDerived(simulationData, [{ name: variableName, formula }]);
+    setSimulationMetadata(prev => ({
+      ...prev,
+      derivedVariables: newDerived,
+      columns: Object.keys(augmented[0] || {})
+    }));
+    setSimulationData(augmented);
+    persistChartsToSimJson(openCharts, { derived_variables: newDerived });
+  }, [simulationMetadata, currentConfigName, simulationData, openCharts, persistChartsToSimJson]);
 
   /** Reindex chartStacks when a chart at removedIdx is removed */
   const reindexChartStacksAfterRemove = (stacks, removedIdx) => {
@@ -1573,6 +1601,8 @@ function App() {
             selectedConnection={selectedConnection}
             simulationMetadata={simulationMetadata}
             simulationColumns={simulationMetadata?.columns || []}
+            derivedVariables={simulationMetadata?.derivedVariables || []}
+            onAddDerivedVariable={handleAddDerivedVariable}
             canvasComponents={canvasComponents}
             onUpdateComponent={handleUpdateComponent}
             onDeleteComponent={handleDeleteComponent}

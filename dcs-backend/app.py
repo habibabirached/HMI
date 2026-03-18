@@ -1032,6 +1032,8 @@ async def update_simulation_config(design_name: str, sim_name: str, body: Update
             sim_config["chart_sample_default"] = body.chart_sample_default
         if body.chart_panel_height is not None:
             sim_config["chart_panel_height"] = body.chart_panel_height
+        if body.derived_variables is not None:
+            sim_config["derived_variables"] = [{"name": d["name"], "formula": d["formula"]} for d in body.derived_variables]
         with open(sim_json_path, "w") as f:
             json.dump(sim_config, f, indent=2)
         print(f"✅ Updated {sim_name}.sim.json ({len(body.charts_to_display)} charts)")

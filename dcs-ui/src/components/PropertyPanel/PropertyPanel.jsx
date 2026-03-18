@@ -7,6 +7,8 @@ const PropertyPanel = ({
   selectedConnection,
   simulationMetadata,
   simulationColumns = [],
+  derivedVariables = [],
+  onAddDerivedVariable,
   canvasComponents = [],
   onUpdateComponent,
   onDeleteComponent,
@@ -35,6 +37,8 @@ const PropertyPanel = ({
         <div className="property-panel">
           <SimulationChartBuilder
             columns={simulationColumns}
+            derivedVariables={derivedVariables}
+            onAddDerivedVariable={onAddDerivedVariable}
             displayName={simulationMetadata.displayName}
             onAddChart={onAddChartFromBuilder}
           />

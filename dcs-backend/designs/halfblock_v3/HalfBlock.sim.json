@@ -1,0 +1,26 @@
+{
+  "display_name": "Halfblock",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " Pload_1 (MW)",
+        " P_BESS (MW)",
+        " P_g1 (MW)",
+        " P_g2 (MW)",
+        " Pload_2 (MW)",
+        " P_g3 (MW)",
+        " P_g4 (MW)"
+      ],
+      "title": "BESS 50MW - nD"
+    }
+  ],
+  "event_markers": {},
+  "chart_stacks": [],
+  "chart_sample_default": 64,
+  "chart_panel_height": 474
+}

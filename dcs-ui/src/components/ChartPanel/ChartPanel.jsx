@@ -782,8 +782,8 @@ const ChartPanel = ({
 
       const shapes = [];
       for (let i = 0; i < n; i++) {
-        const bottom = Math.max(0, 1 - (i + 2) * rowHeight);
-        const top = Math.min(1, 1 - i * rowHeight);
+        const top = 1 - i * rowHeight;
+        const bottom = Math.max(0, 1 - (i + 1) * rowHeight);
         shapes.push({
           type: 'rect',
           xref: 'paper',
@@ -819,14 +819,14 @@ const ChartPanel = ({
         xaxis: {
           title: { text: chart.xColumn, font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 } },
           domain: [0, 1],
-          anchor: 'y',
+          anchor: n === 1 ? 'y' : `y${n}`,
           ...axisStyle
         }
       };
 
       for (let i = 0; i < n; i++) {
-        const bottom = Math.max(0, 1 - (i + 2) * rowHeight);
-        const top = Math.min(1, 1 - i * rowHeight);
+        const top = 1 - i * rowHeight;
+        const bottom = Math.max(0, 1 - (i + 1) * rowHeight);
         const yKey = i === 0 ? 'yaxis' : `yaxis${i + 1}`;
         layout[yKey] = {
           title: { text: groups[i].key, font: { family: 'Arial, sans-serif', size: 12, color: '#00d4a8', weight: 600 } },
