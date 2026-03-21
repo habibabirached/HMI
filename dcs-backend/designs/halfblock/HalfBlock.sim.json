@@ -40,23 +40,6 @@
     {
       "type": "single",
       "component_id": "comp-bess-1",
-      "chart_type": "nd",
-      "x_column": "Time (s)",
-      "y_columns": [
-        " Vload_1 (p.u.)",
-        " V_BESS (p.u.)",
-        " V_g1 (p.u.)",
-        " V_g2 (p.u.)",
-        " Vload_2 (p.u.)",
-        " V_g3 (p.u.)",
-        " V_g4 (p.u.)"
-      ],
-      "title": "BESS 50MW - nD",
-      "sample_step": 64
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
       "chart_type": "stacked-nd",
       "x_column": "Time (s)",
       "y_columns": [
@@ -73,51 +56,19 @@
     {
       "type": "single",
       "component_id": "comp-bess-1",
-      "chart_type": "stacked-nd",
+      "chart_type": "nd",
       "x_column": "Time (s)",
       "y_columns": [
-        " Pload_1 (MW)",
         " P_BESS (MW)",
-        " Pload_2 (MW)",
-        " P_g3 (MW)",
-        " VD3_A_1 (p.u.)",
-        " VUPS_A_1 (p.u.)"
+        " P_g1 (MW)",
+        " P_g2 (MW)"
       ],
-      "split_by": "manual",
-      "manual_group_breaks": [
-        3,
-        5
-      ],
-      "title": "BESS 50MW - Stacked nD"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "2d",
-      "x_column": "Time (s)",
-      "y_column": " P_BESS (MW)",
-      "title": "BESS 50MW -  P_BESS (MW)"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "stacked-nd",
-      "x_column": "Time (s)",
-      "y_columns": [
-        " Pload_1 (MW)",
-        " P_BESS (MW)",
-        "C2"
-      ],
-      "split_by": "manual",
-      "manual_group_breaks": [
-        3
-      ],
-      "title": "BESS 50MW - Stacked nD"
+      "title": "BESS 50MW - nD"
     }
   ],
   "event_markers": {},
   "chart_sample_default": 64,
-  "chart_panel_height": 572,
+  "chart_panel_height": 521,
   "chart_stacks": [
     [
       0,
