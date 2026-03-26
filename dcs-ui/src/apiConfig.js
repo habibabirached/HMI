@@ -3,9 +3,9 @@
  * BACKEND ADDRESS (API BASE URL) — WHY THIS FILE EXISTS, IN VERY PLAIN LANGUAGE
  * =============================================================================
  *
- * "please talk to http://localhost:5000", it was telling the...if  YOU also run the backend on your laptop.
+ * When the bundle said “talk to http://localhost:5000”, the *browser* used the
+ * user’s own machine — wrong for remote servers. See REACT_APP_API_BASE_URL and Docker proxy.
  *
- 
  * So we stop hard-coding one magic address. Instead we read REACT_APP_API_BASE_URL
  * at **build time** (Create React App bakes env vars into the JavaScript bundle).
  * You set the variable when you build (or in .env.production), rebuild the UI,
@@ -64,15 +64,8 @@ function normalizeApiBaseUrl(raw) {
 }
 
 /**
- * Use this everywhere you would have typed `http://localhost:5000` before.
- * Import: `import { API_BASE_URL } from './apiConfig';` (adjust path per file).
- * When you run npm run build, Create React App bakes environment variables into the JavaScript at build time.
- *  So we read process.env.REACT_APP_API_BASE_URL. If you do not set it, we keep the old behavior: 
- * default http://localhost:5000 so nothing breaks on your desk. If you do set it to something like http://10.202.252.31:5000 or https://your-domain.com, 
- * every fetch in the bundle uses that. If you set it to empty, we use relative URLs (/api/...), which is what you want when a reverse proxy serves the UI and API under the same website name.
-
-The top of apiConfig.js is a long, very shouty comment block on purpose, so the next person (or future you) does not “just change localhost” in one file and get confused again.
-
-
+ * Docker dev: set REACT_APP_API_BASE_URL empty + package.json "proxy" -> browser uses
+ * /api on port 3000; dev server forwards to dcs-backend. Laptop-only dev: leave unset
+ * (localhost:5000) or use a full URL.
  */
 export const API_BASE_URL = normalizeApiBaseUrl(process.env.REACT_APP_API_BASE_URL);
