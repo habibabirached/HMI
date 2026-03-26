@@ -5,9 +5,29 @@
     {
       "name": "C2",
       "formula": "Pload_1 (MW) +  P_BESS (MW)"
+    },
+    {
+      "name": "var",
+      "formula": "Vload_1 (p.u.) +  V_g4 (p.u.)"
+    },
+    {
+      "name": "Pload_P_Bess",
+      "formula": "Pload_1 (MW) +  P_BESS (MW)"
+    },
+    {
+      "name": "something",
+      "formula": "P_g1 (MW) +  P_g3 (MW)"
     }
   ],
   "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bess-1",
+      "chart_type": "2d",
+      "x_column": "Time (s)",
+      "y_column": "Pload_P_Bess",
+      "title": "BESS 50MW - Pload_P_Bess"
+    },
     {
       "type": "single",
       "component_id": "comp-bess-1",
@@ -15,64 +35,13 @@
       "x_column": "Time (s)",
       "y_columns": [
         " Pload_1 (MW)",
-        " P_BESS (MW)",
-        " P_g1 (MW)",
-        " P_g2 (MW)",
-        " Pload_2 (MW)",
-        " P_g3 (MW)",
-        " P_g4 (MW)"
-      ],
-      "title": "BESS 50MW - nD"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "nd",
-      "x_column": "Time (s)",
-      "y_columns": [
-        " Q_g2 (MVar)",
-        " Qload_2 (MVar)",
-        " Q_g3 (MVar)",
-        " Q_g4 (MVar)"
-      ],
-      "title": "BESS 50MW - nD"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "stacked-nd",
-      "x_column": "Time (s)",
-      "y_columns": [
-        " VD3_A_1 (p.u.)",
-        " VD3_B_1 (p.u.)",
-        " VD3_C_1 (p.u.)",
-        " VD1_A_1 (p.u.)",
-        " VD1_B_1 (p.u.)",
-        " VD1_C_1 (p.u.)"
-      ],
-      "split_by": "phase",
-      "title": "BESS 50MW - Stacked nD"
-    },
-    {
-      "type": "single",
-      "component_id": "comp-bess-1",
-      "chart_type": "nd",
-      "x_column": "Time (s)",
-      "y_columns": [
-        " P_BESS (MW)",
-        " P_g1 (MW)",
-        " P_g2 (MW)"
+        "something"
       ],
       "title": "BESS 50MW - nD"
     }
   ],
   "event_markers": {},
   "chart_sample_default": 64,
-  "chart_panel_height": 521,
-  "chart_stacks": [
-    [
-      0,
-      1
-    ]
-  ]
+  "chart_panel_height": 454,
+  "chart_stacks": []
 }

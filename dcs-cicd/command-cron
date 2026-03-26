@@ -1,3 +1,9 @@
 # m h  dom mon dow   command
-*/2 * * * * cd /app && ./command.sh
+#
+# ---------------------------------------------------------------------------
+# DISABLED (2026-03): No more automatic “check git every two minutes and redeploy.”
+# Uncomment the */2 line below if you want the old robot behavior back, then
+# rebuild the dcs-cicd image:  docker compose -f docker-compose-dev.yml build dcs-cicd
+# ---------------------------------------------------------------------------
+# */2 * * * * cd /app && ./command.sh
 # Empty line

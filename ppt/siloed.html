@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Siloed Visualization — The Problem We're Solving</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Source+Sans+3:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    /* GE Vernova–inspired palette + restrained “problem” accents */
+    :root {
+      --gv-green: #005e60;
+      --gv-green-mid: #007a7c;
+      --gv-green-glow: rgba(0, 94, 96, 0.35);
+      --gv-ink: #050a0c;
+      --gv-surface: #0a1416;
+      --gv-surface-2: #0f1e22;
+      --gv-accent-line: #2dd4bf;
+      --gv-text: #f0f7f7;
+      --gv-text-muted: #b8d6d6;
+      --gv-highlight: #5eead4;
+      --gv-fragment: #9ca3af;
+      --gv-warn-border: rgba(244, 162, 97, 0.55);
+      --gv-warn-bg: rgba(180, 83, 9, 0.12);
+      --gv-warn-text: #fdba74;
+      --gv-problem-bar: #c2410c;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(160deg, var(--gv-surface-2) 0%, var(--gv-ink) 50%, #061012 100%);
+      color: var(--gv-text);
+      padding: clamp(1rem, 3vw, 2rem);
+      overflow-x: hidden;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(12px, 2vw, 20px);
+      flex-wrap: wrap;
+      margin-bottom: clamp(0.75rem, 2vw, 1.25rem);
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: clamp(10px, 1.5vw, 14px);
+    }
+    .ge-emblem svg {
+      display: block;
+      width: clamp(44px, 5vw, 52px);
+      height: clamp(44px, 5vw, 52px);
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+    }
+    .vernova-wordmark .vernova-line {
+      font-family: Outfit, sans-serif;
+      font-weight: 700;
+      font-size: clamp(0.8rem, 1.4vw, 1rem);
+      color: var(--gv-highlight);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .titles-block {
+      text-align: center;
+      flex: 1;
+      min-width: min(100%, 320px);
+    }
+    .slide-title {
+      font-family: Outfit, sans-serif;
+      font-size: clamp(1.5rem, 3.2vw, 2rem);
+      font-weight: 700;
+      color: var(--gv-text);
+      margin-bottom: 0.35rem;
+    }
+    .slide-title .accent {
+      color: var(--gv-highlight);
+    }
+    .subtitle {
+      color: var(--gv-text-muted);
+      font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+      font-weight: 600;
+    }
+    .siloed-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(1rem, 2vw, 2rem);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    @media (max-width: 900px) {
+      .siloed-grid { grid-template-columns: 1fr; }
+    }
+    .silo {
+      background: rgba(0, 94, 96, 0.08);
+      border: 2px dashed var(--gv-warn-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(0, 94, 96, 0.2);
+    }
+    .silo::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--gv-warn-bg), transparent 55%);
+      pointer-events: none;
+    }
+    .silo-title {
+      font-family: Outfit, sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gv-highlight);
+      margin-bottom: 0.75rem;
+      position: relative;
+    }
+    .silo-tool {
+      font-size: 0.9rem;
+      color: var(--gv-soft-tool, #99f6e4);
+      margin-bottom: 0.5rem;
+      position: relative;
+      font-weight: 600;
+    }
+    .silo-storage {
+      font-size: 0.75rem;
+      color: var(--gv-text-muted);
+      margin-top: 0.75rem;
+      padding: 0.5rem;
+      background: rgba(5, 10, 12, 0.45);
+      border-radius: 8px;
+      position: relative;
+      border: 1px solid rgba(94, 234, 212, 0.15);
+    }
+    .share-arrows {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1.5rem 0 0;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .share-method {
+      background: rgba(194, 65, 12, 0.15);
+      border: 1px solid rgba(251, 146, 60, 0.4);
+      color: var(--gv-warn-text);
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .problems-list {
+      max-width: 900px;
+      margin: 2rem auto;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 640px) {
+      .problems-list { grid-template-columns: 1fr; }
+    }
+    .problem {
+      background: rgba(194, 65, 12, 0.1);
+      border-left: 4px solid var(--gv-problem-bar);
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: #fed7aa;
+      border-radius: 0 8px 8px 0;
+      font-weight: 600;
+    }
+    .problem-icon { color: #fb923c; margin-right: 0.5rem; }
+    .center-chaos {
+      text-align: center;
+      margin: 1.5rem 0;
+      font-family: Outfit, sans-serif;
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      font-weight: 700;
+      color: var(--gv-warn-text);
+    }
+    .no-connection {
+      opacity: 0.85;
+      font-size: clamp(0.78rem, 1.3vw, 0.88rem);
+      color: var(--gv-fragment);
+      text-align: center;
+      margin-top: 2rem;
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div class="brand-lockup">
+      <div class="ge-emblem" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="GE">
+          <circle cx="32" cy="32" r="30" fill="#005e60"/>
+          <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <text x="32" y="42" text-anchor="middle" font-family="Outfit, system-ui, sans-serif" font-weight="800" font-size="26" fill="#ffffff">GE</text>
+        </svg>
+      </div>
+      <div class="vernova-wordmark">
+        <span class="vernova-line">Vernova</span>
+      </div>
+    </div>
+    <div class="titles-block">
+      <h1 class="slide-title"><span class="accent">Siloed</span> visualization — today’s reality</h1>
+      <p class="subtitle">Fragmented workflows · No single source of truth</p>
+    </div>
+  </div>
+
+  <div class="siloed-grid">
+    <div class="silo">
+      <div class="silo-title">Engineer A</div>
+      <div class="silo-tool">Python / Matlab</div>
+      <div class="silo-storage">Local machine</div>
+      <div class="share-arrows">
+        <span class="share-method">Email</span>
+        <span class="share-method">Screenshot</span>
+      </div>
+    </div>
+    <div class="silo">
+      <div class="silo-title">Engineer B</div>
+      <div class="silo-tool">Excel</div>
+      <div class="silo-storage">Local machine</div>
+      <div class="share-arrows">
+        <span class="share-method">Attachments</span>
+        <span class="share-method">CSV</span>
+      </div>
+    </div>
+    <div class="silo">
+      <div class="silo-title">Engineer C</div>
+      <div class="silo-tool">Custom tool</div>
+      <div class="silo-storage">Local machine</div>
+      <div class="share-arrows">
+        <span class="share-method">Export</span>
+        <span class="share-method">Copy-paste</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="center-chaos">Same data → Different plots → Different conclusions</div>
+
+  <div class="problems-list">
+    <div class="problem"><span class="problem-icon">✕</span> No version control</div>
+    <div class="problem"><span class="problem-icon">✕</span> No provenance / audit trail</div>
+    <div class="problem"><span class="problem-icon">✕</span> Inconsistent scaling &amp; units</div>
+    <div class="problem"><span class="problem-icon">✕</span> Poor reproducibility</div>
+    <div class="problem"><span class="problem-icon">✕</span> Manual sync, interpretation drift</div>
+    <div class="problem"><span class="problem-icon">✕</span> No real-time collaboration</div>
+  </div>
+
+  <p class="no-connection">
+    No M6: single user, single location, single device, single purpose, single modality, limited dimensions.
+  </p>
+</body>
+</html>

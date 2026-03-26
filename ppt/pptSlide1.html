@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slide 1 — M6 + Architecture (full · big type)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Source+Sans+3:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    /* GE Vernova–inspired palette (primary evergreen per brand guidelines ~#005E60) */
+    :root {
+      --gv-green: #005e60;
+      --gv-green-mid: #007a7c;
+      --gv-green-soft: #0d9488;
+      --gv-green-glow: rgba(0, 94, 96, 0.35);
+      --gv-ink: #050a0c;
+      --gv-surface: #0a1416;
+      --gv-surface-2: #0f1e22;
+      --gv-accent-line: #2dd4bf;
+      --gv-text: #f0f7f7;
+      --gv-text-muted: #b8d6d6;
+      --gv-highlight: #5eead4;
+      --gv-soft-gold: #d4a574;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      background: var(--gv-ink);
+      color: var(--gv-text);
+      display: grid;
+      place-items: center;
+      padding: 8px;
+    }
+    .slide {
+      width: min(98vw, 1360px);
+      aspect-ratio: 16 / 9;
+      max-height: 96vh;
+      background: linear-gradient(160deg, var(--gv-surface-2) 0%, var(--gv-ink) 55%, #061012 100%);
+      border: 3px solid var(--gv-green-glow);
+      border-radius: 14px;
+      padding: clamp(10px, 1.2vmin, 18px) clamp(14px, 2vmin, 26px);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(6px, 0.9vmin, 12px);
+      overflow: hidden;
+    }
+    .slide-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(12px, 2vmin, 22px);
+      flex-wrap: wrap;
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: clamp(10px, 1.5vmin, 16px);
+      flex-shrink: 0;
+    }
+    .ge-emblem {
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+    }
+    .ge-emblem svg {
+      display: block;
+      width: clamp(40px, 5.5vmin, 52px);
+      height: clamp(40px, 5.5vmin, 52px);
+    }
+    .vernova-wordmark {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.05;
+      text-align: left;
+      justify-content: center;
+    }
+    .vernova-wordmark .vernova-line {
+      font-family: Outfit, sans-serif;
+      font-weight: 700;
+      font-size: clamp(0.85rem, 1.45vmin, 1.05rem);
+      color: var(--gv-highlight);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    .header-titles {
+      flex: 1;
+      min-width: min(100%, 280px);
+    }
+    h1 {
+      font-family: Outfit, sans-serif;
+      font-size: clamp(1.35rem, 2.8vmin, 2.15rem);
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.1;
+      color: var(--gv-text);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+    }
+    h1 .title-accent {
+      color: var(--gv-highlight);
+    }
+    .tagline {
+      text-align: center;
+      font-size: clamp(0.9rem, 1.65vmin, 1.2rem);
+      font-weight: 700;
+      color: var(--gv-text-muted);
+      margin-top: 4px;
+    }
+    .tagline .gold { color: var(--gv-soft-gold, #d4a574); }
+
+    /* All seven M6 values — large pills */
+    .m6-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(5px, 0.65vmin, 9px);
+    }
+    .m6-pill {
+      background: linear-gradient(135deg, var(--gv-green) 0%, var(--gv-green-mid) 100%);
+      color: #fff;
+      font-family: Outfit, sans-serif;
+      font-weight: 700;
+      font-size: clamp(0.72rem, 1.35vmin, 0.98rem);
+      padding: clamp(5px, 0.7vmin, 8px) clamp(10px, 1.2vmin, 14px);
+      border-radius: 999px;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0, 94, 96, 0.25);
+    }
+
+    .box {
+      border-radius: 12px;
+      padding: clamp(8px, 1.1vmin, 12px) clamp(12px, 1.6vmin, 18px);
+      text-align: center;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .box .emoji { font-size: clamp(1.4rem, 2.6vmin, 2rem); line-height: 1; display: block; margin-bottom: 4px; }
+    .box .head {
+      font-size: clamp(0.85rem, 1.55vmin, 1.12rem);
+      font-weight: 700;
+    }
+    .box .sum {
+      font-size: clamp(0.75rem, 1.25vmin, 0.95rem);
+      font-weight: 600;
+      color: var(--gv-text-muted);
+      margin-top: 4px;
+    }
+    .box.cy { border: 2px solid #2dd4bf; background: rgba(45,212,191,0.1); color: #99f6e4; }
+    .box.gd { border: 2px solid #14b8a6; background: rgba(20,184,166,0.12); color: #5eead4; }
+    .box.py { border: 2px solid #0d9488; background: rgba(13,148,136,0.18); color: #a7f3d0; }
+    .box.pk { border: 2px solid #0f766e; background: rgba(15,118,110,0.22); color: #ccfbf1; }
+    .box.pg { border: 2px solid #115e59; background: rgba(17,94,89,0.28); color: #e0f2f1; }
+    .box.api { border: 2px solid #0d9488; background: rgba(13,148,136,0.15); color: #7fffd4; }
+    .box.aws { border: 2px solid #ca8a04; background: rgba(202,138,4,0.12); color: #fde68a; }
+    .box.nui { border: 2px solid #0e7490; background: rgba(14,116,144,0.2); color: #a5f3fc; }
+
+    .arrow-big {
+      font-size: clamp(1.25rem, 2.4vmin, 1.85rem);
+      color: var(--gv-accent-line);
+      font-weight: 800;
+      line-height: 1;
+    }
+    .arrow-gold {
+      font-size: clamp(1.1rem, 2vmin, 1.5rem);
+      color: var(--gv-highlight);
+    }
+
+    .sim-chain {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: clamp(6px, 0.8vmin, 10px);
+    }
+
+    .docker-shell {
+      border: 3px dashed var(--gv-green-mid);
+      border-radius: 16px;
+      background: rgba(0, 94, 96, 0.12);
+      padding: clamp(8px, 1vmin, 12px) clamp(8px, 1.2vmin, 14px);
+      margin-top: 2px;
+    }
+    .docker-one-line {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      flex-wrap: nowrap;
+      gap: clamp(6px, 0.9vmin, 12px);
+    }
+    @media (max-width: 1024px) {
+      .docker-one-line { flex-wrap: wrap; row-gap: 10px; }
+    }
+    .docker-shell .docker-one-line .head {
+      font-size: clamp(0.88rem, 1.5vmin, 1.12rem);
+    }
+    .docker-shell .docker-one-line .sum {
+      font-size: clamp(0.75rem, 1.25vmin, 0.95rem);
+    }
+    .docker-shell .docker-one-line .arrow-gold {
+      font-size: clamp(1.15rem, 2vmin, 1.65rem);
+      align-self: center;
+    }
+    .docker-shell .docker-one-line .arrow-big {
+      align-self: center;
+    }
+    .docker-sep {
+      align-self: stretch;
+      width: 2px;
+      min-height: 3.2rem;
+      background: rgba(94, 234, 212, 0.35);
+      border-radius: 2px;
+      flex-shrink: 0;
+      margin: 0 clamp(2px, 0.5vmin, 6px);
+    }
+    .box.docker-pill {
+      border: 2px solid var(--gv-highlight);
+      background: rgba(94, 234, 212, 0.1);
+      color: #ecfdf5;
+    }
+    .docker-shell .box {
+      padding: clamp(6px, 0.85vmin, 10px) clamp(8px, 1.1vmin, 12px);
+    }
+    .docker-shell .box .emoji {
+      font-size: clamp(1.15rem, 2vmin, 1.65rem);
+    }
+
+    .side-services {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: clamp(10px, 1.3vmin, 16px);
+      margin-top: 4px;
+    }
+    .side-services .box { flex: 1 1 160px; max-width: 280px; }
+
+    .to-clients {
+      text-align: center;
+      font-size: clamp(0.85rem, 1.45vmin, 1.1rem);
+      font-weight: 800;
+      color: var(--gv-highlight);
+      margin-top: 4px;
+    }
+
+    .client-strip {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(8px, 1.1vmin, 12px);
+      margin-top: 2px;
+    }
+    .client-chip {
+      background: rgba(15, 30, 34, 0.92);
+      border: 2px solid rgba(94, 234, 212, 0.22);
+      border-radius: 10px;
+      padding: clamp(6px, 0.9vmin, 9px) clamp(10px, 1.3vmin, 14px);
+      text-align: center;
+    }
+    .client-chip .who {
+      font-size: clamp(0.78rem, 1.3vmin, 0.98rem);
+      font-weight: 800;
+      color: var(--gv-text);
+    }
+    .client-chip .how {
+      font-size: clamp(0.68rem, 1.15vmin, 0.85rem);
+      font-weight: 600;
+      color: var(--gv-text-muted);
+      margin-top: 2px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <header class="slide-header-top">
+      <div class="brand-lockup">
+        <div class="ge-emblem" title="GE monogram style emblem (brand green #005E60)" aria-hidden="true">
+          <!-- Simplified circular GE emblem; use official assets from GE Vernova brand portal for production -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="GE">
+            <circle cx="32" cy="32" r="30" fill="#005e60"/>
+            <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+            <text x="32" y="42" text-anchor="middle" font-family="Outfit, system-ui, sans-serif" font-weight="800" font-size="26" fill="#ffffff">GE</text>
+          </svg>
+        </div>
+        <div class="vernova-wordmark">
+          <span class="vernova-line">Vernova</span>
+        </div>
+      </div>
+      <div class="header-titles">
+        <h1>M6 <span class="title-accent">Unified Visualization</span> Platform</h1>
+        <p class="tagline"><span class="gold">One link.</span> One backend. <span class="gold">Collaboration</span> &amp; decision-making on one source of truth.</p>
+      </div>
+    </header>
+
+    <div class="m6-row" aria-label="All M6 dimensions">
+      <span class="m6-pill">Multi-Personas</span>
+      <span class="m6-pill">Multi-Location</span>
+      <span class="m6-pill">Multi-Device</span>
+      <span class="m6-pill">Multi-Purpose</span>
+      <span class="m6-pill">Multi-Modal</span>
+      <span class="m6-pill">Multi-Dimensional</span>
+    </div>
+
+    <div class="sim-chain">
+      <div class="box cy">
+        <span class="head">RTDS</span>
+        <div class="sum">Real-time digital sim</div>
+      </div>
+      <span class="arrow-big">→</span>
+      <div class="box gd">
+        <span class="head">PSCAD</span>
+        <div class="sum">EMTDC · co-simulation</div>
+      </div>
+      <span class="arrow-big">→</span>
+      <div class="box py">
+        <span class="emoji">🐍</span>
+        <span class="head">Python · FlexSIM</span>
+        <div class="sum">Ingest · ETL · pre-DB</div>
+      </div>
+      <span class="arrow-big">→</span>
+    </div>
+    <div style="text-align:center;font-size:clamp(1.2rem,2.2vmin,1.75rem);color:#5eead4;font-weight:800;line-height:1;">↓ ETL / persist ↓</div>
+
+    <div class="docker-shell">
+      <div class="docker-one-line">
+        <div class="box pk">
+          <span class="head">CI / CD</span>
+          <div class="sum">Jenkins · Git · promote images</div>
+        </div>
+        <span class="arrow-gold" title="deploy">⇢</span>
+        <div class="box docker-pill">
+          <span class="head">🐳 Docker</span>
+          <div class="sum">Runtime you ship</div>
+        </div>
+        <span class="docker-sep" aria-hidden="true"></span>
+        <div class="box pg">
+          <span class="emoji">🐘</span>
+          <span class="head">PostgreSQL</span>
+          <div class="sum">System of record</div>
+        </div>
+        <span class="arrow-big">↔</span>
+        <div class="box api">
+          <span class="emoji">🐍</span>
+          <span class="head">FastAPI · Uvicorn</span>
+          <div class="sum">REST · JSON · sessions</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-services">
+      <div class="box aws">
+        <span class="head">AWS</span>
+        <div class="sum">API GW · Lambda · S3 · scale / edge</div>
+      </div>
+      <div class="box nui">
+        <span class="head">NUI as a service</span>
+        <div class="sum">Voice · gesture · same API</div>
+      </div>
+    </div>
+
+    <div class="to-clients">▼ HTTPS / WebSocket · one stack everywhere ▼</div>
+    <div class="client-strip">
+      <div class="client-chip">
+        <div class="who">Desktop · scientist</div>
+        <div class="how">React · Redux · Plotly</div>
+      </div>
+      <div class="client-chip">
+        <div class="who">Laptop</div>
+        <div class="how">Same API · linked views</div>
+      </div>
+      <div class="client-chip">
+        <div class="who">Tablet · FFA · field</div>
+        <div class="how">Touch · Plotly · same DB</div>
+      </div>
+      <div class="client-chip">
+        <div class="who">Control room</div>
+        <div class="how">Wallboard · sync · Redux</div>
+      </div>
+      <div class="client-chip">
+        <div class="who">Remote office</div>
+        <div class="how">Same Docker truth</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

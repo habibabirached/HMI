@@ -14,9 +14,8 @@
 
 import React, { useState, useEffect } from 'react';
 import '../styles/SaveLoadDialog.css';
-
-// Backend API URL (configured for Docker environment)
-const API_BASE_URL = 'http://localhost:5000';
+// DO NOT hard-code localhost here — see apiConfig.js for the long angry story about browsers vs servers.
+import { API_BASE_URL } from '../apiConfig';
 
 function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, currentConfigName }) {
   // State for save mode

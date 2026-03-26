@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slide 2 — Siloed visualization (GE Vernova)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Source+Sans+3:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gv-green: #005e60;
+      --gv-green-mid: #007a7c;
+      --gv-green-glow: rgba(0, 94, 96, 0.35);
+      --gv-ink: #050a0c;
+      --gv-surface-2: #0f1e22;
+      --gv-text: #f0f7f7;
+      --gv-text-muted: #b8d6d6;
+      --gv-highlight: #5eead4;
+      --gv-warn-border: rgba(244, 162, 97, 0.4);
+      --gv-warn-bg: rgba(251, 146, 60, 0.08);
+      --gv-warn-text: #fdba74;
+      --gv-card: rgba(0, 94, 96, 0.14);
+      --gv-card-edge: rgba(94, 234, 212, 0.28);
+      --gv-soft-kicker: #d4a574;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      background: var(--gv-ink);
+      color: var(--gv-text);
+      display: grid;
+      place-items: center;
+      padding: 8px;
+    }
+    .slide {
+      width: min(98vw, 1360px);
+      aspect-ratio: 16 / 9;
+      max-height: 96vh;
+      background: linear-gradient(160deg, var(--gv-surface-2) 0%, var(--gv-ink) 55%, #061012 100%);
+      border: 3px solid var(--gv-green-glow);
+      border-radius: 14px;
+      padding: clamp(8px, 1vmin, 14px) clamp(12px, 1.8vmin, 22px);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(3px, 0.55vmin, 7px);
+      overflow: hidden;
+    }
+    .slide-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(10px, 1.6vmin, 18px);
+      flex-wrap: wrap;
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1.2vmin, 14px);
+      flex-shrink: 0;
+    }
+    .ge-emblem svg {
+      display: block;
+      width: clamp(36px, 4.8vmin, 46px);
+      height: clamp(36px, 4.8vmin, 46px);
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+    }
+    .vernova-wordmark .vernova-line {
+      font-family: Outfit, sans-serif;
+      font-weight: 700;
+      font-size: clamp(0.84rem, 1.45vmin, 1.05rem);
+      color: var(--gv-highlight);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .header-titles {
+      flex: 1;
+      min-width: min(100%, 240px);
+    }
+    h1.slide-title-block {
+      font-family: Outfit, sans-serif;
+      text-align: center;
+      line-height: 1.15;
+      color: var(--gv-text);
+    }
+    h1.slide-title-block .title-main {
+      display: block;
+      font-size: clamp(1.1rem, 2.35vmin, 1.72rem);
+      font-weight: 700;
+    }
+    h1.slide-title-block .title-accent { color: var(--gv-highlight); }
+    h1.slide-title-block .title-kicker {
+      display: block;
+      margin-top: clamp(3px, 0.45vmin, 6px);
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      font-size: clamp(0.88rem, 1.55vmin, 1.12rem);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(184, 214, 214, 0.88);
+    }
+    h1.slide-title-block .title-kicker em {
+      font-style: normal;
+      font-weight: 700;
+      color: var(--gv-soft-kicker);
+    }
+    .tagline {
+      text-align: center;
+      font-size: clamp(0.92rem, 1.55vmin, 1.14rem);
+      font-weight: 700;
+      color: var(--gv-text-muted);
+      margin-top: 2px;
+    }
+
+    .siloed-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(6px, 0.9vmin, 11px);
+      flex: 0 0 auto;
+    }
+    .silo {
+      background: rgba(0, 94, 96, 0.08);
+      border: 2px dashed var(--gv-warn-border);
+      border-radius: 12px;
+      padding: clamp(6px, 0.85vmin, 10px);
+      text-align: center;
+      position: relative;
+      min-height: 0;
+    }
+    .silo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--gv-warn-bg), transparent 60%);
+      pointer-events: none;
+    }
+    .silo-title {
+      font-family: Outfit, sans-serif;
+      font-size: clamp(1.02rem, 1.78vmin, 1.3rem);
+      font-weight: 700;
+      color: var(--gv-highlight);
+      margin-bottom: 4px;
+      position: relative;
+      line-height: 1.18;
+    }
+    .silo-tool {
+      font-size: clamp(0.84rem, 1.38vmin, 1.02rem);
+      color: #99f6e4;
+      font-weight: 600;
+      position: relative;
+      line-height: 1.2;
+    }
+    .silo-storage {
+      font-size: clamp(0.86rem, 1.35vmin, 1.02rem);
+      color: var(--gv-text-muted);
+      margin-top: 5px;
+      padding: 5px 7px;
+      background: rgba(5, 10, 12, 0.45);
+      border-radius: 6px;
+      position: relative;
+      border: 1px solid rgba(94, 234, 212, 0.12);
+    }
+    .share-arrows {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: clamp(4px, 0.55vmin, 7px);
+      margin-top: 6px;
+      position: relative;
+    }
+    .share-method {
+      background: rgba(0, 94, 96, 0.2);
+      border: 1px solid rgba(251, 146, 60, 0.35);
+      color: #ffedd5;
+      padding: 5px 9px;
+      border-radius: 7px;
+      font-size: clamp(0.82rem, 1.35vmin, 1.02rem);
+      font-weight: 600;
+    }
+
+    .center-chaos {
+      text-align: center;
+      font-family: Outfit, sans-serif;
+      font-size: clamp(1rem, 1.75vmin, 1.26rem);
+      font-weight: 700;
+      color: var(--gv-warn-text);
+      line-height: 1.15;
+      flex-shrink: 0;
+    }
+
+    .problems-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: clamp(5px, 0.65vmin, 8px);
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    @media (max-width: 1024px) {
+      .problems-list { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; }
+    }
+    .problem {
+      background: var(--gv-card);
+      border: 1px solid var(--gv-card-edge);
+      border-radius: 10px;
+      font-weight: 600;
+      line-height: 1.2;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      isolation: isolate;
+    }
+    .problem::before {
+      content: '';
+      height: 3px;
+      flex-shrink: 0;
+      background: linear-gradient(90deg, #fb923c, var(--gv-highlight));
+      opacity: 0.85;
+    }
+    .problem-art {
+      flex: 1 1 0;
+      min-height: clamp(72px, 13.5vmin, 108px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(3px, 0.45vmin, 6px) clamp(5px, 0.7vmin, 9px);
+      background: radial-gradient(ellipse 85% 100% at 50% 0%, rgba(0, 94, 96, 0.38) 0%, rgba(5, 10, 12, 0.52) 70%);
+    }
+    .problem-art svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      min-height: clamp(64px, 12.5vmin, 102px);
+      max-height: clamp(100px, 18vmin, 132px);
+      object-fit: contain;
+      flex-shrink: 0;
+      transform: scale(1.06);
+      transform-origin: center center;
+    }
+    .problem-copy {
+      flex-shrink: 0;
+      padding: clamp(6px, 0.9vmin, 10px) clamp(9px, 1.15vmin, 13px);
+      font-size: clamp(0.96rem, 1.68vmin, 1.22rem);
+      color: var(--gv-text);
+      border-top: 1px solid rgba(94, 234, 212, 0.12);
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      line-height: 1.28;
+    }
+    .problem-icon {
+      color: #fb923c;
+      flex-shrink: 0;
+      font-weight: 800;
+      line-height: 1.28;
+      font-size: 1.05em;
+    }
+
+    .no-m6 {
+      text-align: center;
+      font-size: clamp(0.96rem, 1.58vmin, 1.14rem);
+      font-weight: 600;
+      color: rgba(184, 214, 214, 0.65);
+      line-height: 1.25;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <header class="slide-header-top">
+      <div class="brand-lockup">
+        <div class="ge-emblem" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="GE">
+            <circle cx="32" cy="32" r="30" fill="#005e60"/>
+            <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+            <text x="32" y="42" text-anchor="middle" font-family="Outfit, system-ui, sans-serif" font-weight="800" font-size="26" fill="#ffffff">GE</text>
+          </svg>
+        </div>
+        <div class="vernova-wordmark">
+          <span class="vernova-line">Vernova</span>
+        </div>
+      </div>
+      <div class="header-titles">
+        <h1 class="slide-title-block">
+          <span class="title-main"><span class="title-accent">Siloed</span> visualization</span>
+          <span class="title-kicker">Current practice · <em>siloed</em> toolchains &amp; workflows</span>
+        </h1>
+        <p class="tagline">Fragmented workflows · No single source of truth</p>
+      </div>
+    </header>
+
+    <div class="siloed-grid">
+      <div class="silo">
+        <div class="silo-title">Simulation scientist A</div>
+        <div class="silo-tool">Python / Matlab</div>
+        <div class="silo-storage">Local machine</div>
+        <div class="share-arrows">
+          <span class="share-method">Email</span>
+          <span class="share-method">Screenshot</span>
+        </div>
+      </div>
+      <div class="silo">
+        <div class="silo-title">Plant manager / stakeholder</div>
+        <div class="silo-tool">Excel</div>
+        <div class="silo-storage">Local machine</div>
+        <div class="share-arrows">
+          <span class="share-method">Attachments</span>
+          <span class="share-method">CSV</span>
+        </div>
+      </div>
+      <div class="silo">
+        <div class="silo-title">Control room engineer</div>
+        <div class="silo-tool">Custom tool</div>
+        <div class="silo-storage">Local machine</div>
+        <div class="share-arrows">
+          <span class="share-method">Export</span>
+          <span class="share-method">Copy-paste</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-chaos">Same data → Different plots → Different conclusions</div>
+
+    <div class="problems-list">
+      <div class="problem">
+        <div class="problem-art" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 56" fill="none"><path stroke="#5eead4" stroke-width="1.2" stroke-linecap="round" d="M8 42V18h18v24M38 42V12h18v30M68 42V24h18v18"/><path stroke="#fb923c" stroke-width="1.2" stroke-dasharray="3 3" d="M26 22h8M54 28h8M84 32h8"/><text x="11" y="52" fill="#94a3b8" font-size="8" font-family="system-ui,sans-serif">v?</text><text x="41" y="52" fill="#94a3b8" font-size="8" font-family="system-ui,sans-serif">v??</text><text x="71" y="52" fill="#94a3b8" font-size="8" font-family="system-ui,sans-serif">v?</text><circle cx="104" cy="20" r="10" stroke="#64748b" stroke-width="1"/><text x="99" y="23" fill="#fca5a5" font-size="10" font-family="system-ui,sans-serif">?</text></svg>
+        </div>
+        <div class="problem-copy"><span class="problem-icon">✕</span> No version control</div>
+      </div>
+      <div class="problem">
+        <div class="problem-art" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 56" fill="none"><rect x="10" y="14" width="36" height="28" rx="3" stroke="#5eead4" stroke-width="1.2"/><path stroke="#64748b" stroke-width="1.2" d="M48 28h14"/><path stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" d="M64 24l8 8m0-8l-8 8"/><path stroke="#5eead4" stroke-width="1.2" d="M74 28h18"/><rect x="94" y="14" width="18" height="28" rx="3" stroke="#475569" stroke-width="1" stroke-dasharray="2 2"/><path stroke="#94a3b8" stroke-width="0.9" d="M18 22h20M18 28h14M18 34h18"/></svg>
+        </div>
+        <div class="problem-copy"><span class="problem-icon">✕</span> No provenance / audit</div>
+      </div>
+      <div class="problem">
+        <div class="problem-art" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 56" fill="none"><path stroke="#5eead4" stroke-width="1.2" d="M12 44h40M12 44V16"/><path stroke="#94a3b8" stroke-width="0.8" d="M16 40h4M24 40h4M20 36v8M28 32v12M32 28v16"/><text x="15" y="52" fill="#fdba74" font-size="7" font-family="system-ui,sans-serif">kV</text><path stroke="#fb923c" stroke-width="1.2" d="M62 44h46M62 44V16"/><path stroke="#94a3b8" stroke-width="0.8" d="M66 40h8M78 40h8M72 36v8M88 40h15M90 32v12"/><text x="66" y="52" fill="#fdba74" font-size="7" font-family="system-ui,sans-serif">pu</text></svg>
+        </div>
+        <div class="problem-copy"><span class="problem-icon">✕</span> Inconsistent scaling &amp; units</div>
+      </div>
+      <div class="problem">
+        <div class="problem-art" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 56" fill="none"><path stroke="#5eead4" stroke-width="1.5" fill="none" d="M14 40 Q34 12 54 28 T94 36"/><path stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 3" fill="none" d="M14 38 Q40 34 58 20 T98 32"/><circle cx="14" cy="40" r="2.5" fill="#5eead4"/><circle cx="94" cy="36" r="2.5" fill="#fb923c"/><text x="68" y="14" fill="#94a3b8" font-size="7" font-family="system-ui,sans-serif">run A</text><text x="78" y="50" fill="#94a3b8" font-size="7" font-family="system-ui,sans-serif">run B</text></svg>
+        </div>
+        <div class="problem-copy"><span class="problem-icon">✕</span> Poor reproducibility</div>
+      </div>
+      <div class="problem">
+        <div class="problem-art" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 56" fill="none"><rect x="14" y="10" width="38" height="36" rx="4" stroke="#5eead4" stroke-width="1.2"/><rect x="68" y="10" width="38" height="36" rx="4" stroke="#64748b" stroke-width="1.2" stroke-dasharray="3 2"/><path stroke="#fb923c" stroke-width="1" stroke-dasharray="2 3" d="M52 28h16"/><path stroke="#ef4444" stroke-width="1.2" d="M59 22v12" stroke-linecap="round"/><circle cx="28" cy="22" r="3" fill="none" stroke="#5eead4"/><circle cx="88" cy="22" r="3" fill="none" stroke="#94a3b8"/><text x="33" y="41" text-anchor="middle" fill="#94a3b8" font-size="6.5" font-family="system-ui,sans-serif">manual</text><text x="87" y="41" text-anchor="middle" fill="#94a3b8" font-size="6.5" font-family="system-ui,sans-serif">stale</text></svg>
+        </div>
+        <div class="problem-copy"><span class="problem-icon">✕</span> Manual sync, drift</div>
+      </div>
+      <div class="problem">
+        <div class="problem-art" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 56" fill="none"><circle cx="24" cy="28" r="12" stroke="#5eead4" stroke-width="1.2" fill="rgba(0,94,96,0.15)"/><circle cx="60" cy="28" r="12" stroke="#64748b" stroke-width="1" stroke-dasharray="3 2" fill="rgba(15,23,42,0.3)"/><circle cx="96" cy="28" r="12" stroke="#64748b" stroke-width="1" stroke-dasharray="3 2" fill="rgba(15,23,42,0.3)"/><path stroke="#94a3b8" stroke-width="0.9" stroke-dasharray="2 4" d="M36 28h12M72 28h12"/><circle cx="24" cy="28" r="3" fill="#5eead4"/><path stroke="#fb923c" stroke-width="1" d="M58 26h4M58 30h4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="problem-copy"><span class="problem-icon">✕</span> No real-time collaboration</div>
+      </div>
+    </div>
+
+    <p class="no-m6">No M6: single user, location, device, purpose, modality — limited dimensions.</p>
+  </div>
+</body>
+</html>

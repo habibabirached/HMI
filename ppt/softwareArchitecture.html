@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Software Architecture — Technical Stack (Graph)</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: radial-gradient(ellipse 120% 80% at 50% 0%, #1a1f35 0%, #0c1021 55%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 1.25rem 0.75rem 2.5rem;
+    }
+    h1 {
+      text-align: center;
+      font-size: clamp(1.2rem, 2.5vw, 1.65rem);
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.35rem;
+    }
+    .sub {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.88rem;
+      margin-bottom: 0.85rem;
+      max-width: 52rem;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.45;
+    }
+    .diagram-wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      background: linear-gradient(165deg, #151b2e 0%, #0d1218 50%, #0f1724 100%);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 18px;
+      padding: 1rem 0.5rem 1.5rem;
+      box-shadow: 0 28px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .diagram-wrap svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      min-height: 640px;
+    }
+    .key-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.65rem 1.25rem;
+      max-width: 1200px;
+      margin: 0.75rem auto 0;
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+    .key-item { display: flex; align-items: center; gap: 0.35rem; }
+    .swatch { width: 22px; height: 4px; border-radius: 2px; }
+    .legend {
+      max-width: 1200px;
+      margin: 1rem auto 0;
+      padding: 1rem 1.15rem;
+      background: rgba(30, 41, 59, 0.55);
+      border-radius: 10px;
+      border: 1px solid rgba(71, 85, 105, 0.45);
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      line-height: 1.52;
+    }
+    .legend strong { color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <h1>Software architecture — data &amp; presentation (graph view)</h1>
+  <p class="sub">Multi-path topology: simulation → ingestion / <strong>Docker</strong>-hosted services → <strong>AWS</strong> (Lambda &amp; edge) → <strong>three modalities</strong> (desktop, iPad, control room). <strong>React</strong>, <strong>Redux</strong>, and <strong>Plotly</strong> are first-class. <strong>NUI as a service</strong> augments every client.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 1280 900" xmlns="http://www.w3.org/2000/svg" aria-label="Technical architecture graph">
+      <defs>
+        <marker id="aCyan" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#22d3ee"/></marker>
+        <marker id="aGold" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#fbbf24"/></marker>
+        <marker id="aOrange" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#ff9900"/></marker>
+        <marker id="aPink" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#f472b6"/></marker>
+        <marker id="aViolet" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#a78bfa"/></marker>
+        <marker id="aGreen" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#4ade80"/></marker>
+        <linearGradient id="node" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#1e293b"/><stop offset="100%" style="stop-color:#0f172a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- ===== Edges (draw under nodes) ===== -->
+
+      <!-- CI/CD → Docker deploy -->
+      <path d="M 127 156 Q 400 175 620 225" stroke="#fbbf24" stroke-width="2.2" fill="none" marker-end="url(#aGold)" stroke-dasharray="6 4"/>
+      <text x="360" y="168" fill="#fbbf24" font-size="10" font-family="IBM Plex Sans, sans-serif">build · images · deploy (CI/CD)</text>
+
+      <!-- RTDS → PSCAD → FlexSIM (staggered, curved) -->
+      <path d="M 158 377 Q 205 340 228 322" stroke="#22d3ee" stroke-width="2.4" fill="none" marker-end="url(#aCyan)"/>
+      <path d="M 378 322 Q 415 310 448 348" stroke="#22d3ee" stroke-width="2.4" fill="none" marker-end="url(#aCyan)"/>
+      <text x="400" y="302" fill="#67e8f9" font-size="9" font-family="IBM Plex Sans, sans-serif">EMTDC link</text>
+</think>
+
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+Read
+
+      <!-- FlexSIM → PostgreSQL inside Docker -->
+      <path d="M 618 352 Q 605 400 576 438" stroke="#22d3ee" stroke-width="2.4" fill="none" marker-end="url(#aCyan)"/>
+      <text x="628" y="412" fill="#64748b" font-size="10" font-family="IBM Plex Sans, sans-serif">ETL · batch · stream</text>
+
+      <!-- Postgres ↔ FastAPI (bidirectional ORM) -->
+      <path d="M 650 500 L 682 500" stroke="#a78bfa" stroke-width="2" fill="none" marker-end="url(#aViolet)"/>
+      <path d="M 682 518 L 650 518" stroke="#a78bfa" stroke-width="1.6" fill="none" marker-end="url(#aViolet)" opacity="0.85"/>
+
+      <!-- Docker / API → AWS API GW -->
+      <path d="M 828 468 Q 880 400 988 368" stroke="#ff9900" stroke-width="2" fill="none" marker-end="url(#aOrange)"/>
+      <text x="930" y="415" fill="#fdba74" font-size="9" font-family="IBM Plex Sans, sans-serif">expose / scale</text>
+
+      <!-- Lambda → API (invoke / async) -->
+      <path d="M 1088 305 Q 1020 340 950 495 Q 900 560 870 540" stroke="#4ade80" stroke-width="1.8" fill="none" marker-end="url(#aGreen)" stroke-dasharray="5 4"/>
+      <text x="1015" y="430" fill="#86efac" font-size="9" font-family="IBM Plex Sans, sans-serif">Lambda workers</text>
+
+      <!-- API hub → three clients (fan-out from FastAPI bottom) -->
+      <path d="M 756 560 Q 520 648 362 718" stroke="#f472b6" stroke-width="2.2" fill="none" marker-end="url(#aPink)"/>
+      <path d="M 756 560 L 722 728" stroke="#f472b6" stroke-width="2.2" fill="none" marker-end="url(#aPink)"/>
+      <path d="M 756 560 Q 960 648 1082 718" stroke="#f472b6" stroke-width="2.2" fill="none" marker-end="url(#aPink)"/>
+      <text x="500" y="668" fill="#f9a8d4" font-size="10" font-family="IBM Plex Sans, sans-serif">REST / WebSocket · one backend · three modalities</text>
+
+      <!-- NUI → each client (dashed violet) -->
+      <path d="M 1100 618 Q 720 680 362 765" stroke="#c084fc" stroke-width="1.5" fill="none" stroke-dasharray="7 5" opacity="0.9"/>
+      <path d="M 1144 630 L 722 785" stroke="#c084fc" stroke-width="1.5" fill="none" stroke-dasharray="7 5" opacity="0.9"/>
+      <path d="M 1100 618 Q 1020 680 1082 765" stroke="#c084fc" stroke-width="1.5" fill="none" stroke-dasharray="7 5" opacity="0.9"/>
+      <text x="848" y="678" fill="#e9d5ff" font-size="9" font-family="IBM Plex Sans, sans-serif">NUI as a service → all modalities</text>
+
+      <!-- Lambda → NUI processing hint -->
+      <path d="M 1120 358 L 1165 545" stroke="#4ade80" stroke-width="1.4" fill="none" stroke-dasharray="4 4" opacity="0.7"/>
+
+      <!-- ===== Docker boundary ===== -->
+      <rect x="472" y="225" width="538" height="368" rx="28" fill="rgba(36,150,237,0.06)" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="10 7"/>
+      <text x="741" y="248" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700" font-family="IBM Plex Sans, sans-serif">DOCKER — runtime boundary</text>
+      <text x="741" y="264" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">PostgreSQL · Python API · orchestration (compose / k8s)</text>
+
+      <!-- ===== CI/CD cluster ===== -->
+      <g transform="translate(28,48)">
+        <rect x="0" y="0" width="198" height="108" rx="12" fill="url(#node)" stroke="#f472b6" stroke-width="1.8"/>
+        <text x="99" y="28" text-anchor="middle" fill="#f472b6" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">CI / CD</text>
+        <text x="99" y="48" text-anchor="middle" fill="#fda4af" font-size="10" font-family="IBM Plex Sans, sans-serif">Jenkins · pipelines</text>
+        <text x="99" y="66" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">Git hooks · artifacts</text>
+        <text x="99" y="84" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">Scan · promote · prod</text>
+      </g>
+
+      <!-- ===== Simulation nodes ===== -->
+      <g transform="translate(28,318)">
+        <rect x="0" y="0" width="130" height="118" rx="14" fill="url(#node)" stroke="#06b6d4" stroke-width="2"/>
+        <text x="65" y="36" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="700" font-family="IBM Plex Sans, sans-serif">RTDS</text>
+        <text x="65" y="56" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">Real-time digital</text>
+        <text x="65" y="72" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">simulator</text>
+      </g>
+      <g transform="translate(228,268)">
+        <rect x="0" y="0" width="150" height="108" rx="14" fill="url(#node)" stroke="#eab308" stroke-width="2"/>
+        <text x="75" y="38" text-anchor="middle" fill="#facc15" font-size="14" font-weight="700" font-family="IBM Plex Sans, sans-serif">PSCAD</text>
+        <text x="75" y="58" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">EMTDC · co-sim</text>
+        <text x="75" y="76" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">Electrical transients</text>
+      </g>
+      <g transform="translate(448,288)">
+        <rect x="0" y="0" width="170" height="128" rx="14" fill="url(#node)" stroke="#3776ab" stroke-width="2"/>
+        <text x="85" y="32" text-anchor="middle" fill="#ffd43b" font-size="22">🐍</text>
+        <text x="85" y="56" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">Python · FlexSIM</text>
+        <text x="85" y="76" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">Acquisition · transform</text>
+        <text x="85" y="92" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">pre-DB pipeline</text>
+      </g>
+
+      <!-- Inside Docker: Postgres + API -->
+      <g transform="translate(502,440)">
+        <rect x="0" y="0" width="148" height="120" rx="12" fill="url(#node)" stroke="#336791" stroke-width="2"/>
+        <text x="74" y="36" text-anchor="middle" font-size="24">🐘</text>
+        <text x="74" y="62" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" font-family="IBM Plex Sans, sans-serif">PostgreSQL</text>
+        <text x="74" y="82" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">system of record</text>
+      </g>
+      <g transform="translate(682,440)">
+        <rect x="0" y="0" width="148" height="120" rx="12" fill="url(#node)" stroke="#3776ab" stroke-width="2"/>
+        <text x="74" y="34" text-anchor="middle" fill="#ffd43b" font-size="18" font-family="IBM Plex Sans, sans-serif">🐍</text>
+        <text x="74" y="54" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">FastAPI / Uvicorn</text>
+        <text x="74" y="74" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">GraphQL (opt)</text>
+        <text x="74" y="90" text-anchor="middle" fill="#64748b" font-size="8" font-family="JetBrains Mono, monospace">JSON · sessions</text>
+      </g>
+
+      <!-- ===== AWS cloud box ===== -->
+      <g transform="translate(928,72)">
+        <rect x="0" y="0" width="324" height="168" rx="16" fill="rgba(255,153,0,0.08)" stroke="#ff9900" stroke-width="2"/>
+        <text x="162" y="28" text-anchor="middle" fill="#ff9900" font-size="12" font-weight="700" font-family="IBM Plex Sans, sans-serif">AWS CLOUD</text>
+        <rect x="18" y="42" width="92" height="52" rx="8" fill="url(#node)" stroke="#ff9900" stroke-width="1"/>
+        <text x="64" y="64" text-anchor="middle" fill="#fdba74" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">API GW</text>
+        <text x="64" y="78" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans, sans-serif">edge auth</text>
+        <rect x="118" y="42" width="92" height="52" rx="8" fill="url(#node)" stroke="#4ade80" stroke-width="1"/>
+        <text x="164" y="66" text-anchor="middle" fill="#86efac" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Lambda</text>
+        <text x="164" y="80" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans, sans-serif">async jobs</text>
+        <rect x="218" y="42" width="92" height="52" rx="8" fill="url(#node)" stroke="#ff9900" stroke-width="1"/>
+        <text x="264" y="66" text-anchor="middle" fill="#fdba74" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">S3 / events</text>
+        <text x="264" y="80" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans, sans-serif">blob · fan-out</text>
+        <text x="162" y="118" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="IBM Plex Sans, sans-serif">CloudWatch · IAM · VPC peering to Docker hosts</text>
+        <text x="162" y="138" text-anchor="middle" fill="#64748b" font-size="8" font-family="IBM Plex Sans, sans-serif">(logical — actual topology varies by account)</text>
+      </g>
+
+      <!-- ===== NUI service ===== -->
+      <g transform="translate(1028,512)">
+        <rect x="0" y="0" width="232" height="132" rx="14" fill="rgba(192,132,252,0.12)" stroke="#c084fc" stroke-width="2"/>
+        <text x="116" y="28" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">NUI as a service</text>
+        <text x="116" y="46" text-anchor="middle" fill="#c4b5fd" font-size="9" font-family="IBM Plex Sans, sans-serif">voice · gesture · gaze</text>
+        <text x="116" y="64" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans, sans-serif">Web Speech · WebRTC · MediaPipe</text>
+        <text x="116" y="80" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans, sans-serif">streams attach to Redux middleware</text>
+        <text x="116" y="100" text-anchor="middle" fill="#64748b" font-size="8" font-family="IBM Plex Sans, sans-serif">can route via Lambda for heavy CV</text>
+      </g>
+
+      <!-- ===== Three client modalities ===== -->
+      <g transform="translate(268,718)">
+        <rect x="0" y="0" width="188" height="152" rx="14" fill="url(#node)" stroke="#e34f26" stroke-width="2"/>
+        <text x="94" y="26" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">DESKTOP · scientist</text>
+        <text x="94" y="46" text-anchor="middle" fill="#f97316" font-size="10" font-family="IBM Plex Sans, sans-serif">HTML · CSS · JS</text>
+        <text x="94" y="64" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">React — required</text>
+        <text x="94" y="82" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Redux — required</text>
+        <text x="94" y="100" text-anchor="middle" fill="#38bdf8" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Plotly · multi-D plots</text>
+        <text x="94" y="122" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans, sans-serif">cubicle · workstation</text>
+      </g>
+      <g transform="translate(628,728)">
+        <rect x="0" y="0" width="188" height="152" rx="14" fill="url(#node)" stroke="#34d399" stroke-width="2"/>
+        <text x="94" y="26" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">iPad · FFA · field</text>
+        <text x="94" y="46" text-anchor="middle" fill="#f97316" font-size="10" font-family="IBM Plex Sans, sans-serif">HTML · CSS · JS</text>
+        <text x="94" y="64" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">React — required</text>
+        <text x="94" y="82" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Redux — required</text>
+        <text x="94" y="100" text-anchor="middle" fill="#38bdf8" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Plotly · touch pan-zoom</text>
+        <text x="94" y="122" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans, sans-serif">same API as desktop</text>
+      </g>
+      <g transform="translate(988,718)">
+        <rect x="0" y="0" width="188" height="152" rx="14" fill="url(#node)" stroke="#818cf8" stroke-width="2"/>
+        <text x="94" y="26" text-anchor="middle" fill="#a5b4fc" font-size="11" font-weight="700" font-family="IBM Plex Sans, sans-serif">CONTROL ROOM</text>
+        <text x="94" y="42" text-anchor="middle" fill="#c4b5fd" font-size="9" font-family="IBM Plex Sans, sans-serif">big screens · wallboard</text>
+        <text x="94" y="60" text-anchor="middle" fill="#f97316" font-size="10" font-family="IBM Plex Sans, sans-serif">HTML · CSS · JS</text>
+        <text x="94" y="78" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">React — required</text>
+        <text x="94" y="96" text-anchor="middle" fill="#a5b4fc" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Redux — required</text>
+        <text x="94" y="114" text-anchor="middle" fill="#38bdf8" font-size="9" font-weight="600" font-family="IBM Plex Sans, sans-serif">Plotly · tiles · sync</text>
+        <text x="94" y="134" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans, sans-serif">shared Redux time-travel</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="key-row">
+    <span class="key-item"><span class="swatch" style="background:#22d3ee"></span> simulation &amp; ETL</span>
+    <span class="key-item"><span class="swatch" style="background:#fbbf24"></span> CI/CD → Docker</span>
+    <span class="key-item"><span class="swatch" style="background:#ff9900"></span> AWS / edge</span>
+    <span class="key-item"><span class="swatch" style="background:#4ade80"></span> Lambda / async</span>
+    <span class="key-item"><span class="swatch" style="background:#a78bfa"></span> SQL / ORM</span>
+    <span class="key-item"><span class="swatch" style="background:#f472b6"></span> API → clients</span>
+    <span class="key-item"><span class="swatch" style="background:#c084fc"></span> NUI (dashed)</span>
+  </div>
+
+  <div class="legend">
+    <strong>Non-linear story:</strong> Physical simulation (<strong>RTDS</strong>, <strong>PSCAD</strong>) feeds <strong>FlexSIM</strong> (Python). Writes land in <strong>PostgreSQL</strong> inside a <strong>Docker</strong> boundary together with <strong>FastAPI</strong>.
+    <strong>Jenkins</strong> / CI/CD builds and promotes images into that boundary. <strong>AWS</strong> (API Gateway, <strong>Lambda</strong>, S3) extends the platform for burst workloads, webhooks, and edge-style integrations — Lambdas can call back into the API or enrich NUI.
+    Three intentional <strong>modalities</strong>—desktop, <strong>iPad</strong>, <strong>control room</strong>—all use <strong>React</strong> and <strong>Redux</strong> (not optional) with <strong>Plotly</strong> for multi-dimensional visualization.
+    <strong>NUI as a service</strong> (voice, gesture, media streams) plugs into each client and can offload heavy perception to Lambda. Diagram is a <em>logical graph</em>; curve routing is for clarity, not literal network hops.
+  </div>
+</body>
+</html>

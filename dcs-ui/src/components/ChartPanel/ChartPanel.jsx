@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
+import { API_BASE_URL } from '../../apiConfig';
 import './ChartPanel.css';
 
 // Store native selection listeners per chart so we can clean up on unmount
@@ -103,7 +104,7 @@ const ChartPanel = ({
       if (currentConfigName && chart.csvName && chart.csvName.endsWith('.data.csv')) {
         const simName = chart.csvName.replace('.data.csv', '');
         const response = await fetch(
-          `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simName)}`
+          `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simName)}`
         );
         if (response.ok) {
           const result = await response.json();
@@ -111,7 +112,7 @@ const ChartPanel = ({
         }
       }
       if (!dataRows && chart.csvName) {
-        const response = await fetch(`http://localhost:5000/api/csv/${chart.csvName}`);
+        const response = await fetch(`${API_BASE_URL}/api/csv/${chart.csvName}`);
         if (!response.ok) throw new Error('Failed to fetch CSV data');
         const data = await response.json();
         dataRows = data.data;

@@ -9,10 +9,8 @@ import ChartPanel from './components/ChartPanel/ChartPanel';
 import ColumnPickerDialog from './components/ColumnPickerDialog/ColumnPickerDialog';
 import ViewDataModal from './components/ViewDataModal/ViewDataModal';
 import * as Scenarios from './scenarios/quickScenarios';
+import { API_BASE_URL } from './apiConfig';
 import './styles/App.css';
-
-// Backend API URL
-const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
   // Application mode: 'design' or 'simulation'
@@ -666,7 +664,7 @@ function App() {
       
       // Fetch from design dir (per-sim .sim.json + .data.csv)
       const response = await fetch(
-        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationId)}`
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationId)}`
       );
       if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
       const result = await response.json();
@@ -832,7 +830,7 @@ function App() {
       const formData = new FormData();
       formData.append('file', file);
       const response = await fetch(
-        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}/data`,
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}/data`,
         { method: 'POST', body: formData }
       );
       if (!response.ok) {
@@ -892,7 +890,7 @@ function App() {
     if (!window.confirm(`Delete simulation "${simId}" and its data? This cannot be undone.`)) return;
     try {
       const response = await fetch(
-        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`,
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`,
         { method: 'DELETE' }
       );
       if (!response.ok) {
@@ -919,7 +917,7 @@ function App() {
     setViewModal({ simName: simId, displayName, data: null, loading: true });
     try {
       const response = await fetch(
-        `http://localhost:5000/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`
       );
       if (!response.ok) throw new Error('Failed to load simulation data');
       const result = await response.json();
@@ -1472,7 +1470,7 @@ function App() {
             alt="GE Vernova" 
             className="ge-vernova-logo"
           />
-          <h1>Data Center Power System Designer</h1>
+          <h1>Datacenter &ldquo;Power to Rack&rdquo; Experience Center</h1>
           {currentConfigName && (
             <div className="config-status-badge">
               <span className="config-name">{currentConfigName}</span>

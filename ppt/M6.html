@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M6 Unified Visualization Platform — Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d1b2a 100%);
+      color: #e8e8f0;
+      padding: 2rem;
+      overflow-x: hidden;
+    }
+    .slide-title {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .architecture {
+      display: grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      gap: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      align-items: center;
+    }
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    .card:hover { border-color: rgba(0,212,255,0.4); transform: translateY(-2px); }
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #00d4ff;
+      margin-bottom: 0.5rem;
+    }
+    .card-desc { font-size: 0.8rem; color: #94a3b8; line-height: 1.4; }
+    .center-platform {
+      background: linear-gradient(145deg, rgba(124,58,237,0.2), rgba(0,212,255,0.1));
+      border: 2px solid rgba(124,58,237,0.5);
+      border-radius: 20px;
+      padding: 2rem;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 0 60px rgba(124,58,237,0.2);
+    }
+    .platform-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+    .platform-tagline { font-size: 0.9rem; color: #a78bfa; margin-bottom: 1.5rem; }
+    .m6-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .m6-badge {
+      background: linear-gradient(135deg, #7c3aed, #6366f1);
+      color: white;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .core-services {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+    .service {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 0.6rem;
+      font-size: 0.75rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .users-row {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .user-device {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .device-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(124,58,237,0.2));
+      border: 1px solid rgba(0,212,255,0.3);
+    }
+    .device-label { font-size: 0.75rem; color: #94a3b8; }
+    .sync-line {
+      position: absolute;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+      opacity: 0.6;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+    .data-sources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    .data-source {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: #4ade80;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+    }
+    .nui-layer {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: rgba(244,114,182,0.1);
+      border: 1px solid rgba(244,114,182,0.3);
+      border-radius: 10px;
+    }
+    .nui-title { font-size: 0.8rem; color: #f472b6; font-weight: 600; margin-bottom: 0.5rem; }
+    .nui-mods { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .nui-mod { font-size: 0.7rem; color: #f9a8d4; }
+    .flow-arrow {
+      color: #00d4ff;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+    .benefits-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-top: 2rem;
+      padding: 1rem;
+    }
+    .benefit {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.4);
+      color: #86efac;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: rgba(0,212,255,0.2);
+      border: 1px solid rgba(0,212,255,0.5);
+      color: #67e8f9;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      margin-top: 0.5rem;
+    }
+    .connector-dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 0.5rem 0;
+    }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #00d4ff; animation: blink 1.5s infinite; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <h1 class="slide-title">M6 Unified Visualization Platform</h1>
+  <p class="subtitle">One-Stop Shop — From Silos to Single Source of Truth</p>
+
+  <div class="architecture">
+    <!-- LEFT: Multi-Purpose Data Sources -->
+    <div class="column">
+      <div class="card">
+        <div class="card-title">MULTI-PURPOSE</div>
+        <div class="card-desc">Any domain, one platform</div>
+      </div>
+      <div class="data-sources">
+        <span class="data-source">Simulation</span>
+        <span class="data-source">Material Science</span>
+        <span class="data-source">Thermal</span>
+        <span class="data-source">Power</span>
+        <span class="data-source">Custom</span>
+      </div>
+      <div class="card">
+        <div class="card-title">MULTI-DIMENSIONAL</div>
+        <div class="card-desc">2D, 3D, N-D data; time series; spatial; tensors</div>
+      </div>
+    </div>
+
+    <!-- CENTER: Platform -->
+    <div class="center-platform">
+      <div class="platform-name">Unified Web Platform</div>
+      <div class="platform-tagline">Cloud-hosted • URL-based sharing • Versioned</div>
+      <div class="m6-badges">
+        <span class="m6-badge">Multi-User</span>
+        <span class="m6-badge">Multi-Location</span>
+        <span class="m6-badge">Multi-Device</span>
+        <span class="m6-badge">Multi-Purpose</span>
+        <span class="m6-badge">Multi-Modal</span>
+        <span class="m6-badge">Multi-Dimensional</span>
+      </div>
+      <div class="core-services">
+        <div class="service">Visualization Engine</div>
+        <div class="service">Real-time Sync</div>
+        <div class="service">API / Backend</div>
+        <div class="service">Version Control</div>
+      </div>
+      <div class="nui-layer">
+        <div class="nui-title">NUI as a Service (Multi-Modal)</div>
+        <div class="nui-mods">
+          <span class="nui-mod">Voice</span>
+          <span class="nui-mod">Gesture</span>
+          <span class="nui-mod">Kinect</span>
+          <span class="nui-mod">Eye Tracking</span>
+        </div>
+      </div>
+      <div class="connector-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="sync-badge">⟳ Zoom on A → syncs to B instantly</div>
+      <div class="users-row">
+        <div class="user-device">
+          <div class="device-icon">🖥️</div>
+          <div class="device-label">Desktop A</div>
+        </div>
+        <div class="user-device">
+          <div class="device-icon">💻</div>
+          <div class="device-label">Laptop B</div>
+        </div>
+        <div class="user-device">
+          <div class="device-icon">📱</div>
+          <div class="device-label">Tablet C</div>
+        </div>
+        <div class="user-device">
+          <div class="device-icon">🖥️</div>
+          <div class="device-label">Office D</div>
+        </div>
+      </div>
+      <div class="benefits-bar">
+        <span class="benefit">✅ Reproducible</span>
+        <span class="benefit">✅ Traceable</span>
+        <span class="benefit">✅ Live Collab</span>
+        <span class="benefit">✅ Zoom sync</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: Multi-User / Multi-Location -->
+    <div class="column">
+      <div class="card">
+        <div class="card-title">MULTI-USER</div>
+        <div class="card-desc">Share link → everyone sees same view</div>
+      </div>
+      <div class="card">
+        <div class="card-title">MULTI-LOCATION</div>
+        <div class="card-desc">Plot on machine A, zoom on B — syncs instantly</div>
+      </div>
+      <div class="card">
+        <div class="card-title">MULTI-DEVICE</div>
+        <div class="card-desc">Browser tabs across devices stay in sync</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="text-align:center; margin-top:2rem; font-size:0.9rem; color:#64748b;">
+    "Instead of emailing plots, we share a link—and everyone sees, modifies, and builds on the exact same truth."
+  </p>
+</body>
+</html>

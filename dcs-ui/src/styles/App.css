@@ -74,11 +74,11 @@ body {
 }
 
 .app-header h1 {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--vernova-primary);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-transform: none;
   margin: 0;
   border-left: 3px solid var(--vernova-primary);
   padding-left: 20px;

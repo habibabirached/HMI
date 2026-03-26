@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M6 Unified Platform — value &amp; architecture (redesigned)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "IBM Plex Sans", "Outfit", sans-serif;
+      background: linear-gradient(135deg, #0f0f23 0%, #141828 45%, #0d1b2a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 0.85rem 0.65rem 2rem;
+    }
+    .slide-title {
+      text-align: center;
+      font-size: clamp(1.2rem, 2.8vw, 1.72rem);
+      font-weight: 700;
+      background: linear-gradient(90deg, #00d4ff, #7c3aed, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.25rem;
+      font-family: Outfit, sans-serif;
+    }
+    .subtitle { text-align: center; color: #94a3b8; font-size: 0.88rem; margin-bottom: 0.45rem; }
+    .collab-banner {
+      text-align: center;
+      margin: 0 auto 0.75rem;
+      padding: 0.45rem 0.9rem;
+      max-width: 920px;
+      background: linear-gradient(90deg, rgba(124,58,237,0.18), rgba(0,212,255,0.12));
+      border-radius: 12px;
+      border: 1px solid rgba(124,58,237,0.35);
+      font-size: 0.84rem;
+      line-height: 1.42;
+    }
+    .collab-banner strong { color: #7dd3fc; }
+    .collab-banner .gold { color: #fbbf24; font-weight: 600; }
+
+    .top-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      justify-content: center;
+      max-width: 1100px;
+      margin: 0 auto 0.65rem;
+    }
+    .m6-badge {
+      background: linear-gradient(135deg, #7c3aed, #6366f1);
+      color: #fff;
+      padding: 0.22rem 0.55rem;
+      border-radius: 20px;
+      font-size: 0.58rem;
+      font-weight: 600;
+      font-family: Outfit, sans-serif;
+    }
+
+    .bridge {
+      max-width: 1180px;
+      margin: 0 auto 0.65rem;
+      padding: 0.65rem 0.85rem;
+      background: rgba(30, 41, 59, 0.45);
+      border: 1px solid rgba(100, 116, 139, 0.35);
+      border-radius: 12px;
+    }
+    .bridge h2 {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #a78bfa;
+      margin-bottom: 0.5rem;
+      text-align: center;
+      font-family: Outfit, sans-serif;
+    }
+    .bridge-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.4rem;
+    }
+    .bridge-item {
+      font-size: 0.68rem;
+      line-height: 1.38;
+      padding: 0.4rem 0.5rem;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 8px;
+      border-left: 3px solid #38bdf8;
+    }
+    .bridge-item b { color: #f472b6; font-size: 0.64rem; }
+    .bridge-item .tech { color: #67e8f9; font-family: "JetBrains Mono", monospace; font-size: 0.6rem; }
+
+    .side-by-side {
+      display: grid;
+      grid-template-columns: 1fr minmax(200px, 260px) 1fr;
+      gap: 0.5rem 0.65rem;
+      max-width: 1180px;
+      margin: 0 auto 0.5rem;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .side-by-side { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 0.45rem 0.55rem;
+      font-size: 0.66rem;
+    }
+    .card-title { font-weight: 600; color: #00d4ff; margin-bottom: 0.25rem; font-family: Outfit, sans-serif; font-size: 0.68rem; }
+    .card-desc { color: #94a3b8; line-height: 1.32; font-size: 0.64rem; }
+    .data-sources { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.3rem; }
+    .data-source {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.28);
+      color: #4ade80;
+      padding: 0.12rem 0.38rem;
+      border-radius: 5px;
+      font-size: 0.52rem;
+    }
+    .pair-col { display: flex; flex-direction: column; gap: 0.45rem; }
+
+    .diagram-lead {
+      text-align: center;
+      font-size: 0.74rem;
+      color: #cbd5e1;
+      margin: 0 auto 0.45rem;
+      max-width: 920px;
+      line-height: 1.4;
+    }
+    .diagram-lead strong { color: #e879f9; }
+
+    .diagram-wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      background: linear-gradient(165deg, #151b2e 0%, #0d1218 100%);
+      border: 1px solid rgba(124, 58, 237, 0.28);
+      border-radius: 14px;
+      padding: 0.4rem 0.35rem 0.55rem;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.38);
+    }
+    .diagram-wrap svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 72vh;
+    }
+
+    .flow-caption {
+      max-width: 1180px;
+      margin: 0.4rem auto 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem 1rem;
+      justify-content: center;
+      font-size: 0.62rem;
+      color: #94a3b8;
+    }
+    .flow-caption span { display: flex; align-items: center; gap: 0.35rem; }
+    .sw { width: 16px; height: 3px; border-radius: 2px; }
+
+    /* Merged personas: photo + same modality copy as old SVG boxes */
+    .personas-block {
+      max-width: 1180px;
+      margin: 0.85rem auto 0;
+      padding: 0.65rem 0.5rem;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(71, 85, 105, 0.4);
+      border-radius: 14px;
+    }
+    .personas-block h3 {
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 0.2rem;
+      font-family: Outfit, sans-serif;
+    }
+    .personas-block .subh {
+      text-align: center;
+      font-size: 0.62rem;
+      color: #94a3b8;
+      margin-bottom: 0.55rem;
+    }
+    .persona-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+      gap: 0.5rem;
+    }
+    .persona-card {
+      background: rgba(30, 41, 59, 0.55);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      display: flex;
+      flex-direction: column;
+    }
+    .persona-card .ph {
+      height: 88px;
+      background: #1e293b;
+      position: relative;
+    }
+    .persona-card .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .persona-card .body { padding: 0.4rem 0.45rem 0.5rem; flex: 1; }
+    .persona-card .role {
+      font-size: 0.64rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 0.15rem;
+      font-family: Outfit, sans-serif;
+    }
+    .persona-card .ctx { font-size: 0.55rem; color: #94a3b8; margin-bottom: 0.35rem; }
+    .persona-card .stack {
+      font-size: 0.52rem;
+      line-height: 1.35;
+      color: #cbd5e1;
+      font-family: "JetBrains Mono", monospace;
+      border-top: 1px solid rgba(71,85,105,0.35);
+      padding-top: 0.3rem;
+    }
+    .persona-card .stack em { color: #a5b4fc; font-style: normal; }
+    .persona-card.orange { border-color: rgba(251, 146, 60, 0.35); }
+    .persona-card.green { border-color: rgba(52, 211, 153, 0.35); }
+    .persona-card.violet { border-color: rgba(129, 140, 248, 0.4); }
+    .persona-card.teal { border-color: rgba(45, 212, 191, 0.3); }
+
+    .backend-ribbon {
+      text-align: center;
+      margin-top: 0.45rem;
+      font-size: 0.62rem;
+      color: #67e8f9;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .outcomes {
+      max-width: 1180px;
+      margin: 0.65rem auto 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.4rem;
+    }
+    .outcome {
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(167, 139, 250, 0.22);
+      border-radius: 10px;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.65rem;
+    }
+    .outcome strong { color: #c4b5fd; display: block; margin-bottom: 0.2rem; font-size: 0.66rem; }
+    .outcome .map { color: #94a3b8; font-size: 0.6rem; font-family: "JetBrains Mono", monospace; }
+
+    .benefits-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      justify-content: center;
+      margin: 0.65rem auto 0;
+    }
+    .benefit {
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.35);
+      color: #86efac;
+      padding: 0.28rem 0.55rem;
+      border-radius: 8px;
+      font-size: 0.65rem;
+    }
+
+    .legend {
+      max-width: 1180px;
+      margin: 0.65rem auto 0;
+      padding: 0.75rem 0.85rem;
+      background: rgba(30, 41, 59, 0.5);
+      border-radius: 10px;
+      border: 1px solid rgba(71, 85, 105, 0.4);
+      font-size: 0.74rem;
+      color: #cbd5e1;
+      line-height: 1.48;
+    }
+    .legend strong { color: #38bdf8; }
+
+    .foot-quote {
+      text-align: center;
+      margin-top: 0.85rem;
+      font-size: 0.76rem;
+      color: #64748b;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.42;
+    }
+    .foot-quote .emph { color: #94a3b8; }
+    .foot-quote .emph strong { color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <h1 class="slide-title">M6 Unified Visualization Platform</h1>
+  <p class="subtitle">One shared platform for <strong>collaboration</strong>, traceability, and <strong>decision making</strong> — with a governed technical spine.</p>
+
+  <div class="collab-banner">
+    <strong>Business promise (M6):</strong> multi-personas, locations, devices, domains, modalities, and dimensions — without siloed plots or conflicting truths.
+    <span class="gold">One link</span> replaces attachments; <span class="gold">one backend</span> grounds every surface below.
+  </div>
+
+  <div class="top-chips">
+    <span class="m6-badge">Multi-Personas</span>
+    <span class="m6-badge">Multi-User</span>
+    <span class="m6-badge">Multi-Location</span>
+    <span class="m6-badge">Multi-Device</span>
+    <span class="m6-badge">Multi-Purpose</span>
+    <span class="m6-badge">Multi-Modal</span>
+    <span class="m6-badge">Multi-Dimensional</span>
+  </div>
+
+  <section class="bridge" aria-label="M6 to architecture">
+    <h2>How the stack supports each M6 pillar</h2>
+    <div class="bridge-grid">
+      <div class="bridge-item"><b>Multi-Personas / Multi-User</b> — One API + one database mean the same truth for every role. <span class="tech">PostgreSQL · FastAPI · Docker</span></div>
+      <div class="bridge-item"><b>Multi-Location / Multi-Device</b> — URLs + real-time channels keep pan/zoom and state aligned. <span class="tech">REST · WebSocket/SSE · Redux</span></div>
+      <div class="bridge-item"><b>Multi-Purpose</b> — Simulation and other domains land in one pipeline and schema strategy. <span class="tech">RTDS → PSCAD → FlexSIM → DB</span></div>
+      <div class="bridge-item"><b>Multi-Modal</b> — Voice/gesture attach as a layer; optional cloud burst for heavy ML. <span class="tech">NUI · Lambda (opt)</span></div>
+      <div class="bridge-item"><b>Multi-Dimensional</b> — Consistent, rich plots everywhere. <span class="tech">Plotly · shared API contracts</span></div>
+      <div class="bridge-item"><b>Governance</b> — Reproducible releases and audit trail. <span class="tech">Git · Jenkins · CI/CD → images</span></div>
+    </div>
+  </section>
+
+  <div class="side-by-side">
+    <div class="pair-col">
+      <div class="card">
+        <div class="card-title">MULTI-PURPOSE</div>
+        <div class="card-desc">Any domain, one platform.</div>
+        <div class="data-sources">
+          <span class="data-source">Simulation</span>
+          <span class="data-source">Materials</span>
+          <span class="data-source">Thermal</span>
+          <span class="data-source">Power</span>
+          <span class="data-source">Custom</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">MULTI-DIMENSIONAL</div>
+        <div class="card-desc">2D / 3D / N-D · time · space · tensors — one visualization grammar.</div>
+      </div>
+    </div>
+    <div class="card" style="align-self:center;text-align:center;">
+      <div class="card-title">MULTI-PERSONAS</div>
+      <div class="card-desc">Share a link — aligned decisions.</div>
+      <div class="card-title" style="margin-top:0.45rem;">MULTI-LOCATION</div>
+      <div class="card-desc">Plot on A, zoom on B — same session logic.</div>
+      <div class="card-title" style="margin-top:0.45rem;">MULTI-DEVICE</div>
+      <div class="card-desc">Desktop, tablet, wallboard — same React + Redux + Plotly stack.</div>
+    </div>
+    <div class="pair-col">
+      <div class="card">
+        <div class="card-title">WHAT THE DIAGRAM SHOWS</div>
+        <div class="card-desc"><strong>Left → right:</strong> lab simulation feeds a <strong>Docker</strong>-bounded core (data + API). <strong>AWS</strong> is a compact optional ring for scale. <strong>NUI</strong> augments UIs — not a second database. Personas and stacks are <strong>merged in the strip below</strong> (no duplicate boxes).</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="diagram-lead"><strong>Dense integration view</strong> — arrows only where data or deploy intent is real: CI/CD ships the runtime; simulation writes the system of record; API serves every persona strip under the SVG.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 1000 430" xmlns="http://www.w3.org/2000/svg" aria-label="Compact architecture: simulation to core to cloud/NUI">
+      <defs>
+        <marker id="mkC" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#22d3ee"/></marker>
+        <marker id="mkG" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#fbbf24"/></marker>
+        <marker id="mkO" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#ff9900"/></marker>
+        <marker id="mkV" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#a78bfa"/></marker>
+        <marker id="mkP" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f472b6"/></marker>
+        <linearGradient id="ng" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#1e293b"/><stop offset="100%" style="stop-color:#0f172a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- CI/CD → Docker top (deploy only) -->
+      <path d="M 118 72 L 280 115" stroke="#fbbf24" stroke-width="2" fill="none" marker-end="url(#mkG)" stroke-dasharray="5 4"/>
+      <text x="128" y="58" fill="#fbbf24" font-size="9" font-family="IBM Plex Sans,sans-serif">CI/CD → deploy images</text>
+
+      <!-- Simulation chain: tight horizontal band (fills upper width) -->
+      <g transform="translate(32,115)">
+        <rect width="118" height="72" rx="10" fill="url(#ng)" stroke="#06b6d4" stroke-width="1.8"/>
+        <text x="59" y="28" text-anchor="middle" fill="#22d3ee" font-size="11" font-weight="700" font-family="IBM Plex Sans,sans-serif">RTDS</text>
+        <text x="59" y="46" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">real-time digital</text>
+        <text x="59" y="58" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">simulator</text>
+      </g>
+      <path d="M 150 151 L 175 151" stroke="#22d3ee" stroke-width="2.2" fill="none" marker-end="url(#mkC)"/>
+      <text x="155" y="143" fill="#22d3ee" font-size="8" font-family="IBM Plex Sans,sans-serif">I/O</text>
+
+      <g transform="translate(175,115)">
+        <rect width="128" height="72" rx="10" fill="url(#ng)" stroke="#eab308" stroke-width="1.8"/>
+        <text x="64" y="30" text-anchor="middle" fill="#facc15" font-size="12" font-weight="700" font-family="IBM Plex Sans,sans-serif">PSCAD</text>
+        <text x="64" y="48" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">EMTDC · co-sim</text>
+        <text x="64" y="60" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">electrical</text>
+      </g>
+      <path d="M 303 151 L 330 151" stroke="#22d3ee" stroke-width="2.2" fill="none" marker-end="url(#mkC)"/>
+      <text x="305" y="143" fill="#22d3ee" font-size="8" font-family="IBM Plex Sans,sans-serif">models</text>
+
+      <g transform="translate(330,108)">
+        <rect width="148" height="86" rx="10" fill="url(#ng)" stroke="#3776ab" stroke-width="1.8"/>
+        <text x="74" y="26" text-anchor="middle" font-size="17">🐍</text>
+        <text x="74" y="46" text-anchor="middle" fill="#7dd3fc" font-size="10" font-weight="700" font-family="IBM Plex Sans,sans-serif">Python · FlexSIM</text>
+        <text x="74" y="62" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">acquire · transform</text>
+        <text x="74" y="76" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">pre-DB</text>
+      </g>
+
+      <!-- FlexSIM → Postgres (single vertical; no floating labels) -->
+      <path d="M 404 194 L 404 218" stroke="#22d3ee" stroke-width="2.2" fill="none" marker-end="url(#mkC)"/>
+      <text x="410" y="210" fill="#64748b" font-size="8" font-family="IBM Plex Sans,sans-serif">ETL / persist</text>
+
+      <!-- Docker boundary: use horizontal space for PG + API -->
+      <rect x="238" y="218" width="430" height="168" rx="18" fill="rgba(36,150,237,0.07)" stroke="#fbbf24" stroke-width="2" stroke-dasharray="9 5"/>
+      <text x="453" y="236" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="700" font-family="IBM Plex Sans,sans-serif">DOCKER — runtime (PostgreSQL + FastAPI)</text>
+      <text x="453" y="250" text-anchor="middle" fill="#64748b" font-size="8" font-family="IBM Plex Sans,sans-serif">compose / k8s · same images CI/CD promotes</text>
+
+      <g transform="translate(268,265)">
+        <rect width="138" height="98" rx="10" fill="url(#ng)" stroke="#336791" stroke-width="1.8"/>
+        <text x="69" y="30" text-anchor="middle" font-size="22">🐘</text>
+        <text x="69" y="54" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="IBM Plex Sans,sans-serif">PostgreSQL</text>
+        <text x="69" y="72" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">system of record</text>
+      </g>
+      <path d="M 406 314 L 430 314" stroke="#a78bfa" stroke-width="1.8" fill="none" marker-end="url(#mkV)"/>
+      <path d="M 430 330 L 406 330" stroke="#a78bfa" stroke-width="1.5" fill="none" marker-end="url(#mkV)" opacity="0.85"/>
+      <text x="412" y="326" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans,sans-serif">ORM</text>
+
+      <g transform="translate(430,265)">
+        <rect width="138" height="98" rx="10" fill="url(#ng)" stroke="#3776ab" stroke-width="1.8"/>
+        <text x="69" y="28" text-anchor="middle" font-size="16">🐍</text>
+        <text x="69" y="50" text-anchor="middle" fill="#7dd3fc" font-size="10" font-weight="700" font-family="IBM Plex Sans,sans-serif">FastAPI</text>
+        <text x="69" y="66" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="IBM Plex Sans,sans-serif">REST · JSON · sessions</text>
+        <text x="69" y="82" text-anchor="middle" fill="#f472b6" font-size="7" font-family="IBM Plex Sans,sans-serif">↓ serves persona strip</text>
+      </g>
+
+      <!-- FastAPI → down hint -->
+      <path d="M 499 363 L 499 395" stroke="#f472b6" stroke-width="2" fill="none" marker-end="url(#mkP)"/>
+      <text x="505" y="382" fill="#f472b6" font-size="8" font-family="IBM Plex Sans,sans-serif">HTTPS / WS</text>
+
+      <!-- AWS compact (right column — stacked text, minimal area) -->
+      <rect x="700" y="118" width="268" height="100" rx="12" fill="rgba(255,153,0,0.06)" stroke="#ff9900" stroke-width="1.5"/>
+      <text x="834" y="138" text-anchor="middle" fill="#ff9900" font-size="10" font-weight="700" font-family="IBM Plex Sans,sans-serif">AWS (optional footprint)</text>
+      <text x="834" y="156" text-anchor="middle" fill="#fdba74" font-size="8" font-family="IBM Plex Sans,sans-serif">API Gateway · Lambda · S3</text>
+      <text x="834" y="172" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans,sans-serif">burst jobs · webhooks · edge auth</text>
+      <text x="834" y="192" text-anchor="middle" fill="#64748b" font-size="7" font-family="IBM Plex Sans,sans-serif">not required for core truth — extends scale</text>
+
+      <!-- One clear arrow: API → AWS (hybrid), not Lambda wriggling to NUI -->
+      <path d="M 568 290 Q 640 260 700 175" stroke="#ff9900" stroke-width="1.8" fill="none" marker-end="url(#mkO)"/>
+      <text x="615" y="248" fill="#fdba74" font-size="8" font-family="IBM Plex Sans,sans-serif">optional offload / public edge</text>
+
+      <!-- NUI: one box, one dashed arrow to API (UX layer on same backend) -->
+      <rect x="700" y="235" width="268" height="78" rx="12" fill="rgba(192,132,252,0.1)" stroke="#c084fc" stroke-width="1.5"/>
+      <text x="834" y="255" text-anchor="middle" fill="#e9d5ff" font-size="9" font-weight="700" font-family="IBM Plex Sans,sans-serif">NUI as a service</text>
+      <text x="834" y="272" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans,sans-serif">voice · gesture · WebRTC · MediaPipe</text>
+      <text x="834" y="286" text-anchor="middle" fill="#64748b" font-size="7" font-family="IBM Plex Sans,sans-serif">hooks into clients; heavy CV → Lambda above</text>
+
+      <path d="M 700 274 Q 590 274 568 308" stroke="#c084fc" stroke-width="1.5" fill="none" stroke-dasharray="6 4" marker-end="url(#mkV)"/>
+      <text x="615" y="268" fill="#e9d5ff" font-size="7" font-family="IBM Plex Sans,sans-serif">multimodal layer → API</text>
+
+      <!-- CI/CD box -->
+      <g transform="translate(32,28)">
+        <rect width="152" height="58" rx="10" fill="url(#ng)" stroke="#f472b6" stroke-width="1.6"/>
+        <text x="76" y="22" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="700" font-family="IBM Plex Sans,sans-serif">CI / CD</text>
+        <text x="76" y="38" text-anchor="middle" fill="#fda4af" font-size="8" font-family="IBM Plex Sans,sans-serif">Jenkins · git · scan</text>
+        <text x="76" y="50" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="IBM Plex Sans,sans-serif">promote → prod</text>
+      </g>
+
+      <text x="500" y="422" text-anchor="middle" fill="#64748b" font-size="9" font-family="IBM Plex Sans,sans-serif">↓ Personas + stacks (merged) — one backend, many surfaces</text>
+    </svg>
+  </div>
+
+  <div class="flow-caption">
+    <span><span class="sw" style="background:#22d3ee"></span> simulation &amp; ingest</span>
+    <span><span class="sw" style="background:#fbbf24"></span> CI/CD → Docker</span>
+    <span><span class="sw" style="background:#a78bfa"></span> ORM / read path</span>
+    <span><span class="sw" style="background:#f472b6"></span> API → browsers below</span>
+    <span><span class="sw" style="background:#ff9900"></span> AWS optional</span>
+    <span><span class="sw" style="background:#c084fc"></span> NUI (dashed → API)</span>
+  </div>
+
+  <section class="personas-block" aria-label="Personas and client stack merged">
+    <h3>Every persona — same backend; one consolidated client story</h3>
+    <p class="subh">Photos are illustrative. Tech row matches the former “three modality” boxes — merged here so we don’t draw the UI twice.</p>
+    <div class="persona-grid">
+      <div class="persona-card orange">
+        <div class="ph"><img src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=240&fit=crop&q=80" alt="Office workspace"></div>
+        <div class="body">
+          <div class="role">Desktop · scientist</div>
+          <div class="ctx">Cubicle · workstation</div>
+          <div class="stack"><em>HTML · CSS · JS</em> · React · Redux · <em>Plotly</em> multi-D plots</div>
+        </div>
+      </div>
+      <div class="persona-card teal">
+        <div class="ph"><img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=240&fit=crop&q=80" alt="Collaboration"></div>
+        <div class="body">
+          <div class="role">Laptop · deep dive</div>
+          <div class="ctx">Analysis · pairing</div>
+          <div class="stack">Same stack · <em>Plotly</em> linked views · shared session</div>
+        </div>
+      </div>
+      <div class="persona-card green">
+        <div class="ph"><img src="https://images.unsplash.com/photo-1581092160562-40aa08eb7889?w=400&h=240&fit=crop&q=80" alt="Field industrial"></div>
+        <div class="body">
+          <div class="role">Tablet · FFA · field</div>
+          <div class="ctx">Plant / outside</div>
+          <div class="stack"><em>Same API</em> · touch pan-zoom · <em>Plotly</em></div>
+        </div>
+      </div>
+      <div class="persona-card violet">
+        <div class="ph"><img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=240&fit=crop&q=80" alt="Operations screens"></div>
+        <div class="body">
+          <div class="role">Control room</div>
+          <div class="ctx">Big screens · wallboard</div>
+          <div class="stack">React · Redux · <em>Plotly</em> tiles · sync · shared state</div>
+        </div>
+      </div>
+      <div class="persona-card">
+        <div class="ph"><img src="https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=400&h=240&fit=crop&q=80" alt="Remote office"></div>
+        <div class="body">
+          <div class="role">Office D · remote</div>
+          <div class="ctx">Second site</div>
+          <div class="stack">Identical stack · VPN / browser · same PostgreSQL truth</div>
+        </div>
+      </div>
+    </div>
+    <p class="backend-ribbon">REST / WebSocket · one FastAPI · three headline surfaces + laptop &amp; remote · collaboration-ready</p>
+  </section>
+
+  <div class="outcomes">
+    <div class="outcome"><strong>Visualization</strong><span class="map">Plotly · React · one schema</span></div>
+    <div class="outcome"><strong>Real-time sync</strong><span class="map">WS/SSE · Redux</span></div>
+    <div class="outcome"><strong>API &amp; core</strong><span class="map">FastAPI · Docker · Postgres</span></div>
+    <div class="outcome"><strong>Version / release</strong><span class="map">Git · Jenkins · images</span></div>
+  </div>
+
+  <div class="benefits-bar">
+    <span class="benefit">✅ Reproducible</span>
+    <span class="benefit">✅ Traceable</span>
+    <span class="benefit">✅ Collaboration</span>
+    <span class="benefit">✅ Zoom / state sync</span>
+  </div>
+
+  <div class="legend">
+    <strong>Redesign rationale:</strong> The prior graph had overlapping curves (Lambda ↔ NUI ↔ clients) that looked busy without adding meaning. This view keeps <strong>three arrow “stories”</strong>: (1) CI/CD deploys into Docker, (2) RTDS → PSCAD → FlexSIM → PostgreSQL with ORM to FastAPI, (3) FastAPI down to the merged persona strip. <strong>AWS</strong> is a small optional annex — one arc labeled hybrid/offload. <strong>NUI</strong> is one dashed tie to the API (multimodal UX on the same truth), not three crossing lines. Empty canvas was reclaimed by tightening the simulation row and dropping duplicate UI nodes from the SVG (they now live only under photos).
+    <p style="margin-top:0.65rem;padding-top:0.65rem;border-top:1px solid rgba(71,85,105,0.45);"><strong>For executives:</strong> M6 is the outcomes and personas; the center graphic is the minimum credible path from lab data to every screen — without pretending every arrow is a separate product.</p>
+  </div>
+
+  <p class="foot-quote">
+    &ldquo;Instead of emailing plots, we share a link — everyone builds on the same truth.&rdquo;<br><br>
+    <span class="emph"><strong>Collaboration</strong> lands because we don’t fork the toolchain per persona — we fork <strong>only</strong> the surface.</span>
+  </p>
+</body>
+</html>
