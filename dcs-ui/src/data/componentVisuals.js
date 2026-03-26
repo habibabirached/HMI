@@ -304,6 +304,14 @@ export const COMPONENT_VISUAL_CONFIG = {
     color: '#795548',
     shape: 'rounded-rect'
   },
+  // Palette / saved configs use short type `gsu` (matches componentLibrary)
+  gsu: {
+    width: 90,
+    height: 90,
+    icon: '⚡↑',
+    color: '#795548',
+    shape: 'rounded-rect'
+  },
   'bess-transformer': {
     width: 95,
     height: 95,
@@ -311,7 +319,21 @@ export const COMPONENT_VISUAL_CONFIG = {
     color: '#795548',
     shape: 'rounded-rect'
   },
+  'bess-xfmr': {
+    width: 95,
+    height: 95,
+    icon: '⚡⚡',
+    color: '#795548',
+    shape: 'rounded-rect'
+  },
   'datacenter-transformer': {
+    width: 90,
+    height: 90,
+    icon: '⚡↓',
+    color: '#795548',
+    shape: 'rounded-rect'
+  },
+  'dc-xfmr': {
     width: 90,
     height: 90,
     icon: '⚡↓',
@@ -392,6 +414,20 @@ export const COMPONENT_VISUAL_CONFIG = {
     color: '#ff9800',
     shape: 'rect'
   },
+  'breaker-gen': {
+    width: 50,
+    height: 60,
+    icon: '⏚',
+    color: '#ff9800',
+    shape: 'rect'
+  },
+  'line-resistor': {
+    width: 56,
+    height: 36,
+    icon: '⌇',
+    color: '#ffc107',
+    shape: 'rounded-rect'
+  },
   'disconnect-switch': {
     width: 45,
     height: 55,
@@ -439,6 +475,13 @@ export const COMPONENT_VISUAL_CONFIG = {
   // MEASUREMENT (Small, square)
   // ============================================================================
   'current-transformer': {
+    width: 50,
+    height: 50,
+    icon: 'CT',
+    color: '#005E60',
+    shape: 'circle'
+  },
+  ct: {
     width: 50,
     height: 50,
     icon: 'CT',

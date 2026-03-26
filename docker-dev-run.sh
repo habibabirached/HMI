@@ -1,9 +1,14 @@
 #!/bin/bash
 
-echo using environment options:
-cat .env
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$DIR/dev-print-host-memory.sh" "docker-dev-run.sh: before compose up"
 
-docker compose --env-file ./.env -f ./docker-compose-dev.yml up -d 
+echo using environment options:
+cat "$DIR/.env"
+
+docker compose --env-file "$DIR/.env" -f "$DIR/docker-compose-dev.yml" up -d
+
+"$DIR/dev-print-host-memory.sh" "docker-dev-run.sh: after compose up -d"
 
 host=$(hostname -f)
 echo

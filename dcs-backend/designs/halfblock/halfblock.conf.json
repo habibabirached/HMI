@@ -8,8 +8,8 @@
       "name": "BESS 50MW",
       "fullName": "Battery Energy Storage System 50MW",
       "position": {
-        "x": 125,
-        "y": 50
+        "x": 72,
+        "y": 52
       },
       "status": "idle",
       "properties": {
@@ -27,13 +27,81 @@
       "isTripped": false
     },
     {
+      "id": "comp-bess-cb",
+      "type": "breaker-bess",
+      "name": "BESS CB",
+      "fullName": "BESS Circuit Breaker",
+      "position": {
+        "x": 198,
+        "y": 52
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 2000,
+        "voltage": 34.5,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-bess-xfmr",
+      "type": "bess-xfmr",
+      "name": "BESS Xfmr",
+      "fullName": "BESS Step-Up \u2014 X kV : 34.5 kV",
+      "position": {
+        "x": 288,
+        "y": 34
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 50,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-bess-2000",
+      "type": "ct",
+      "name": "CT 2000:1",
+      "fullName": "Current Transformer 2000:1",
+      "position": {
+        "x": 378,
+        "y": 52
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 2000,
+        "voltage": 0,
+        "unit": "2000:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
       "id": "comp-turbine-1",
       "type": "gas-turbine-lm2500-andritz",
       "name": "LM2500 Andritz #1",
       "fullName": "LM2500 Andritz A03 33.3 MW",
       "position": {
-        "x": 125,
-        "y": 207.5
+        "x": 72,
+        "y": 220
       },
       "status": "idle",
       "properties": {
@@ -44,6 +112,97 @@
       "state": {
         "power": 0,
         "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gen-cb-1",
+      "type": "breaker-gen-13.8",
+      "name": "Gen CB 13.8kV",
+      "fullName": "Generator CB 13.8 kV",
+      "position": {
+        "x": 198,
+        "y": 220
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 2000,
+        "voltage": 13.8,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gsu-gen-1",
+      "type": "gsu",
+      "name": "GSU 13.8:34.5kV",
+      "fullName": "Generator Step-Up 13.8 kV : 34.5 kV 35 MVA",
+      "position": {
+        "x": 288,
+        "y": 202
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 35,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-gen-800-1",
+      "type": "ct",
+      "name": "CT 800:1",
+      "fullName": "Current Transformer 800:1",
+      "position": {
+        "x": 378,
+        "y": 220
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 800,
+        "voltage": 0,
+        "unit": "800:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-line-r-gen-1",
+      "type": "line-resistor",
+      "name": "Feeder R",
+      "fullName": "Line / damping resistor (gen branch)",
+      "position": {
+        "x": 472,
+        "y": 225
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "\u03a9"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
         "current": 0,
         "frequency": 60
       },
@@ -55,8 +214,8 @@
       "name": "LM2500 Andritz #2",
       "fullName": "LM2500 Andritz A03 33.3 MW",
       "position": {
-        "x": 120,
-        "y": 340
+        "x": 72,
+        "y": 368
       },
       "status": "idle",
       "properties": {
@@ -67,6 +226,97 @@
       "state": {
         "power": 0,
         "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gen-cb-2",
+      "type": "breaker-gen-13.8",
+      "name": "Gen CB 13.8kV",
+      "fullName": "Generator CB 13.8 kV",
+      "position": {
+        "x": 198,
+        "y": 368
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 2000,
+        "voltage": 13.8,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gsu-gen-2",
+      "type": "gsu",
+      "name": "GSU 13.8:34.5kV",
+      "fullName": "Generator Step-Up 13.8 kV : 34.5 kV 35 MVA",
+      "position": {
+        "x": 288,
+        "y": 350
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 35,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-gen-800-2",
+      "type": "ct",
+      "name": "CT 800:1",
+      "fullName": "Current Transformer 800:1",
+      "position": {
+        "x": 378,
+        "y": 368
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 800,
+        "voltage": 0,
+        "unit": "800:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-line-r-gen-2",
+      "type": "line-resistor",
+      "name": "Feeder R",
+      "fullName": "Line / damping resistor (gen branch)",
+      "position": {
+        "x": 472,
+        "y": 373
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "\u03a9"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
         "current": 0,
         "frequency": 60
       },
@@ -78,8 +328,8 @@
       "name": "LM2500 Andritz #3",
       "fullName": "LM2500 Andritz A03 33.3 MW",
       "position": {
-        "x": 120,
-        "y": 460
+        "x": 72,
+        "y": 518
       },
       "status": "idle",
       "properties": {
@@ -90,6 +340,97 @@
       "state": {
         "power": 0,
         "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gen-cb-3",
+      "type": "breaker-gen-13.8",
+      "name": "Gen CB 13.8kV",
+      "fullName": "Generator CB 13.8 kV",
+      "position": {
+        "x": 198,
+        "y": 518
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 2000,
+        "voltage": 13.8,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gsu-gen-3",
+      "type": "gsu",
+      "name": "GSU 13.8:34.5kV",
+      "fullName": "Generator Step-Up 13.8 kV : 34.5 kV 35 MVA",
+      "position": {
+        "x": 288,
+        "y": 500
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 35,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-gen-800-3",
+      "type": "ct",
+      "name": "CT 800:1",
+      "fullName": "Current Transformer 800:1",
+      "position": {
+        "x": 378,
+        "y": 518
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 800,
+        "voltage": 0,
+        "unit": "800:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-line-r-gen-3",
+      "type": "line-resistor",
+      "name": "Feeder R",
+      "fullName": "Line / damping resistor (gen branch)",
+      "position": {
+        "x": 472,
+        "y": 523
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "\u03a9"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
         "current": 0,
         "frequency": 60
       },
@@ -101,8 +442,8 @@
       "name": "LM2500 Andritz #4",
       "fullName": "LM2500 Andritz A03 33.3 MW",
       "position": {
-        "x": 125,
-        "y": 607.5
+        "x": 72,
+        "y": 678
       },
       "status": "idle",
       "properties": {
@@ -119,13 +460,104 @@
       "isTripped": false
     },
     {
+      "id": "comp-gen-cb-4",
+      "type": "breaker-gen-13.8",
+      "name": "Gen CB 13.8kV",
+      "fullName": "Generator CB 13.8 kV",
+      "position": {
+        "x": 198,
+        "y": 678
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 2000,
+        "voltage": 13.8,
+        "unit": "A"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-gsu-gen-4",
+      "type": "gsu",
+      "name": "GSU 13.8:34.5kV",
+      "fullName": "Generator Step-Up 13.8 kV : 34.5 kV 35 MVA",
+      "position": {
+        "x": 288,
+        "y": 660
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 35,
+        "unit": "MVA"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 13.8,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-gen-800-4",
+      "type": "ct",
+      "name": "CT 800:1",
+      "fullName": "Current Transformer 800:1",
+      "position": {
+        "x": 378,
+        "y": 678
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 800,
+        "voltage": 0,
+        "unit": "800:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-line-r-gen-4",
+      "type": "line-resistor",
+      "name": "Feeder R",
+      "fullName": "Line / damping resistor (gen branch)",
+      "position": {
+        "x": 472,
+        "y": 683
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "\u03a9"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
       "id": "comp-bus-main",
       "type": "bus-hv-vertical",
       "name": "34.5kV Main Bus",
       "fullName": "Main Distribution Bus 34.5kV",
       "position": {
-        "x": 430,
-        "y": 54.76190355088977
+        "x": 462,
+        "y": 50
       },
       "status": "idle",
       "properties": {
@@ -141,8 +573,54 @@
       },
       "isTripped": false,
       "visualOverrides": {
-        "height": 672
+        "height": 705
       }
+    },
+    {
+      "id": "comp-feeder-r-top",
+      "type": "line-resistor",
+      "name": "Feeder R",
+      "fullName": "Line / feeder resistor (34.5 kV tap)",
+      "position": {
+        "x": 528,
+        "y": 54
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "\u03a9"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-1500-top",
+      "type": "ct",
+      "name": "CT 1500:1",
+      "fullName": "Current Transformer 1500:1",
+      "position": {
+        "x": 608,
+        "y": 54
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 1500,
+        "voltage": 0,
+        "unit": "1500:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
     },
     {
       "id": "comp-xfmr-1",
@@ -150,8 +628,8 @@
       "name": "GSU 34.5:480V 50MVA",
       "fullName": "GSU 34.5kV:480V 50 MVA",
       "position": {
-        "x": 655,
-        "y": 55
+        "x": 698,
+        "y": 52
       },
       "status": "idle",
       "properties": {
@@ -172,8 +650,8 @@
       "name": "",
       "fullName": "Connection Point",
       "position": {
-        "x": 788,
-        "y": 88
+        "x": 826,
+        "y": 86
       },
       "status": "idle",
       "properties": {
@@ -195,8 +673,8 @@
       "name": "DC CB 480V",
       "fullName": "DC Circuit Breaker 480V",
       "position": {
-        "x": 875,
-        "y": 70
+        "x": 918,
+        "y": 69
       },
       "status": "idle",
       "properties": {
@@ -218,8 +696,8 @@
       "name": "Inverter",
       "fullName": "DC-AC Inverter",
       "position": {
-        "x": 1160,
-        "y": 70
+        "x": 1240,
+        "y": 69
       },
       "status": "idle",
       "properties": {
@@ -241,8 +719,8 @@
       "name": "IT Rack Load 1",
       "fullName": "IT Rack Load",
       "position": {
-        "x": 1315,
-        "y": 50
+        "x": 1348,
+        "y": 49
       },
       "status": "idle",
       "properties": {
@@ -264,8 +742,8 @@
       "name": "Aux Loads 1",
       "fullName": "Auxiliary Loads",
       "position": {
-        "x": 745,
-        "y": 215
+        "x": 798,
+        "y": 234
       },
       "status": "idle",
       "properties": {
@@ -287,8 +765,8 @@
       "name": "",
       "fullName": "Connection Point",
       "position": {
-        "x": 1088,
-        "y": 88
+        "x": 1148,
+        "y": 86
       },
       "status": "idle",
       "properties": {
@@ -310,8 +788,8 @@
       "name": "Rectifier",
       "fullName": "AC-DC Rectifier",
       "position": {
-        "x": 960,
-        "y": 70
+        "x": 1010,
+        "y": 69
       },
       "status": "idle",
       "properties": {
@@ -333,8 +811,8 @@
       "name": "UPS 1",
       "fullName": "UPS / LV UPS 400Vdc",
       "position": {
-        "x": 1055,
-        "y": 215
+        "x": 1045,
+        "y": 234
       },
       "status": "idle",
       "properties": {
@@ -351,13 +829,59 @@
       "isTripped": false
     },
     {
+      "id": "comp-feeder-r-bot",
+      "type": "line-resistor",
+      "name": "Feeder R",
+      "fullName": "Line / feeder resistor (34.5 kV tap)",
+      "position": {
+        "x": 528,
+        "y": 524
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 0,
+        "voltage": 34.5,
+        "unit": "\u03a9"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
+      "id": "comp-ct-1500-bot",
+      "type": "ct",
+      "name": "CT 1500:1",
+      "fullName": "Current Transformer 1500:1",
+      "position": {
+        "x": 608,
+        "y": 524
+      },
+      "status": "idle",
+      "properties": {
+        "rating": 1500,
+        "voltage": 0,
+        "unit": "1500:1"
+      },
+      "state": {
+        "power": 0,
+        "voltage": 34.5,
+        "current": 0,
+        "frequency": 60
+      },
+      "isTripped": false
+    },
+    {
       "id": "comp-xfmr-2",
       "type": "datacenter-transformer",
       "name": "GSU 34.5:480V 50MVA",
       "fullName": "GSU 34.5kV:480V 50 MVA",
       "position": {
-        "x": 655,
-        "y": 455
+        "x": 698,
+        "y": 500
       },
       "status": "idle",
       "properties": {
@@ -378,8 +902,8 @@
       "name": "",
       "fullName": "Connection Point",
       "position": {
-        "x": 788,
-        "y": 488
+        "x": 826,
+        "y": 534
       },
       "status": "idle",
       "properties": {
@@ -401,8 +925,8 @@
       "name": "DC CB 480V",
       "fullName": "DC Circuit Breaker 480V",
       "position": {
-        "x": 875,
-        "y": 470
+        "x": 918,
+        "y": 517
       },
       "status": "idle",
       "properties": {
@@ -424,8 +948,8 @@
       "name": "",
       "fullName": "Connection Point",
       "position": {
-        "x": 1138,
-        "y": 488
+        "x": 1148,
+        "y": 534
       },
       "status": "idle",
       "properties": {
@@ -448,7 +972,7 @@
       "fullName": "AC-DC Rectifier",
       "position": {
         "x": 1010,
-        "y": 470
+        "y": 517
       },
       "status": "idle",
       "properties": {
@@ -470,8 +994,8 @@
       "name": "UPS 2",
       "fullName": "UPS / LV UPS 400Vdc",
       "position": {
-        "x": 1105,
-        "y": 615
+        "x": 1045,
+        "y": 682
       },
       "status": "idle",
       "properties": {
@@ -493,8 +1017,8 @@
       "name": "Inverter",
       "fullName": "DC-AC Inverter",
       "position": {
-        "x": 1210,
-        "y": 470
+        "x": 1240,
+        "y": 517
       },
       "status": "idle",
       "properties": {
@@ -516,8 +1040,8 @@
       "name": "IT Rack Load 2",
       "fullName": "IT Rack Load",
       "position": {
-        "x": 1365,
-        "y": 450
+        "x": 1348,
+        "y": 497
       },
       "status": "idle",
       "properties": {
@@ -539,8 +1063,8 @@
       "name": "Aux Loads 2",
       "fullName": "Auxiliary Loads",
       "position": {
-        "x": 745,
-        "y": 615
+        "x": 798,
+        "y": 682
       },
       "status": "idle",
       "properties": {
@@ -559,43 +1083,190 @@
   ],
   "connections": [
     {
-      "id": "conn-1",
+      "id": "conn-1a",
       "from": "comp-bess-1",
+      "to": "comp-bess-cb",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-1b",
+      "from": "comp-bess-cb",
+      "to": "comp-bess-xfmr",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-1c",
+      "from": "comp-bess-xfmr",
+      "to": "comp-ct-bess-2000",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-1d",
+      "from": "comp-ct-bess-2000",
       "to": "comp-bus-main",
       "type": "power",
       "status": "idle"
     },
     {
-      "id": "conn-2",
+      "id": "conn-2a",
       "from": "comp-turbine-1",
+      "to": "comp-gen-cb-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-2b",
+      "from": "comp-gen-cb-1",
+      "to": "comp-gsu-gen-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-2c",
+      "from": "comp-gsu-gen-1",
+      "to": "comp-ct-gen-800-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-2d",
+      "from": "comp-ct-gen-800-1",
+      "to": "comp-line-r-gen-1",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-2e",
+      "from": "comp-line-r-gen-1",
       "to": "comp-bus-main",
       "type": "power",
       "status": "idle"
     },
     {
-      "id": "conn-3",
+      "id": "conn-3a",
       "from": "comp-turbine-2",
+      "to": "comp-gen-cb-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-3b",
+      "from": "comp-gen-cb-2",
+      "to": "comp-gsu-gen-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-3c",
+      "from": "comp-gsu-gen-2",
+      "to": "comp-ct-gen-800-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-3d",
+      "from": "comp-ct-gen-800-2",
+      "to": "comp-line-r-gen-2",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-3e",
+      "from": "comp-line-r-gen-2",
       "to": "comp-bus-main",
       "type": "power",
       "status": "idle"
     },
     {
-      "id": "conn-4",
+      "id": "conn-4a",
       "from": "comp-turbine-3",
+      "to": "comp-gen-cb-3",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-4b",
+      "from": "comp-gen-cb-3",
+      "to": "comp-gsu-gen-3",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-4c",
+      "from": "comp-gsu-gen-3",
+      "to": "comp-ct-gen-800-3",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-4d",
+      "from": "comp-ct-gen-800-3",
+      "to": "comp-line-r-gen-3",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-4e",
+      "from": "comp-line-r-gen-3",
       "to": "comp-bus-main",
       "type": "power",
       "status": "idle"
     },
     {
-      "id": "conn-5",
+      "id": "conn-5a",
       "from": "comp-turbine-4",
+      "to": "comp-gen-cb-4",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-5b",
+      "from": "comp-gen-cb-4",
+      "to": "comp-gsu-gen-4",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-5c",
+      "from": "comp-gsu-gen-4",
+      "to": "comp-ct-gen-800-4",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-5d",
+      "from": "comp-ct-gen-800-4",
+      "to": "comp-line-r-gen-4",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-5e",
+      "from": "comp-line-r-gen-4",
       "to": "comp-bus-main",
       "type": "power",
       "status": "idle"
     },
     {
-      "id": "conn-6",
+      "id": "conn-6a",
       "from": "comp-bus-main",
+      "to": "comp-feeder-r-top",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-6b",
+      "from": "comp-feeder-r-top",
+      "to": "comp-ct-1500-top",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-6c",
+      "from": "comp-ct-1500-top",
       "to": "comp-xfmr-1",
       "type": "power",
       "status": "idle"
@@ -664,8 +1335,22 @@
       "status": "idle"
     },
     {
-      "id": "conn-11",
+      "id": "conn-11a",
       "from": "comp-bus-main",
+      "to": "comp-feeder-r-bot",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-11b",
+      "from": "comp-feeder-r-bot",
+      "to": "comp-ct-1500-bot",
+      "type": "power",
+      "status": "idle"
+    },
+    {
+      "id": "conn-11c",
+      "from": "comp-ct-1500-bot",
       "to": "comp-xfmr-2",
       "type": "power",
       "status": "idle"

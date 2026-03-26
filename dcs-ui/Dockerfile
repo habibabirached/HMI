@@ -63,17 +63,13 @@ USER root
 WORKDIR /app/
 
 ################################################################################
-# STEP 4: CONFIGURE NODE.JS MEMORY
+# STEP 4: NODE.JS HEAP (no forced limit)
 ################################################################################
-# ENV NODE_OPTIONS=--max-old-space-size=7168
-#
-# This sets an environment variable (like a global setting) for Node.js.
-# --max-old-space-size=7168 tells Node.js it can use up to 7168 MB (7 GB) of RAM.
-#
-# Why? React's build process can be memory-hungry. Without this, Node might
-# crash with "JavaScript heap out of memory" errors during npm install or builds.
-# 7 GB is generous and prevents out-of-memory crashes.
-ENV NODE_OPTIONS=--max-old-space-size=7168
+# We intentionally do NOT set NODE_OPTIONS=--max-old-space-size= here. The old
+# 7168 MB cap let Node ask for huge heaps during npm install and contributed to
+# host OOM / swap freezes on small VMs. Node uses its default V8 heap limit; if
+# npm install dies with "JavaScript heap out of memory" on a fat build host,
+# set NODE_OPTIONS in this file or only in CI.
 
 ################################################################################
 # STEP 5: COPY PACKAGE.JSON (THE DEPENDENCY LIST)
@@ -137,7 +133,9 @@ RUN npm install --verbose -g npm
 # 💡 KEY INSIGHT: We do this BEFORE copying our code (src/, public/).
 #    This way, if we change code but not dependencies, Docker reuses the
 #    cached node_modules layer and npm install doesn't run again!
+RUN echo "=== dcs-ui Docker build: before npm install ===" && date -u && head -8 /proc/meminfo
 RUN npm install --verbose
+RUN echo "=== dcs-ui Docker build: after npm install ===" && date -u && head -8 /proc/meminfo
 
 ################################################################################
 # STEP 9: COPY APPLICATION CODE

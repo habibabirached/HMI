@@ -110,7 +110,8 @@ export const COMPONENT_LIBRARY = [
       { id: 'tie-breaker-network', name: 'Tie Breaker Network', fullName: 'Tie Breaker Circuit Network', type: 'tie-breaker-network', properties: { rating: 0, voltage: 34.5, unit: '' } },
       { id: 'recloser', name: 'Recloser', fullName: 'Automatic Recloser', type: 'recloser', properties: { rating: 800, voltage: 13.8, unit: 'A' } },
       { id: 'protection-relay', name: 'Relay', fullName: 'Protection Relay', type: 'relay', properties: { rating: 0, voltage: 0, unit: '' } },
-      { id: 'fuse', name: 'Fuse', fullName: 'Fuse', type: 'fuse', properties: { rating: 100, voltage: 0.48, unit: 'A' } }
+      { id: 'fuse', name: 'Fuse', fullName: 'Fuse', type: 'fuse', properties: { rating: 100, voltage: 0.48, unit: 'A' } },
+      { id: 'line-resistor', name: 'Line R', fullName: 'Line / Feeder / Damping Resistor', type: 'line-resistor', properties: { rating: 0, voltage: 34.5, unit: 'Ω' } }
     ]
   },
   
