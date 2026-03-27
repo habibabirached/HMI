@@ -26,21 +26,29 @@ HOW TO RUN:
 # ============================================================================
 # IMPORTS - Python libraries we need
 # ============================================================================
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import re
 import shutil
+from typing import Optional
 
 # Import database components
 from database import init_db, get_db
 # Import database models (Configuration only; designs/ flow uses files, not DB for CSV/sim)
 from models import Configuration
 # Import Pydantic schemas for request/response validation
-from schemas import ConfigurationSaveRequest, ConfigurationResponse, ConfigurationListItem, CreateSimulationRequest, UpdateSimulationConfigRequest
+from schemas import (
+    ConfigurationSaveRequest,
+    ConfigurationResponse,
+    ConfigurationListItem,
+    DesignCatalogItem,
+    CreateSimulationRequest,
+    UpdateSimulationConfigRequest,
+)
 # Additional imports for CSV handling
 from fastapi import File, UploadFile
 from fastapi.responses import FileResponse
@@ -152,6 +160,89 @@ def save_config_to_design_dir(config_name: str, description, data: dict):
         return None
 
 
+def canvas_data_from_conf_file(conf: dict) -> dict:
+    """Build the canvas `data` object from a design .conf.json dict (same keys as DB storage)."""
+    return {
+        "canvasComponents": conf.get("canvasComponents", []),
+        "connections": conf.get("connections", []),
+        "systemState": conf.get(
+            "systemState",
+            {"simulationRunning": False, "zoom": 1, "pan": {"x": 0, "y": 0}},
+        ),
+    }
+
+
+def resolve_catalog_design_dir(design_dir: str) -> Optional[str]:
+    """
+    Return the canonical folder basename under DESIGNS_ROOT if it contains
+    `{basename}.conf.json`, else None. Rejects path traversal.
+    """
+    if not design_dir or not isinstance(design_dir, str):
+        return None
+    if ".." in design_dir or "/" in design_dir or "\\" in design_dir:
+        return None
+    base = os.path.realpath(DESIGNS_ROOT)
+    candidate = os.path.realpath(os.path.join(DESIGNS_ROOT, design_dir))
+    if not candidate.startswith(base + os.sep):
+        return None
+    if not os.path.isdir(candidate):
+        return None
+    leaf = os.path.basename(candidate)
+    conf_path = os.path.join(candidate, f"{leaf}.conf.json")
+    if not os.path.isfile(conf_path):
+        return None
+    return leaf
+
+
+def configuration_response_from_disk_name(
+    display_name: str,
+    parsed_data: dict,
+    file_description,
+    db: Session,
+) -> ConfigurationResponse:
+    """Build ConfigurationResponse after reading canvas from disk (by display name / design dir)."""
+    row = db.query(Configuration).filter(Configuration.name == display_name).first()
+    design_dir = sanitize_design_name(display_name)
+    design_dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+    if not os.path.isdir(design_dir_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Design directory not found for '{display_name}' at designs/{design_dir}/",
+        )
+    list_result = _list_design_simulations(display_name)
+    csv_status = {
+        "exists": False,
+        "csv_name": None,
+        "message": "Design uses per-simulation files (click a simulation to load data)",
+        "use_design_dir": True,
+        "design_name": display_name,
+        "available_simulations": list_result.get("simulations", []),
+    }
+    desc = file_description if file_description is not None else (row.description if row else None)
+    if row:
+        return ConfigurationResponse(
+            id=row.id,
+            name=display_name,
+            description=desc,
+            data=parsed_data,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            csv_status=csv_status,
+            sim_config=None,
+        )
+    now = datetime.utcnow()
+    return ConfigurationResponse(
+        id=0,
+        name=display_name,
+        description=desc,
+        data=parsed_data,
+        created_at=now,
+        updated_at=now,
+        csv_status=csv_status,
+        sim_config=None,
+    )
+
+
 # ============================================================================
 # CREATE THE FASTAPI APPLICATION
 # ============================================================================
@@ -228,7 +319,7 @@ async def root():
             "health": "/health",
             "docs": "/docs",              # FastAPI auto-generates this!
             "save": "/api/save",
-            "load": "/api/load/{id}",
+            "load": "/api/load/{id}?source=disk|database",
             "list": "/api/configs",
             "delete": "/api/configs/{id}"
         }
@@ -501,19 +592,25 @@ async def save_configuration(
 @app.get("/api/load/{config_id}", response_model=ConfigurationResponse)
 async def load_configuration(
     config_id: int,
-    db: Session = Depends(get_db)
+    source: str = Query(
+        "disk",
+        description="disk = read canvas from designs/{name}/{name}.conf.json (default); "
+        "database = read canvas from the configurations table",
+    ),
+    db: Session = Depends(get_db),
 ):
     """
     Load a specific power system configuration by its ID.
     
     This endpoint:
-    1. Queries the database for a configuration with the given ID
+    1. Queries the database for a configuration with the given ID (for metadata and id)
     2. Returns 404 if the configuration doesn't exist
-    3. Parses the stored JSON string back to a Python dict
+    3. Loads canvas data from disk (default) or from the DB row's `data` field
     4. Returns the full configuration with all metadata
     
     Args:
         config_id: The unique ID of the configuration to load (from URL path)
+        source: "disk" (default) or "database"
         db: Database session (injected by FastAPI via Depends)
     
     Returns:
@@ -543,65 +640,78 @@ async def load_configuration(
             )
         
         # ----------------------------------------------------------------
-        # STEP 3: Parse the JSON data string back to a dict
+        # STEP 3–6: Canvas from database row or from matching .conf.json on disk
         # ----------------------------------------------------------------
-        # In the database, 'data' is stored as a JSON string
-        # We need to convert it back to a Python dict for the response
-        # json.loads() converts JSON string → Python dict
-        # Example: '{"key": "value"}' → {"key": "value"}
+        src = (source or "disk").lower().strip()
+        if src not in ("disk", "database"):
+            raise HTTPException(
+                status_code=400,
+                detail="Query parameter 'source' must be 'disk' or 'database'",
+            )
+
+        if src == "database":
+            try:
+                parsed_data = json.loads(config.data)
+            except json.JSONDecodeError as json_error:
+                print(f"❌ JSON parsing error for config ID {config_id}: {json_error}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Configuration data is corrupted (invalid JSON)",
+                )
+            design_dir = sanitize_design_name(config.name)
+            design_dir_path = os.path.join(DESIGNS_ROOT, design_dir)
+            if not os.path.isdir(design_dir_path):
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Design directory not found for '{config.name}'. Configurations must have a design folder at designs/{design_dir}/",
+                )
+            list_result = _list_design_simulations(config.name)
+            csv_status = {
+                "exists": False,
+                "csv_name": None,
+                "message": "Design uses per-simulation files (click a simulation to load data)",
+                "use_design_dir": True,
+                "design_name": config.name,
+                "available_simulations": list_result.get("simulations", []),
+            }
+            print(
+                f"   ✅ Design dir found: {design_dir} ({len(csv_status['available_simulations'])} simulations)"
+            )
+            print(f"✅ Configuration loaded (database): ID={config.id}, Name='{config.name}'")
+            return ConfigurationResponse(
+                id=config.id,
+                name=config.name,
+                description=config.description,
+                data=parsed_data,
+                created_at=config.created_at,
+                updated_at=config.updated_at,
+                csv_status=csv_status,
+                sim_config=None,
+            )
+
+        design_dir = sanitize_design_name(config.name)
+        conf_path = os.path.join(DESIGNS_ROOT, design_dir, f"{design_dir}.conf.json")
+        if not os.path.isfile(conf_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Design file not on disk: designs/{design_dir}/{design_dir}.conf.json",
+            )
         try:
-            parsed_data = json.loads(config.data)
+            with open(conf_path, "r") as f:
+                conf_file = json.load(f)
         except json.JSONDecodeError as json_error:
-            # This shouldn't happen if data was saved correctly
-            # But handle it gracefully just in case
             print(f"❌ JSON parsing error for config ID {config_id}: {json_error}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Configuration data is corrupted (invalid JSON)"
+                detail="Design file contains invalid JSON",
             )
-        
-        # ----------------------------------------------------------------
-        # STEP 4: Check if design uses new per-design directory structure
-        # ----------------------------------------------------------------
-        design_dir = sanitize_design_name(config.name)
-        design_dir_path = os.path.join(DESIGNS_ROOT, design_dir)
-        uses_design_dir = os.path.isdir(design_dir_path)
-        
-        csv_status = {}
-        if not uses_design_dir:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Design directory not found for '{config.name}'. Configurations must have a design folder at designs/{design_dir}/"
-            )
-        list_result = _list_design_simulations(config.name)
-        csv_status = {
-            "exists": False,
-            "csv_name": None,
-            "message": "Design uses per-simulation files (click a simulation to load data)",
-            "use_design_dir": True,
-            "design_name": config.name,
-            "available_simulations": list_result.get("simulations", [])
-        }
-        print(f"   ✅ Design dir found: {design_dir} ({len(csv_status['available_simulations'])} simulations)")
-        
-        # ----------------------------------------------------------------
-        # STEP 6: Create the response object
-        # ----------------------------------------------------------------
-        # Build a ConfigurationResponse with all the data
-        response_config = ConfigurationResponse(
-            id=config.id,
-            name=config.name,
-            description=config.description,
-            data=parsed_data,  # Use the parsed dict, not the JSON string
-            created_at=config.created_at,
-            updated_at=config.updated_at,
-            csv_status=csv_status,
-            sim_config=None  # Sim config comes from .sim.json when run
+        parsed_data = canvas_data_from_conf_file(conf_file)
+        file_description = conf_file.get("description")
+        display_name = conf_file.get("name") or config.name
+        print(f"✅ Configuration loaded (disk): Name='{display_name}'")
+        return configuration_response_from_disk_name(
+            display_name, parsed_data, file_description, db
         )
-        
-        print(f"✅ Configuration loaded: ID={config.id}, Name='{config.name}'")
-        
-        return response_config
         
     except HTTPException:
         # Re-raise HTTPExceptions (404, 500) as-is
@@ -851,6 +961,70 @@ def _list_design_simulations(design_name: str) -> dict:
             simulations.append({"id": sim_name, "display_name": display_name, "description": description, "has_data": has_data})
     simulations.sort(key=lambda s: s["display_name"])
     return {"design_name": design_name, "design_dir": design_dir, "simulations": simulations}
+
+
+@app.get("/api/designs/catalog", response_model=list[DesignCatalogItem])
+async def list_design_catalog(db: Session = Depends(get_db)):
+    """
+    List designs discovered on disk: each subfolder of designs/ that contains
+    {folder}/{folder}.conf.json. Optionally links db_id when a Configuration
+    row exists with the same name as in the file.
+    """
+    items: list[DesignCatalogItem] = []
+    if not os.path.isdir(DESIGNS_ROOT):
+        return items
+    for entry in sorted(os.listdir(DESIGNS_ROOT)):
+        path = os.path.join(DESIGNS_ROOT, entry)
+        if not os.path.isdir(path) or entry.startswith("."):
+            continue
+        conf_path = os.path.join(path, f"{entry}.conf.json")
+        if not os.path.isfile(conf_path):
+            continue
+        try:
+            with open(conf_path, "r") as f:
+                conf = json.load(f)
+        except Exception as e:
+            print(f"⚠️  Skipping catalog entry {entry}: {e}")
+            continue
+        display_name = conf.get("name") or entry
+        desc = conf.get("description")
+        row = db.query(Configuration).filter(Configuration.name == display_name).first()
+        mtime = datetime.fromtimestamp(os.path.getmtime(conf_path), tz=timezone.utc)
+        items.append(
+            DesignCatalogItem(
+                design_dir=entry,
+                name=display_name,
+                description=desc if desc is not None else None,
+                db_id=row.id if row else None,
+                conf_updated_at=mtime,
+            )
+        )
+    items.sort(key=lambda x: (x.name or "").lower())
+    return items
+
+
+@app.get("/api/designs/catalog/{design_dir}/load", response_model=ConfigurationResponse)
+async def load_design_from_catalog(design_dir: str, db: Session = Depends(get_db)):
+    """Load canvas from designs/{design_dir}/{design_dir}.conf.json (same payload shape as /api/load)."""
+    leaf = resolve_catalog_design_dir(design_dir)
+    if not leaf:
+        raise HTTPException(
+            status_code=404,
+            detail="Design not found or missing {dir}.conf.json under designs/",
+        )
+    conf_path = os.path.join(DESIGNS_ROOT, leaf, f"{leaf}.conf.json")
+    try:
+        with open(conf_path, "r") as f:
+            conf_file = json.load(f)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Design file contains invalid JSON")
+    display_name = conf_file.get("name") or leaf
+    parsed_data = canvas_data_from_conf_file(conf_file)
+    file_description = conf_file.get("description")
+    print(f"✅ Configuration loaded from catalog disk: {leaf} → '{display_name}'")
+    return configuration_response_from_disk_name(
+        display_name, parsed_data, file_description, db
+    )
 
 
 @app.get("/api/designs/{design_name}/image")

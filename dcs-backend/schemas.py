@@ -287,6 +287,19 @@ class ConfigurationListItem(BaseModel):
     class Config:
         from_attributes = True
 
+
+class DesignCatalogItem(BaseModel):
+    """One row for GET /api/designs/catalog — a folder under designs/ with a matching .conf.json."""
+
+    design_dir: str = Field(..., description="Directory name under designs/, e.g. halfblock")
+    name: str = Field(..., description="Display name from .conf.json")
+    description: Optional[str] = Field(None, description="Description from .conf.json")
+    db_id: Optional[int] = Field(None, description="Configurations.id if a DB row matches name")
+    conf_updated_at: Optional[datetime] = Field(
+        None, description="Last filesystem mtime of the .conf.json file"
+    )
+
+
 # ------------------------------------------------------------------------------------------------------
 # CREATE SIMULATION REQUEST
 # ------------------------------------------------------------------------------------------------------

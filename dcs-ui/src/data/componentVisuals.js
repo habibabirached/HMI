@@ -3,6 +3,22 @@
  * 
  * Defines dimensions, icons, and visual properties for each component type
  * Used by Canvas.jsx to render components with proper sizing and symbols
+ *
+ * Optional backgroundTexture: URL under public/ (e.g. /component-textures/foo.png).
+ * PNG with transparent areas is drawn inside the block behind labels. Add files in
+ *   public/component-textures/
+ * keyed by asset name; reference the URL here per component type.
+ *
+ * Optional canvasSecondaryLabel: second text line under the name on the canvas.
+ *   - omit: show properties.rating + unit when rating > 0 (default)
+ *   - 'voltageKv': show properties.voltage as "13.8kV" only (rating kept in data, not shown)
+ *   - 'ctRatio': show properties.unit if it looks like "800:1", else `${rating}:1`
+ *
+ * Optional canvasPrimaryLabel: fixed first line on canvas (e.g. 'CT' while name in data may differ).
+ *
+ * shape: 'schematic-breaker' — draw a one-line style symbol (horizontal bar + diagonal blade)
+ *   instead of the emoji icon; rectangle frame unchanged for selection.
+ * shape: 'schematic-ct' — resistor-style zigzag for current transformers; use canvasPrimaryLabel + ctRatio.
  * 
  * Dimensions based on typical aspect ratios:
  * - Generators/Turbines: Wider than tall (horizontal equipment)
@@ -23,21 +39,27 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 80,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'rounded-rect',
+    backgroundTexture: '/component-textures/lm2500-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'gas-turbine-lm2500-andritz': {
     width: 150,
     height: 85,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'rounded-rect',
+    backgroundTexture: '/component-textures/lm2500-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'gas-turbine-lm2500-plus': {
     width: 145,
     height: 80,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'rounded-rect',
+    backgroundTexture: '/component-textures/lm2500-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'gas-turbine-lm6000': {
     width: 160,
@@ -175,21 +197,27 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 80,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect'
+    shape: 'rounded-rect',
+    backgroundTexture: '/component-textures/bess-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'bess-30mw': {
     width: 130,
     height: 90,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect'
+    shape: 'rounded-rect',
+    backgroundTexture: '/component-textures/bess-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'bess-50mw': {
     width: 150,
     height: 100,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect'
+    shape: 'rounded-rect',
+    backgroundTexture: '/component-textures/bess-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'battery-rack': {
     width: 80,
@@ -412,7 +440,8 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 60,
     icon: '⏚',
     color: '#ff9800',
-    shape: 'rect'
+    shape: 'schematic-breaker',
+    canvasSecondaryLabel: 'voltageKv'
   },
   'breaker-gen': {
     width: 50,
@@ -479,35 +508,45 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 50,
     icon: 'CT',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'schematic-ct',
+    canvasPrimaryLabel: 'CT',
+    canvasSecondaryLabel: 'ctRatio'
   },
   ct: {
     width: 50,
     height: 50,
     icon: 'CT',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'schematic-ct',
+    canvasPrimaryLabel: 'CT',
+    canvasSecondaryLabel: 'ctRatio'
   },
   'current-transformer-800': {
     width: 50,
     height: 50,
     icon: 'CT',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'schematic-ct',
+    canvasPrimaryLabel: 'CT',
+    canvasSecondaryLabel: 'ctRatio'
   },
   'current-transformer-1500': {
     width: 55,
     height: 55,
     icon: 'CT',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'schematic-ct',
+    canvasPrimaryLabel: 'CT',
+    canvasSecondaryLabel: 'ctRatio'
   },
   'current-transformer-2000': {
     width: 60,
     height: 60,
     icon: 'CT',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'schematic-ct',
+    canvasPrimaryLabel: 'CT',
+    canvasSecondaryLabel: 'ctRatio'
   },
   'voltage-transformer': {
     width: 50,

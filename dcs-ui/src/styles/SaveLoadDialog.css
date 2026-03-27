@@ -216,6 +216,95 @@
   min-height: 300px;
 }
 
+.load-source-code {
+  font-size: 12px;
+  background: #eee;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.form-info-save-targets {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+  color: #555;
+}
+
+.load-source-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  user-select: none;
+}
+
+.load-source-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  min-width: 56px;
+  text-align: center;
+}
+
+.load-source-label.active {
+  color: #2e7d32;
+}
+
+.load-source-switch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 13px;
+  background: #b0bec5;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.load-source-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.load-source-switch.on {
+  background: #4caf50;
+}
+
+.load-source-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+
+.load-source-switch.on .load-source-switch-knob {
+  transform: translateX(22px);
+}
+
+.load-source-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #666;
+  text-align: center;
+}
+
+.config-meta-db {
+  color: #546e7a;
+  font-size: 12px;
+}
+
 .loading {
   display: flex;
   justify-content: center;

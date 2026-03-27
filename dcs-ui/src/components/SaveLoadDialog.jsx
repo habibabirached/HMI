@@ -7,9 +7,11 @@
  * 2. LOAD mode: Shows a list of saved configurations to choose from
  * 
  * Communication with Backend:
- * - POST /api/save - Save configuration
- * - GET /api/configs - List all saved configurations
- * - GET /api/load/{id} - Load a specific configuration
+ * - POST /api/save - Save configuration (writes DB + designs/…/.conf.json)
+ * - GET /api/designs/catalog - List designs found on disk (default load picker)
+ * - GET /api/configs - List rows in the database (when toggle = Database)
+ * - GET /api/designs/catalog/{dir}/load - Load canvas from file
+ * - GET /api/load/{id}?source=database - Load canvas from DB row
  */
 
 import React, { useState, useEffect } from 'react';
@@ -29,44 +31,45 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
   const [selectedConfig, setSelectedConfig] = useState(null);
   const [deleting, setDeleting] = useState(null); // ID of config being deleted
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // ID of config to confirm deletion
+  /** false = list designs from disk (/api/designs/catalog); true = list DB rows (/api/configs) */
+  const [useDatabaseList, setUseDatabaseList] = useState(false);
   
   // Message state (success/error)
   const [message, setMessage] = useState(null);
 
-  // ============================================================================
-  // LOAD MODE: Fetch list of saved configurations when dialog opens
-  // ============================================================================
   useEffect(() => {
     if (mode === 'load') {
-      fetchConfigurations();
+      setUseDatabaseList(false);
     }
   }, [mode]);
 
-  /**
-   * Fetch all saved configurations from the backend
-   */
-  const fetchConfigurations = async () => {
-    setLoading(true);
-    setMessage(null);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/configs`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  useEffect(() => {
+    if (mode !== 'load') return;
+
+    const fetchLoadList = async () => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        const url = useDatabaseList
+          ? `${API_BASE_URL}/api/configs`
+          : `${API_BASE_URL}/api/designs/catalog`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        setConfigurations(data);
+        console.log(`✅ Fetched ${data.length} item(s) (${useDatabaseList ? 'database' : 'disk catalog'})`);
+      } catch (error) {
+        console.error('❌ Error fetching load list:', error);
+        setMessage({ type: 'error', text: `Failed to load list: ${error.message}` });
+      } finally {
+        setLoading(false);
       }
-      
-      const data = await response.json();
-      setConfigurations(data);
-      
-      console.log(`✅ Fetched ${data.length} configuration(s)`);
-    } catch (error) {
-      console.error('❌ Error fetching configurations:', error);
-      setMessage({ type: 'error', text: `Failed to load configurations: ${error.message}` });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchLoadList();
+  }, [mode, useDatabaseList]);
 
   // ============================================================================
   // SAVE MODE: Save current configuration
@@ -135,38 +138,50 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
   };
 
   // ============================================================================
-  // LOAD MODE: Load selected configuration
+  // LOAD MODE: Load selected configuration (disk list → file; DB list → DB row)
   // ============================================================================
-  const handleLoad = async (configId) => {
+  const handleLoadFromDisk = async (designDir) => {
     setLoading(true);
     setMessage(null);
-    
     try {
-      console.log(`📂 Loading configuration ID: ${configId}`);
-      
-      // GET request to /api/load/{id}
-      const response = await fetch(`${API_BASE_URL}/api/load/${configId}`);
-      
+      console.log(`📂 Loading from disk catalog: ${designDir}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/designs/catalog/${encodeURIComponent(designDir)}/load`
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP ${response.status}`);
       }
-      
       const loadedConfig = await response.json();
-      
       console.log(`✅ Configuration loaded: ${loadedConfig.name}`);
       setMessage({ type: 'success', text: `Configuration "${loadedConfig.name}" loaded!` });
-      
-      // Notify parent component to apply the loaded configuration
-      if (onLoad) {
-        onLoad(loadedConfig);
+      if (onLoad) onLoad(loadedConfig);
+      setTimeout(() => onClose(), 1000);
+    } catch (error) {
+      console.error('❌ Error loading configuration:', error);
+      setMessage({ type: 'error', text: `Failed to load: ${error.message}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadFromDatabase = async (configId) => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      console.log(`📂 Loading from database ID: ${configId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/load/${configId}?source=database`
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
       }
-      
-      // Close dialog after a short delay
-      setTimeout(() => {
-        onClose();
-      }, 1000);
-      
+      const loadedConfig = await response.json();
+      console.log(`✅ Configuration loaded: ${loadedConfig.name}`);
+      setMessage({ type: 'success', text: `Configuration "${loadedConfig.name}" loaded!` });
+      if (onLoad) onLoad(loadedConfig);
+      setTimeout(() => onClose(), 1000);
     } catch (error) {
       console.error('❌ Error loading configuration:', error);
       setMessage({ type: 'error', text: `Failed to load: ${error.message}` });
@@ -296,56 +311,111 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
                   {currentConfiguration.chartPanelState?.openCharts?.length > 0 && (
                     <li>{currentConfiguration.chartPanelState.openCharts.length} open chart(s) and panel size</li>
                   )}
+                  <li className="form-info-save-targets">
+                    Stored in the <strong>design folder</strong> (<code className="load-source-code">.conf.json</code>) and
+                    the <strong>database</strong> (same save).
+                  </li>
                 </ul>
               </div>
             </div>
           ) : (
             // ======== LOAD MODE ========
             <div className="load-list">
+              <div className="load-source-switch-row">
+                <span className={`load-source-label ${!useDatabaseList ? 'active' : ''}`}>Disk</span>
+                <button
+                  type="button"
+                  className={`load-source-switch ${useDatabaseList ? 'on' : ''}`}
+                  role="switch"
+                  aria-checked={useDatabaseList}
+                  aria-label="Use database for the design list"
+                  onClick={() => setUseDatabaseList((v) => !v)}
+                  disabled={loading}
+                >
+                  <span className="load-source-switch-knob" />
+                </button>
+                <span className={`load-source-label ${useDatabaseList ? 'active' : ''}`}>Database</span>
+              </div>
+              <p className="load-source-hint">
+                {useDatabaseList
+                  ? 'Listing saved rows from SQLite. Loading uses the database snapshot.'
+                  : 'Listing folders under designs/ that contain a .conf.json. Loading reads that file.'}
+              </p>
               {loading && !configurations.length ? (
-                <div className="loading">Loading configurations...</div>
+                <div className="loading">Loading…</div>
               ) : configurations.length === 0 ? (
                 <div className="empty-state">
-                  <p>No saved configurations found.</p>
-                  <p>Save your first configuration to get started!</p>
+                  <p>{useDatabaseList ? 'No configurations in the database.' : 'No designs found on disk.'}</p>
+                  <p>{useDatabaseList ? 'Use Disk, or save a design from the app.' : 'Add a folder under designs/ with a matching .conf.json, or save from the app.'}</p>
                 </div>
               ) : (
                 <div className="config-list">
-                  {configurations.map((config) => (
-                    <div
-                      key={config.id}
-                      className={`config-item ${selectedConfig?.id === config.id ? 'selected' : ''}`}
-                      onClick={() => {
-                        if (loading) return;
-                        setSelectedConfig(config);
-                        handleLoad(config.id);
-                      }}
-                    >
-                      <div className="config-item-header">
-                        <h3>{config.name}</h3>
-                        <div className="config-item-actions">
-                          <span className="config-id">#{config.id}</span>
-                          <button
-                            className="btn-delete-config"
-                            onClick={(e) => handleDeleteClick(e, config.id, config.name)}
-                            disabled={deleting === config.id}
-                            title="Delete configuration"
-                          >
-                            {deleting === config.id ? '⏳' : '🗑️'}
-                          </button>
+                  {configurations.map((config) => {
+                    const diskRow = config.design_dir != null;
+                    const rowKey = diskRow ? `disk-${config.design_dir}` : `db-${config.id}`;
+                    const selected = diskRow
+                      ? selectedConfig?.design_dir === config.design_dir
+                      : selectedConfig?.id === config.id;
+                    return (
+                      <div
+                        key={rowKey}
+                        className={`config-item ${selected ? 'selected' : ''}`}
+                        onClick={() => {
+                          if (loading) return;
+                          setSelectedConfig(config);
+                          if (diskRow) handleLoadFromDisk(config.design_dir);
+                          else handleLoadFromDatabase(config.id);
+                        }}
+                      >
+                        <div className="config-item-header">
+                          <h3>{config.name}</h3>
+                          <div className="config-item-actions">
+                            {diskRow ? (
+                              <span className="config-id" title="Design folder">
+                                {config.design_dir}
+                              </span>
+                            ) : (
+                              <>
+                                <span className="config-id">#{config.id}</span>
+                                <button
+                                  className="btn-delete-config"
+                                  onClick={(e) => handleDeleteClick(e, config.id, config.name)}
+                                  disabled={deleting === config.id}
+                                  title="Delete configuration"
+                                >
+                                  {deleting === config.id ? '⏳' : '🗑️'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {config.description ? (
+                          <p className="config-description">{config.description}</p>
+                        ) : null}
+                        <div className="config-meta">
+                          {diskRow ? (
+                            <>
+                              {config.conf_updated_at && (
+                                <span>
+                                  File: {new Date(config.conf_updated_at).toLocaleString()}
+                                </span>
+                              )}
+                              {config.db_id != null && (
+                                <span className="config-meta-db">Also in DB #{config.db_id}</span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span>Created: {new Date(config.created_at).toLocaleString()}</span>
+                              {config.updated_at !== config.created_at && (
+                                <span>Updated: {new Date(config.updated_at).toLocaleString()}</span>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
-                      {config.description && (
-                        <p className="config-description">{config.description}</p>
-                      )}
-                      <div className="config-meta">
-                        <span>Created: {new Date(config.created_at).toLocaleString()}</span>
-                        {config.updated_at !== config.created_at && (
-                          <span>Updated: {new Date(config.updated_at).toLocaleString()}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

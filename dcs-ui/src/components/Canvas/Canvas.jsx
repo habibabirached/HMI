@@ -3,6 +3,7 @@ import ChartContextMenu from '../ChartContextMenu/ChartContextMenu';
 import MultiComponentContextMenu from '../MultiComponentContextMenu/MultiComponentContextMenu';
 import MultiComponentChartDialog from '../MultiComponentChartDialog/MultiComponentChartDialog';
 import KeyboardShortcuts from './KeyboardShortcuts';
+import CanvasBlock from './CanvasBlock';
 import { getComponentVisualConfig, getComponentDimensions } from '../../data/componentVisuals';
 import './Canvas.css';
 
@@ -48,9 +49,6 @@ const Canvas = forwardRef(({
   const [multiChartType, setMultiChartType] = useState('multi-bar-chart'); // 'multi-bar-chart' | 'multi-line-chart'
   const [resizingComponent, setResizingComponent] = useState(null); // { id, handle: 'top'|'bottom'|'left'|'right' }
   const resizeStateRef = useRef(null); // holds latest components, pan, zoom for document-level resize
-
-  const STRETCHABLE_VERTICAL = ['bus-hv-vertical'];
-  const STRETCHABLE_HORIZONTAL = ['bus-hv'];
 
   resizeStateRef.current = { components, pan, zoom, onUpdateComponent, resizingComponent, canvasRef };
 
@@ -695,270 +693,23 @@ const Canvas = forwardRef(({
           })()}
 
           {/* Render components */}
-          {components.map(component => {
-            const isSelected = selectedComponent?.id === component.id;
-            const isMultiSelected = isComponentMultiSelected(component.id);
-            const isDragging = draggingComponent === component.id;
-            
-            // Get visual configuration for this component type
-            const visualConfig = getComponentVisualConfig(component.type);
-            
-            // Allow per-instance overrides for width, height, and rotation
-            const width = component.visualOverrides?.width || visualConfig.width;
-            const height = component.visualOverrides?.height || visualConfig.height;
-            const rotation = component.visualOverrides?.rotation || 0; // degrees
-            
-            const centerX = width / 2;
-            const centerY = height / 2;
-
-            return (
-              <g
-                key={component.id}
-                transform={`translate(${component.position.x},${component.position.y})`}
-                onMouseDown={(e) => handleComponentMouseDown(e, component)}
-                onMouseUp={(e) => handleComponentMouseUp(e, component)}
-                onContextMenu={(e) => handleComponentContextMenu(e, component)}
-                className={`canvas-component ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''}`}
-                style={{ cursor: mode === 'design' ? 'move' : 'pointer' }}
-              >
-                {/* Wrapper group for rotation */}
-                <g transform={`rotate(${rotation} ${centerX} ${centerY})`}>
-                {/* ========================================================
-                    COMPONENT BOX - Dynamic size based on type + overrides
-                ======================================================== */}
-                <rect
-                  width={width}
-                  height={height}
-                  fill="#1a1a1a"
-                  stroke={
-                    component.status === 'idle'
-                      ? '#666'
-                      : component.status === 'offline'
-                      ? '#ff0000'
-                      : component.status === 'tripped'
-                        ? '#ff0000'
-                      : component.status === 'open'
-                        ? '#ff9800'
-                      : isSelected 
-                        ? '#005E60'
-                        : '#444'
-                  }
-                  strokeWidth={
-                    component.status === 'offline' || component.status === 'tripped'
-                      ? 4
-                      : component.status === 'open'
-                        ? 3
-                      : isSelected ? 3 : 2
-                  }
-                  rx="4"
-                />
-                
-                {/* Component icon - Large, prominent */}
-                <text
-                  x={centerX}
-                  y={height * 0.28}
-                  textAnchor="middle"
-                  fill={visualConfig.color}
-                  fontSize="24"
-                  fontWeight="400"
-                  pointerEvents="none"
-                  opacity="0.9"
-                >
-                  {visualConfig.icon}
-                </text>
-                
-                {/* Component name */}
-                <text
-                  x={centerX}
-                  y={height * 0.52}
-                  textAnchor="middle"
-                  fill="#e0e0e0"
-                  fontSize="11"
-                  fontWeight="600"
-                  pointerEvents="none"
-                >
-                  {component.name}
-                </text>
-                
-                {/* Component rating */}
-                <text
-                  x={centerX}
-                  y={height * 0.68}
-                  textAnchor="middle"
-                  fill="#999"
-                  fontSize="10"
-                  pointerEvents="none"
-                >
-                  {component.properties.rating > 0 ? `${component.properties.rating} ${component.properties.unit}` : ''}
-                </text>
-                
-                {/* Status indicator dot (top-right corner) */}
-                {simulationRunning && (
-                  <circle
-                    cx={width - 10}
-                    cy="10"
-                    r="4"
-                    fill={
-                      component.status === 'idle'
-                        ? '#666'
-                      : component.status === 'offline' || 
-                      component.status === 'tripped' || 
-                      component.status === 'open' 
-                        ? '#f44336'
-                        : '#4caf50'
-                    }
-                  />
-                )}
-                
-                {/* Multi-selection checkmark badge (top-right corner) */}
-                {isMultiSelected && (
-                  <g>
-                    {/* Badge background circle */}
-                    <circle
-                      cx={width - 10}
-                      cy="10"
-                      r="8"
-                      fill="#0066ff"
-                      stroke="#0099ff"
-                      strokeWidth="2"
-                    />
-                    {/* Checkmark */}
-                    <text
-                      x={width - 10}
-                      y="14"
-                      textAnchor="middle"
-                      fill="white"
-                      fontSize="12"
-                      fontWeight="bold"
-                      pointerEvents="none"
-                    >
-                      ✓
-                    </text>
-                  </g>
-                )}
-
-                {/* Chart Buttons - Show if component has associated charts */}
-                {component.charts && component.charts.length > 0 && (
-                  <g>
-                    {component.charts.map((chart, index) => {
-                      const buttonY = height - 12 - ((component.charts.length - 1 - index) * 12);
-                      const chartLabels = {
-                        '2d': '2D',
-                        'histogram': 'Hist',
-                        'pie': 'Pie',
-                        'bar': 'Bar',
-                        '3d': '3D',
-                        'heatmap': 'Heat',
-                        'box': 'Box'
-                      };
-                      const label = chartLabels[chart.chartType] || chart.chartType;
-                      
-                      return (
-                        <g 
-                          key={chart.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onOpenChart) {
-                              onOpenChart(component, chart);
-                            }
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {/* Chart button background */}
-                          <rect
-                            x="4"
-                            y={buttonY}
-                            width="28"
-                            height="10"
-                            fill="rgba(255, 152, 0, 0.2)"
-                            stroke="#ff9800"
-                            strokeWidth="1"
-                            rx="2"
-                            className="chart-button"
-                          />
-                          {/* Chart button label */}
-                          <text
-                            x="18"
-                            y={buttonY + 7}
-                            textAnchor="middle"
-                            fill="#ff9800"
-                            fontSize="7"
-                            fontWeight="700"
-                            pointerEvents="none"
-                          >
-                            {label}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </g>
-                )}
-
-                {/* Resize handles - rendered on top so they're visible and clickable */}
-                {mode === 'design' && isSelected && onUpdateComponent && (
-                  <>
-                    {STRETCHABLE_VERTICAL.includes(component.type) && (
-                      <>
-                        <rect
-                          x={centerX - 6}
-                          y={0}
-                          width={12}
-                          height={10}
-                          fill="#005E60"
-                          stroke="#00d4a8"
-                          strokeWidth={1}
-                          rx={2}
-                          style={{ cursor: 'ns-resize' }}
-                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'top' }); }}
-                        />
-                        <rect
-                          x={centerX - 6}
-                          y={height - 10}
-                          width={12}
-                          height={10}
-                          fill="#005E60"
-                          stroke="#00d4a8"
-                          strokeWidth={1}
-                          rx={2}
-                          style={{ cursor: 'ns-resize' }}
-                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'bottom' }); }}
-                        />
-                      </>
-                    )}
-                    {STRETCHABLE_HORIZONTAL.includes(component.type) && (
-                      <>
-                        <rect
-                          x={0}
-                          y={centerY - 6}
-                          width={10}
-                          height={12}
-                          fill="#005E60"
-                          stroke="#00d4a8"
-                          strokeWidth={1}
-                          rx={2}
-                          style={{ cursor: 'ew-resize' }}
-                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'left' }); }}
-                        />
-                        <rect
-                          x={width - 10}
-                          y={centerY - 6}
-                          width={10}
-                          height={12}
-                          fill="#005E60"
-                          stroke="#00d4a8"
-                          strokeWidth={1}
-                          rx={2}
-                          style={{ cursor: 'ew-resize' }}
-                          onMouseDown={(e) => { e.stopPropagation(); setResizingComponent({ id: component.id, handle: 'right' }); }}
-                        />
-                      </>
-                    )}
-                  </>
-                )}
-                </g> {/* Close rotation wrapper */}
-              </g>
-            );
-          })}
+          {components.map((component) => (
+            <CanvasBlock
+              key={component.id}
+              component={component}
+              isSelected={selectedComponent?.id === component.id}
+              isMultiSelected={isComponentMultiSelected(component.id)}
+              isDragging={draggingComponent === component.id}
+              mode={mode}
+              simulationRunning={simulationRunning}
+              onMouseDown={handleComponentMouseDown}
+              onMouseUp={handleComponentMouseUp}
+              onContextMenu={handleComponentContextMenu}
+              onOpenChart={onOpenChart}
+              onUpdateComponent={onUpdateComponent}
+              onResizeStart={setResizingComponent}
+            />
+          ))}
         </g>
       </svg>
 
