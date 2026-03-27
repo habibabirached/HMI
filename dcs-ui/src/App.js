@@ -120,6 +120,9 @@ function App() {
         comp.id === componentId ? { ...comp, ...updates } : comp
       )
     );
+    setSelectedComponent(prev =>
+      prev?.id === componentId ? { ...prev, ...updates } : prev
+    );
   }, []);
 
   // Delete component

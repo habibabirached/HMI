@@ -268,6 +268,61 @@ const PropertyPanel = ({
             )}
         </div>
 
+        {selectedComponent.embeddedSparklines?.length > 0 && (
+          <div className="prop-section">
+            <h4>On-canvas sparklines</h4>
+            <p className="prop-hint sparkline-hint">
+              Mini plots on the schematic. Removing one does not change charts in the plot panel.
+            </p>
+            <ul className="sparkline-list">
+              {selectedComponent.embeddedSparklines.map((sp) => (
+                <li key={sp.id} className="sparkline-list-item">
+                  <div className="sparkline-list-meta" title={`${sp.xColumn} vs ${sp.yColumn}`}>
+                    <span className="sparkline-xy">
+                      <span className="sparkline-x">{sp.xColumn}</span>
+                      <span className="sparkline-arrow"> → </span>
+                      <span className="sparkline-y">{sp.yColumn}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-remove-sparkline"
+                    disabled={disabled}
+                    onClick={() => {
+                      const next = selectedComponent.embeddedSparklines.filter(
+                        (s) => s.id !== sp.id
+                      );
+                      onUpdateComponent(selectedComponent.id, {
+                        embeddedSparklines: next,
+                      });
+                    }}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="btn-remove-all-sparklines"
+              disabled={disabled}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Remove all on-canvas sparklines from this component?'
+                  )
+                ) {
+                  onUpdateComponent(selectedComponent.id, {
+                    embeddedSparklines: [],
+                  });
+                }
+              }}
+            >
+              Remove all sparklines
+            </button>
+          </div>
+        )}
+
         <div className="prop-section">
           <h4>Operational State</h4>
 

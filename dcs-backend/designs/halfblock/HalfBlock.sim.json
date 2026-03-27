@@ -45,7 +45,8 @@
       "chart_type": "2d",
       "x_column": "Time (s)",
       "y_column": " Q_g3 (MVar)",
-      "title": "LM2500 Andritz #1 -  Q_g3 (MVar)"
+      "title": "LM2500 Andritz #1 -  Q_g3 (MVar)",
+      "sample_step": 64
     }
   ],
   "event_markers": {},

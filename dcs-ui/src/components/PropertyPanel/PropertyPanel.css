@@ -64,6 +64,94 @@
   padding: 20px;
 }
 
+.prop-hint {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.4;
+  margin: 0 0 10px 0;
+}
+
+.sparkline-list {
+  list-style: none;
+  margin: 0 0 12px 0;
+  padding: 0;
+}
+
+.sparkline-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: rgba(0, 94, 96, 0.12);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 94, 96, 0.25);
+}
+
+.sparkline-list-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.sparkline-xy {
+  font-size: 11px;
+  color: #ccc;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sparkline-x {
+  color: #80cbc4;
+}
+
+.sparkline-y {
+  color: #c8e6c9;
+}
+
+.btn-remove-sparkline {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid #666;
+  background: rgba(244, 67, 54, 0.15);
+  color: #ff8a80;
+  cursor: pointer;
+}
+
+.btn-remove-sparkline:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.35);
+  color: #ffccbc;
+}
+
+.btn-remove-sparkline:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-remove-all-sparklines {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: transparent;
+  color: #ff8a80;
+  cursor: pointer;
+}
+
+.btn-remove-all-sparklines:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.15);
+}
+
+.btn-remove-all-sparklines:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .prop-section {
   margin-bottom: 24px;
 }
