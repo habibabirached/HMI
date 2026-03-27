@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './PropertyPanel.css';
 import SimulationChartBuilder from '../SimulationChartBuilder/SimulationChartBuilder';
+import { formatVoltageRatioString } from '../Canvas/Schematics/schematicUtils';
 
 const PropertyPanel = ({
   selectedComponent,
@@ -21,12 +22,17 @@ const PropertyPanel = ({
 
   useEffect(() => {
     if (selectedComponent) {
+      const props = selectedComponent.properties || {};
       setEditedProps({
         name: selectedComponent.name,
-        rating: selectedComponent.properties?.rating,
-        voltage: selectedComponent.properties?.voltage,
-        unit: selectedComponent.properties?.unit,
-        status: selectedComponent.status
+        rating: props.rating,
+        voltage: props.voltage,
+        unit: props.unit,
+        status: selectedComponent.status,
+        primaryVoltageKv:
+          props.primaryVoltageKv ?? selectedComponent.primary ?? '',
+        secondaryVoltageKv:
+          props.secondaryVoltageKv ?? selectedComponent.secondary ?? '',
       });
     }
   }, [selectedComponent]);
@@ -67,9 +73,18 @@ const PropertyPanel = ({
         properties: {
           ...selectedComponent.properties,
           rating: editedProps.rating,
-          voltage: editedProps.voltage
-        }
+          voltage: editedProps.voltage,
+        },
       };
+      if (
+        selectedComponent.type === 'gsu' ||
+        selectedComponent.type === 'bess-xfmr'
+      ) {
+        const pk = parseFloat(editedProps.primaryVoltageKv);
+        const sk = parseFloat(editedProps.secondaryVoltageKv);
+        if (Number.isFinite(pk)) updates.properties.primaryVoltageKv = pk;
+        if (Number.isFinite(sk)) updates.properties.secondaryVoltageKv = sk;
+      }
       onUpdateComponent(selectedComponent.id, updates);
     }
   };
@@ -190,26 +205,67 @@ const PropertyPanel = ({
             </div>
           )}
 
-          {selectedComponent.primary !== undefined && (
+          {(selectedComponent.type === 'gsu' ||
+            selectedComponent.type === 'bess-xfmr') && (
             <>
               <div className="prop-group">
-                <label>Primary Voltage (kV)</label>
+                <label>Primary voltage (kV)</label>
                 <input
                   type="number"
-                  value={selectedComponent.primary}
+                  value={editedProps.primaryVoltageKv ?? ''}
+                  onChange={(e) =>
+                    handleChange('primaryVoltageKv', e.target.value)
+                  }
                   disabled={disabled}
+                  step="0.01"
                 />
               </div>
               <div className="prop-group">
-                <label>Secondary Voltage (kV)</label>
+                <label>Secondary voltage (kV)</label>
                 <input
                   type="number"
-                  value={selectedComponent.secondary}
+                  value={editedProps.secondaryVoltageKv ?? ''}
+                  onChange={(e) =>
+                    handleChange('secondaryVoltageKv', e.target.value)
+                  }
                   disabled={disabled}
+                  step="0.01"
                 />
+              </div>
+              <div className="prop-group">
+                <label>Voltage ratio</label>
+                <div className="prop-value readonly">
+                  {formatVoltageRatioString(
+                    editedProps.primaryVoltageKv,
+                    editedProps.secondaryVoltageKv
+                  ) || '—'}
+                </div>
               </div>
             </>
           )}
+
+          {selectedComponent.primary !== undefined &&
+            selectedComponent.type !== 'gsu' &&
+            selectedComponent.type !== 'bess-xfmr' && (
+              <>
+                <div className="prop-group">
+                  <label>Primary Voltage (kV)</label>
+                  <input
+                    type="number"
+                    value={selectedComponent.primary}
+                    disabled={disabled}
+                  />
+                </div>
+                <div className="prop-group">
+                  <label>Secondary Voltage (kV)</label>
+                  <input
+                    type="number"
+                    value={selectedComponent.secondary}
+                    disabled={disabled}
+                  />
+                </div>
+              </>
+            )}
         </div>
 
         <div className="prop-section">

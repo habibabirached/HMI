@@ -85,8 +85,8 @@ export const COMPONENT_LIBRARY = [
   {
     category: COMPONENT_CATEGORIES.TRANSFORMERS,
     components: [
-      { id: 'gsu-transformer', name: 'GSU Xfmr', fullName: 'Generator Step-Up Transformer', type: 'gsu', properties: { rating: 35, unit: 'MVA' }, primary: 13.8, secondary: 34.5 },
-      { id: 'bess-transformer', name: 'BESS Xfmr', fullName: 'BESS Transformer', type: 'bess-xfmr', properties: { rating: 50, unit: 'MVA' }, primary: 34.5, secondary: 34.5 },
+      { id: 'gsu-transformer', name: 'GSU', fullName: 'Generator Step-Up Transformer', type: 'gsu', properties: { rating: 35, unit: 'MVA', primaryVoltageKv: 13.8, secondaryVoltageKv: 34.5 } },
+      { id: 'bess-transformer', name: 'BESS Xfmr', fullName: 'BESS Transformer', type: 'bess-xfmr', properties: { rating: 50, unit: 'MVA', primaryVoltageKv: 34.5, secondaryVoltageKv: 34.5 } },
       { id: 'datacenter-transformer', name: 'DC Xfmr', fullName: 'Data Center Transformer', type: 'dc-xfmr', properties: { rating: 35, unit: 'MVA' }, primary: 34.5, secondary: 0.48 },
       { id: 'stepdown-transformer', name: 'Step-Down Xfmr', fullName: 'Step-Down Transformer', type: 'stepdown', properties: { rating: 25, unit: 'MVA' }, primary: 34.5, secondary: 4.16 },
       { id: 'isolation-transformer', name: 'Iso Xfmr', fullName: 'Isolation Transformer', type: 'isolation', properties: { rating: 10, unit: 'MVA' }, primary: 0.48, secondary: 0.48 },

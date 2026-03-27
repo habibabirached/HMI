@@ -24,32 +24,53 @@
   filter: brightness(1.2);
 }
 
-.canvas-component.selected {
-  filter: drop-shadow(0 0 8px #005E60);
+/* Single selection: crisp teal + soft bloom; slow gentle pulse (not neon). ~20% brighter tier. */
+.canvas-component.selected:not(.multi-selected) {
+  filter:
+    brightness(1.06)
+    drop-shadow(0 0 6px rgba(0, 210, 200, 0.5))
+    drop-shadow(0 0 13px rgba(0, 94, 96, 0.38))
+    drop-shadow(0 0 26px rgba(0, 94, 96, 0.19));
+  animation: canvas-selected-soft-pulse 2.8s ease-in-out infinite;
 }
 
-/* Multi-selected components - Blue glow (different from single-select teal) */
+@keyframes canvas-selected-soft-pulse {
+  0%,
+  100% {
+    filter:
+      brightness(1.05)
+      drop-shadow(0 0 5px rgba(0, 200, 190, 0.41))
+      drop-shadow(0 0 11px rgba(0, 94, 96, 0.31))
+      drop-shadow(0 0 22px rgba(0, 94, 96, 0.14));
+  }
+  50% {
+    filter:
+      brightness(1.1)
+      drop-shadow(0 0 8px rgba(0, 230, 220, 0.62))
+      drop-shadow(0 0 17px rgba(0, 110, 120, 0.46))
+      drop-shadow(0 0 31px rgba(0, 94, 96, 0.24));
+  }
+}
+
+/* Multi-selected components */
 .canvas-component.multi-selected {
   filter: 
-    drop-shadow(0 0 12px #0066ff)
-    drop-shadow(0 0 20px rgba(0, 102, 255, 0.5))
-    drop-shadow(0 0 30px rgba(0, 102, 255, 0.3));
-  animation: multi-select-pulse 2s ease-in-out infinite;
+    drop-shadow(0 0 8px rgba(0, 130, 255, 0.48))
+    drop-shadow(0 0 19px rgba(0, 102, 255, 0.26));
+  animation: multi-select-pulse 2.6s ease-in-out infinite;
 }
 
 /* Pulsing animation for multi-selected components */
 @keyframes multi-select-pulse {
   0%, 100% {
     filter: 
-      drop-shadow(0 0 12px #0066ff)
-      drop-shadow(0 0 20px rgba(0, 102, 255, 0.5))
-      drop-shadow(0 0 30px rgba(0, 102, 255, 0.3));
+      drop-shadow(0 0 7px rgba(0, 120, 255, 0.41))
+      drop-shadow(0 0 17px rgba(0, 102, 255, 0.19));
   }
   50% {
     filter: 
-      drop-shadow(0 0 16px #0066ff)
-      drop-shadow(0 0 28px rgba(0, 102, 255, 0.6))
-      drop-shadow(0 0 40px rgba(0, 102, 255, 0.4));
+      drop-shadow(0 0 11px rgba(0, 150, 255, 0.58))
+      drop-shadow(0 0 24px rgba(0, 102, 255, 0.31));
   }
 }
 

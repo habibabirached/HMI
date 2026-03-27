@@ -1,6 +1,9 @@
 import React from 'react';
-import SchematicBreaker from './SchematicBreaker';
-import SchematicCT from './SchematicCT';
+import SchematicBreaker from './Schematics/SchematicBreaker';
+import SchematicEarthBreaker from './Schematics/SchematicEarthBreaker';
+import SchematicCT from './Schematics/SchematicCT';
+import SchematicGSU from './Schematics/SchematicGSU';
+import SchematicBessXfmr from './Schematics/SchematicBessXfmr';
 import { getComponentVisualConfig } from '../../data/componentVisuals';
 
 const STRETCHABLE_VERTICAL = ['bus-hv-vertical'];
@@ -98,7 +101,12 @@ export default function CanvasBlock({
   const canvasSecondaryText = secondaryLabelText(component, visualConfig);
   const canvasPrimaryText = primaryLabelText(component, visualConfig);
   const isSchematicBreaker = visualConfig.shape === 'schematic-breaker';
+  const isSchematicEarthBreaker = visualConfig.shape === 'schematic-earth-breaker';
   const isSchematicCT = visualConfig.shape === 'schematic-ct';
+  const isSchematicGSU = visualConfig.shape === 'schematic-gsu';
+  const isSchematicBessXfmr = visualConfig.shape === 'schematic-bess-xfmr';
+  const useFramedTextureBlock =
+    !!textureUrl && !isSchematicGSU && !isSchematicBessXfmr;
 
   return (
     <g
@@ -110,7 +118,29 @@ export default function CanvasBlock({
       style={{ cursor: mode === 'design' ? 'move' : 'pointer' }}
     >
       <g transform={`rotate(${rotation} ${centerX} ${centerY})`}>
-        {textureUrl ? (
+        {(isSelected || isMultiSelected) && (
+          <rect
+            x={-7}
+            y={-7}
+            width={width + 14}
+            height={height + 14}
+            rx={Math.min(12, height * 0.11)}
+            ry={Math.min(12, height * 0.11)}
+            fill={
+              isMultiSelected
+                ? 'rgba(0, 102, 255, 0.078)'
+                : 'rgba(0, 94, 96, 0.086)'
+            }
+            stroke={
+              isMultiSelected
+                ? 'rgba(110, 185, 255, 0.7)'
+                : 'rgba(0, 200, 188, 0.66)'
+            }
+            strokeWidth={1.65}
+            pointerEvents="none"
+          />
+        )}
+        {useFramedTextureBlock ? (
           <>
             <rect width={width} height={height} fill="#000000" rx="4" />
             <image
@@ -141,6 +171,15 @@ export default function CanvasBlock({
             primaryLabel={canvasPrimaryText}
             secondaryLabel={canvasSecondaryText}
           />
+        ) : isSchematicEarthBreaker ? (
+          <SchematicEarthBreaker
+            width={width}
+            height={height}
+            strokeColor={strokeColor}
+            strokeWidthVal={strokeWidthVal}
+            primaryLabel={canvasPrimaryText}
+            secondaryLabel={canvasSecondaryText}
+          />
         ) : isSchematicCT ? (
           <SchematicCT
             width={width}
@@ -149,6 +188,28 @@ export default function CanvasBlock({
             zigzagColor={visualConfig.color}
             primaryLabel={canvasPrimaryText}
             secondaryLabel={canvasSecondaryText}
+          />
+        ) : isSchematicGSU ? (
+          <SchematicGSU
+            component={component}
+            width={width}
+            height={height}
+            primaryLabel={canvasPrimaryText}
+            mvaLabel={canvasSecondaryText}
+            lineColor={visualConfig.color}
+            textureHref={visualConfig.backgroundTexture}
+            textureOpacity={textureOpacity}
+          />
+        ) : isSchematicBessXfmr ? (
+          <SchematicBessXfmr
+            component={component}
+            width={width}
+            height={height}
+            primaryLabel={canvasPrimaryText}
+            mvaLabel={canvasSecondaryText}
+            lineColor={visualConfig.color}
+            textureHref={visualConfig.backgroundTexture}
+            textureOpacity={textureOpacity}
           />
         ) : (
           <rect
@@ -161,9 +222,13 @@ export default function CanvasBlock({
           />
         )}
 
-        {!isSchematicBreaker && !isSchematicCT && (
+        {!isSchematicBreaker &&
+          !isSchematicEarthBreaker &&
+          !isSchematicCT &&
+          !isSchematicGSU &&
+          !isSchematicBessXfmr && (
           <>
-            {!textureUrl && (
+            {!useFramedTextureBlock && (
               <text
                 x={centerX}
                 y={height * 0.28}
@@ -179,9 +244,9 @@ export default function CanvasBlock({
             )}
             <text
               x={centerX}
-              y={textureUrl ? 4 : height * 0.52}
+              y={useFramedTextureBlock ? 4 : height * 0.52}
               textAnchor="middle"
-              dominantBaseline={textureUrl ? 'hanging' : 'auto'}
+              dominantBaseline={useFramedTextureBlock ? 'hanging' : 'auto'}
               fill="#e0e0e0"
               fontSize="11"
               fontWeight="600"
@@ -191,7 +256,7 @@ export default function CanvasBlock({
             </text>
             <text
               x={centerX}
-              y={textureUrl ? height - 4 : height * 0.68}
+              y={useFramedTextureBlock ? height - 4 : height * 0.68}
               textAnchor="middle"
               fill="#999"
               fontSize="10"

@@ -16,9 +16,11 @@
  *
  * Optional canvasPrimaryLabel: fixed first line on canvas (e.g. 'CT' while name in data may differ).
  *
- * shape: 'schematic-breaker' — draw a one-line style symbol (horizontal bar + diagonal blade)
- *   instead of the emoji icon; rectangle frame unchanged for selection.
+ * shape: 'schematic-breaker' — horizontal bar + diagonal blade; frameless (transparent hit area).
+ * shape: 'schematic-earth-breaker' — earth (⏚) style stem + graded bars; frameless.
  * shape: 'schematic-ct' — resistor-style zigzag for current transformers; use canvasPrimaryLabel + ctRatio.
+ * shape: 'schematic-gsu' — GSU: labels + line-art texture; ratio from properties.primaryVoltageKv / secondaryVoltageKv (kV).
+ * shape: 'schematic-bess-xfmr' — BESS xfmr: lightning pair + same stack + hugging outline.
  * 
  * Dimensions based on typical aspect ratios:
  * - Generators/Turbines: Wider than tall (horizontal equipment)
@@ -326,33 +328,43 @@ export const COMPONENT_VISUAL_CONFIG = {
   // TRANSFORMERS (Square, tank-like)
   // ============================================================================
   'gsu-transformer': {
-    width: 90,
-    height: 90,
+    width: 100,
+    height: 100,
     icon: '⚡↑',
-    color: '#795548',
-    shape: 'rounded-rect'
+    color: '#2e7d7d',
+    shape: 'schematic-gsu',
+    canvasPrimaryLabel: 'GSU',
+    backgroundTexture: '/component-textures/gsu-transformer-line-art.svg',
+    backgroundTextureOpacity: 1
   },
   // Palette / saved configs use short type `gsu` (matches componentLibrary)
   gsu: {
-    width: 90,
-    height: 90,
+    width: 100,
+    height: 100,
     icon: '⚡↑',
-    color: '#795548',
-    shape: 'rounded-rect'
+    color: '#2e7d7d',
+    shape: 'schematic-gsu',
+    canvasPrimaryLabel: 'GSU',
+    backgroundTexture: '/component-textures/gsu-transformer-line-art.svg',
+    backgroundTextureOpacity: 1
   },
   'bess-transformer': {
-    width: 95,
-    height: 95,
+    width: 100,
+    height: 118,
     icon: '⚡⚡',
-    color: '#795548',
-    shape: 'rounded-rect'
+    color: '#2e7d7d',
+    shape: 'schematic-bess-xfmr',
+    backgroundTexture: '/component-textures/bess-xfmr-line-art.svg',
+    backgroundTextureOpacity: 1
   },
   'bess-xfmr': {
-    width: 95,
-    height: 95,
+    width: 100,
+    height: 118,
     icon: '⚡⚡',
-    color: '#795548',
-    shape: 'rounded-rect'
+    color: '#2e7d7d',
+    shape: 'schematic-bess-xfmr',
+    backgroundTexture: '/component-textures/bess-xfmr-line-art.svg',
+    backgroundTextureOpacity: 1
   },
   'datacenter-transformer': {
     width: 90,
@@ -422,18 +434,18 @@ export const COMPONENT_VISUAL_CONFIG = {
     shape: 'rect'
   },
   'breaker-dc': {
-    width: 50,
-    height: 60,
+    width: 55,
+    height: 65,
     icon: '⏚',
-    color: '#ff9800',
-    shape: 'rect'
+    color: '#8bc34a',
+    shape: 'schematic-earth-breaker'
   },
   'breaker-bess': {
     width: 55,
     height: 65,
     icon: '⏚',
     color: '#f44336',
-    shape: 'rect'
+    shape: 'schematic-earth-breaker'
   },
   'breaker-gen-13.8': {
     width: 50,
