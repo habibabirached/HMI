@@ -11,7 +11,7 @@
         "x": 75,
         "y": 50
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 50,
         "voltage": 34.5,
@@ -35,7 +35,7 @@
         "x": 272.5,
         "y": 67.5
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 2000,
         "voltage": 34.5,
@@ -58,7 +58,7 @@
         "x": 400,
         "y": 41
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 50,
         "unit": "MVA",
@@ -81,7 +81,7 @@
         "x": 575,
         "y": 75
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 2000,
         "voltage": 0,
@@ -104,7 +104,7 @@
         "x": 75,
         "y": 207.5
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 33.3,
         "voltage": 13.8,
@@ -127,7 +127,7 @@
         "x": 275,
         "y": 220
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 2000,
         "voltage": 13.8,
@@ -150,7 +150,7 @@
         "x": 400,
         "y": 200
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 35,
         "unit": "MVA",
@@ -174,7 +174,7 @@
         "x": 575,
         "y": 225
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 800,
         "voltage": 0,
@@ -197,7 +197,7 @@
         "x": 75,
         "y": 357.5
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 33.3,
         "voltage": 13.8,
@@ -209,7 +209,19 @@
         "current": 0,
         "frequency": 60
       },
-      "isTripped": false
+      "isTripped": false,
+      "embeddedSparklines": [
+        {
+          "id": "spark-1774579739088",
+          "xColumn": "Time (s)",
+          "yColumn": " Pload_1 (MW)"
+        },
+        {
+          "id": "spark-1774580456446",
+          "xColumn": "Time (s)",
+          "yColumn": " P_g2 (MW)"
+        }
+      ]
     },
     {
       "id": "comp-gen-cb-2",
@@ -220,7 +232,7 @@
         "x": 275,
         "y": 370
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 2000,
         "voltage": 13.8,
@@ -243,7 +255,7 @@
         "x": 400,
         "y": 350
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 35,
         "unit": "MVA",
@@ -267,7 +279,7 @@
         "x": 575,
         "y": 375
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 800,
         "voltage": 0,
@@ -290,7 +302,7 @@
         "x": 75,
         "y": 507.5
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 33.3,
         "voltage": 13.8,
@@ -313,7 +325,7 @@
         "x": 275,
         "y": 520
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 2000,
         "voltage": 13.8,
@@ -336,7 +348,7 @@
         "x": 400,
         "y": 500
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 35,
         "unit": "MVA",
@@ -360,7 +372,7 @@
         "x": 575,
         "y": 525
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 800,
         "voltage": 0,
@@ -383,7 +395,7 @@
         "x": 75,
         "y": 657.5
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 33.3,
         "voltage": 13.8,
@@ -406,7 +418,7 @@
         "x": 275,
         "y": 670
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 2000,
         "voltage": 13.8,
@@ -429,7 +441,7 @@
         "x": 400,
         "y": 650
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 35,
         "unit": "MVA",
@@ -453,7 +465,7 @@
         "x": 575,
         "y": 675
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 800,
         "voltage": 0,
@@ -476,7 +488,7 @@
         "x": 680,
         "y": 50
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 0,
         "voltage": 34.5,
@@ -502,7 +514,7 @@
         "x": 775,
         "y": 75
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 1500,
         "voltage": 0,
@@ -522,10 +534,10 @@
       "name": "GSU",
       "fullName": "Interface transformer 34.5 kV / 480 V 50 MVA",
       "position": {
-        "x": 855,
-        "y": 55
+        "x": 850,
+        "y": 50
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 50,
         "unit": "MVA",
@@ -549,7 +561,7 @@
         "x": 1038,
         "y": 88
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 0,
         "voltage": 0,
@@ -572,7 +584,7 @@
         "x": 1175,
         "y": 70
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 3000,
         "voltage": 0.48,
@@ -595,7 +607,7 @@
         "x": 1560,
         "y": 70
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 25,
         "voltage": 0.4,
@@ -618,7 +630,7 @@
         "x": 1715,
         "y": 200
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 25,
         "voltage": 0.4,
@@ -641,7 +653,7 @@
         "x": 995,
         "y": 215
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 5,
         "voltage": 0.48,
@@ -664,7 +676,7 @@
         "x": 1438,
         "y": 88
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 0,
         "voltage": 0,
@@ -687,7 +699,7 @@
         "x": 1310,
         "y": 70
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 25,
         "voltage": 0.48,
@@ -710,7 +722,7 @@
         "x": 1405,
         "y": 215
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 5,
         "voltage": 0.4,
@@ -733,7 +745,7 @@
         "x": 775,
         "y": 525
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 1500,
         "voltage": 0,
@@ -753,10 +765,10 @@
       "name": "GSU",
       "fullName": "Interface transformer 34.5 kV / 480 V 50 MVA",
       "position": {
-        "x": 855,
-        "y": 505
+        "x": 850,
+        "y": 500
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 50,
         "unit": "MVA",
@@ -780,7 +792,7 @@
         "x": 1038,
         "y": 538
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 0,
         "voltage": 0,
@@ -803,7 +815,7 @@
         "x": 1175,
         "y": 520
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 3000,
         "voltage": 0.48,
@@ -826,7 +838,7 @@
         "x": 1438,
         "y": 538
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 0,
         "voltage": 0,
@@ -849,7 +861,7 @@
         "x": 1310,
         "y": 520
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 25,
         "voltage": 0.48,
@@ -872,7 +884,7 @@
         "x": 1405,
         "y": 615
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 5,
         "voltage": 0.4,
@@ -895,7 +907,7 @@
         "x": 1560,
         "y": 520
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 25,
         "voltage": 0.4,
@@ -918,7 +930,7 @@
         "x": 1715,
         "y": 400
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 25,
         "voltage": 0.4,
@@ -941,7 +953,7 @@
         "x": 995,
         "y": 665
       },
-      "status": "idle",
+      "status": "online",
       "properties": {
         "rating": 5,
         "voltage": 0.48,
@@ -1253,7 +1265,7 @@
     }
   ],
   "systemState": {
-    "simulationRunning": false,
+    "simulationRunning": true,
     "zoom": 1.6000000000000005,
     "pan": {
       "x": -49,

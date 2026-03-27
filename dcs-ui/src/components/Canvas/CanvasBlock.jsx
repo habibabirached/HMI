@@ -4,6 +4,7 @@ import SchematicEarthBreaker from './Schematics/SchematicEarthBreaker';
 import SchematicCT from './Schematics/SchematicCT';
 import SchematicGSU from './Schematics/SchematicGSU';
 import SchematicBessXfmr from './Schematics/SchematicBessXfmr';
+import ComponentEmbeddedSparklines from './ComponentEmbeddedSparklines';
 import { getComponentVisualConfig } from '../../data/componentVisuals';
 
 const STRETCHABLE_VERTICAL = ['bus-hv-vertical'];
@@ -74,6 +75,8 @@ export default function CanvasBlock({
   isDragging,
   mode,
   simulationRunning,
+  simulationData = [],
+  simulationTime = 0,
   onMouseDown,
   onMouseUp,
   onContextMenu,
@@ -265,6 +268,18 @@ export default function CanvasBlock({
               {canvasSecondaryText}
             </text>
           </>
+        )}
+
+        {component.embeddedSparklines?.length > 0 && simulationData?.length > 0 && (
+          <ComponentEmbeddedSparklines
+            embeddedSparklines={component.embeddedSparklines}
+            simulationData={simulationData}
+            simulationTime={simulationTime}
+            simulationRunning={simulationRunning}
+            width={width}
+            height={height}
+            bottomReservedPx={10 + (component.charts?.length || 0) * 12}
+          />
         )}
 
         {simulationRunning && (

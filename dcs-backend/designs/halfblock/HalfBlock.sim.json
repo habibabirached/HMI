@@ -38,10 +38,18 @@
         "something"
       ],
       "title": "BESS 50MW - nD"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-turbine-1",
+      "chart_type": "2d",
+      "x_column": "Time (s)",
+      "y_column": " Q_g3 (MVar)",
+      "title": "LM2500 Andritz #1 -  Q_g3 (MVar)"
     }
   ],
   "event_markers": {},
-  "chart_sample_default": 64,
+  "chart_sample_default": 16,
   "chart_panel_height": 506,
   "chart_stacks": []
 }

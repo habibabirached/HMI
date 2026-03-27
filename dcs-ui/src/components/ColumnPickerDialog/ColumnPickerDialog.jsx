@@ -21,6 +21,7 @@ const ColumnPickerDialog = ({
   const [xColumn, setXColumn] = useState('');
   const [yColumn, setYColumn] = useState('');
   const [title, setTitle] = useState('');
+  const [alsoOpenInPanel, setAlsoOpenInPanel] = useState(false);
   const [error, setError] = useState(null);
 
   // Auto-select common columns when dialog opens (columns from simulation CSV)
@@ -50,7 +51,12 @@ const ColumnPickerDialog = ({
       setError('Please select both X and Y columns.');
       return;
     }
-    onConfirm({ xColumn, yColumn, title: title.trim() || undefined });
+    onConfirm({
+      xColumn,
+      yColumn,
+      title: title.trim() || undefined,
+      ...(chartType === '2d' ? { alsoOpenInPanel } : {}),
+    });
     onClose();
   };
 
@@ -109,6 +115,21 @@ const ColumnPickerDialog = ({
               placeholder={`e.g. ${component?.name || 'Component'} - ${yColumn || 'value'}`}
             />
           </div>
+          {chartType === '2d' && (
+            <div className="dialog-section column-picker-embed-note">
+              <label className="dialog-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={alsoOpenInPanel}
+                  onChange={e => setAlsoOpenInPanel(e.target.checked)}
+                />
+                <span>Also open full chart in plot panel</span>
+              </label>
+              <p className="dialog-hint">
+                By default a minimal sparkline is drawn on the component only (no panel chart).
+              </p>
+            </div>
+          )}
         </div>
         <div className="dialog-footer">
           <button className="dialog-btn dialog-btn-cancel" onClick={onClose}>
@@ -119,7 +140,7 @@ const ColumnPickerDialog = ({
             onClick={handleCreate}
             disabled={!xColumn || !yColumn}
           >
-            ✓ Add Chart
+            {chartType === '2d' ? '✓ Add sparkline' : '✓ Add Chart'}
           </button>
         </div>
       </div>

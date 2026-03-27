@@ -656,7 +656,10 @@ function App() {
     setOpenCharts([]);
     setSelectedComponent(null);
     setSelectedConnection(null);
-    
+    stopSimulationClock();
+    setSimulationRunning(false);
+    setSimulationTime(0);
+
     try {
       let filteredRows;
       let scenarioConfig;
@@ -1138,10 +1141,49 @@ function App() {
    * STEP 4: Callback when user confirms column selection in the column picker dialog.
    * We create the chart object, add it to openCharts, persist to .sim.json, and close the dialog.
    */
-  const handleColumnPickerConfirm = ({ xColumn, yColumn, title }) => {
+  const handleColumnPickerConfirm = ({ xColumn, yColumn, title, alsoOpenInPanel }) => {
     if (!columnPickerContext) return;
     const { component, chartType } = columnPickerContext;
     const csvName = simulationMetadata?.id ? `${simulationMetadata.id}.data.csv` : '';
+
+    if (chartType === '2d') {
+      const spark = { id: `spark-${Date.now()}`, xColumn, yColumn };
+      setCanvasComponents((prev) =>
+        prev.map((c) =>
+          c.id === component.id
+            ? { ...c, embeddedSparklines: [...(c.embeddedSparklines || []), spark] }
+            : c
+        )
+      );
+      setSelectedComponent((prev) =>
+        prev?.id === component.id
+          ? {
+              ...prev,
+              embeddedSparklines: [...(prev.embeddedSparklines || []), spark],
+            }
+          : prev
+      );
+      if (alsoOpenInPanel) {
+        const openChart = {
+          id: `open-${Date.now()}`,
+          componentId: component.id,
+          componentName: component.name,
+          chartType,
+          csvName,
+          xColumn,
+          yColumn,
+          title: title || `${component.name} - ${yColumn}`,
+        };
+        setOpenCharts((prev) => {
+          const next = [...prev, openChart];
+          persistChartsToSimJson(next);
+          return next;
+        });
+      }
+      setColumnPickerContext(null);
+      return;
+    }
+
     const openChart = {
       id: `open-${Date.now()}`,
       componentId: component.id,
@@ -1584,6 +1626,8 @@ function App() {
               mode={mode}
               viewMode={viewMode}
               simulationRunning={simulationRunning}
+              simulationData={simulationData}
+              simulationTime={simulationTime}
               systemState={systemState}
             />
           )}

@@ -34,6 +34,8 @@ const Canvas = forwardRef(({
   mode,
   viewMode,
   simulationRunning,
+  simulationData = [],
+  simulationTime = 0,
   systemState
 }, ref) => {
   const canvasRef = useRef(null);
@@ -702,6 +704,8 @@ const Canvas = forwardRef(({
               isDragging={draggingComponent === component.id}
               mode={mode}
               simulationRunning={simulationRunning}
+              simulationData={simulationData}
+              simulationTime={simulationTime}
               onMouseDown={handleComponentMouseDown}
               onMouseUp={handleComponentMouseUp}
               onContextMenu={handleComponentContextMenu}
