@@ -24,7 +24,8 @@ import './SimulationControls.css';
  * - onRunSimulation: function - callback when user clicks a simulation button
  * - activeSimulationId: string | null - STEP 2: ID of the simulation currently loaded; the matching
  *   scenario button gets a bright "active" style so the user sees which sim they're in
- * - simulationLoadProgress: { simulationId, percent, status } | null - When present, shows a linear
+ * - simulationLoadProgress: { simulationId, percent, status, loadSource?: 'pending'|'cache'|'server' } | null -
+ *   When present, shows a linear
  *   progress bar and status under the scenario list, and disables scenario play buttons until the load ends.
  */
 const SimulationControls = ({ 
@@ -53,6 +54,8 @@ const SimulationControls = ({
   currentConfigName,
   onUploadSimData,
   onDeleteSimulation,
+  /** Clear IndexedDB cache for this scenario’s CSV payload (browser only). */
+  onClearSimulationCache,
   onViewSimData,
   onAddSimulation,
   onAddSimulationsFromXlsx,
@@ -507,6 +510,16 @@ const SimulationControls = ({
                               👁
                             </button>
                           )}
+                          {onClearSimulationCache && (
+                            <button
+                              type="button"
+                              className="control-btn control-btn-cache-clear"
+                              onClick={() => onClearSimulationCache(simId)}
+                              title={`Clear cached CSV / simulation data for “${displayName}” in this browser (next load fetches from server)`}
+                            >
+                              🧹
+                            </button>
+                          )}
                           {onDeleteSimulation && (
                             <button
                               type="button"
@@ -552,8 +565,17 @@ const SimulationControls = ({
             {/* Linear progress + labels: fed from App.handleRunSimulation. aria-live keeps screen readers
                 informed as percent and status text change. */}
             {simulationLoadProgress && (
-              <div className="sim-load-progress" aria-live="polite">
-                <div className="sim-load-progress-heading">Loading data</div>
+              <div
+                className={`sim-load-progress sim-load-progress--${simulationLoadProgress.loadSource || 'pending'}`}
+                aria-live="polite"
+              >
+                <div className="sim-load-progress-heading">
+                  {simulationLoadProgress.loadSource === 'cache'
+                    ? 'Loading data from cache'
+                    : simulationLoadProgress.loadSource === 'server'
+                      ? 'Loading data from server'
+                      : 'Loading data'}
+                </div>
                 <div className="sim-load-progress-bar-track">
                   <div
                     className="sim-load-progress-bar-fill"

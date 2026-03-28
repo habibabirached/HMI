@@ -18,6 +18,12 @@ import {
   CHART_PANEL_OPACITY_DEFAULT,
 } from './utils/chartPanelLimits';
 import { parseSimulationDeepLink, buildSimulationDeepLinkQuery, lastScenarioSessionStorageKey } from './utils/simDeepLink';
+import {
+  getCachedSimulationPayload,
+  setCachedSimulationPayload,
+  deleteCachedSimulationPayload,
+  mergeCachedSimulationAfterActivate,
+} from './utils/simulationDataCache';
 import './styles/App.css';
 
 function App() {
@@ -79,6 +85,9 @@ function App() {
   const [namedSimulationConfigs, setNamedSimulationConfigs] = useState([]);
   const [activeNamedSimulationConfig, setActiveNamedSimulationConfig] = useState(null);
   const activeNamedSimulationConfigRef = useRef(null);
+  /** Raw API `data` rows from the last successful load (before derived columns); same-scenario preset switches reuse this to avoid clearing the chart panel. */
+  const simulationRawRowsRef = useRef(null);
+  const simulationRawRowsSimIdRef = useRef(null);
   /** Deep link calls the same loader as the dialog but must not also run localStorage session-restore for the same navigation. */
   const loadSkipSessionRestoreRef = useRef(false);
   const [saveSimConfigDialogOpen, setSaveSimConfigDialogOpen] = useState(false);
@@ -717,13 +726,16 @@ function App() {
     setSimulationLoadProgress({
       simulationId,
       percent: 4,
-      status: 'Loading data…',
+      status: 'Checking for saved copy in this browser…',
+      loadSource: 'pending',
     });
-    
+
     console.log('🧹 Clearing existing charts...');
     // Switching to a different scenario’s CSV clears which preset button should look “active”; same scenario reload (e.g. activate preset) keeps the highlight until we replace it.
     if (simulationMetadata?.id !== simulationId) {
       setActiveNamedSimulationConfig(null);
+      simulationRawRowsRef.current = null;
+      simulationRawRowsSimIdRef.current = null;
     }
     setOpenCharts([]);
     setSelectedComponent(null);
@@ -732,42 +744,68 @@ function App() {
     setSimulationRunning(false);
     setSimulationTime(0);
 
-    // Cancel any previous interval, then creep the bar toward ~82% while we wait on the network
-    // (real milestones jump it later; this avoids a frozen bar on slow links).
     stopFakeProgress();
-    simulationLoadFakeIntervalRef.current = setInterval(() => {
-      setSimulationLoadProgress((prev) => {
-        if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
-        if (prev.percent >= 82) return prev;
-        return { ...prev, percent: Math.min(82, prev.percent + 1.4) };
-      });
-    }, 90);
 
     try {
       let filteredRows;
       let scenarioConfig;
       let csvNameForCharts;
+      let result;
 
-      setLoad({ percent: 8, status: 'Connecting to server…' });
-
-      // Fetch from design dir (per-sim .sim.json + .data.csv)
-      const response = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationId)}`
-      );
+      const cached = await getCachedSimulationPayload(designApiPath, simulationId);
       if (isStale()) {
         stopFakeProgress();
         return;
       }
-      stopFakeProgress();
-      setLoad({ percent: 62, status: 'Downloading simulation data…' });
 
-      if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
-      setLoad({ percent: 74, status: 'Reading response…' });
-      const result = await response.json();
-      if (isStale()) {
+      if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
         stopFakeProgress();
-        return;
+        setLoad({
+          percent: 35,
+          status: 'Loading data from cache…',
+          loadSource: 'cache',
+        });
+        result = cached;
+      } else {
+        setLoad({
+          percent: 8,
+          status: 'Loading data from server…',
+          loadSource: 'server',
+        });
+        // Creep the bar while we wait on the network (server loads only).
+        simulationLoadFakeIntervalRef.current = setInterval(() => {
+          setSimulationLoadProgress((prev) => {
+            if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
+            if (prev.loadSource !== 'server') return prev;
+            if (prev.percent >= 82) return prev;
+            return { ...prev, percent: Math.min(82, prev.percent + 1.4) };
+          });
+        }, 90);
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationId)}`
+        );
+        if (isStale()) {
+          stopFakeProgress();
+          return;
+        }
+        stopFakeProgress();
+        setLoad({ percent: 62, status: 'Downloading simulation data…' });
+
+        if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
+        setLoad({ percent: 74, status: 'Reading response…' });
+        result = await response.json();
+        if (isStale()) {
+          stopFakeProgress();
+          return;
+        }
+        try {
+          await setCachedSimulationPayload(designApiPath, simulationId, result);
+        } catch (_) {
+          /* ignore IDB write errors */
+        }
       }
+
       filteredRows = result.data || [];
       scenarioConfig = result.sim_config || {};
       csvNameForCharts = `${simulationId}.data.csv`;
@@ -778,6 +816,9 @@ function App() {
         alert(`⚠️ No data found for simulation "${simulationId}".`);
         return;
       }
+
+      simulationRawRowsRef.current = filteredRows;
+      simulationRawRowsSimIdRef.current = simulationId;
 
       setLoad({ percent: 82, status: 'Processing rows…' });
       const derivedVariables = scenarioConfig.derived_variables || [];
@@ -919,7 +960,137 @@ function App() {
   };
 
   /**
-   * Copies a named snapshot onto disk, then re-runs the same scenario load path so openCharts / stacks / viewMode match the file.
+   * Apply activate-preset API response in-place: same CSV rows (from simulationRawRowsRef), new sim_config.
+   * Avoids setOpenCharts([]) + full reload so the chart panel stays mounted and updates smoothly.
+   * @returns {Promise<boolean>} true if applied, false if raw rows are missing (caller should full load).
+   */
+  const applyActivatedNamedPresetInPlace = useCallback(async (simulationId, activated) => {
+    const scenarioConfig = activated.sim_config || {};
+    const raw = simulationRawRowsRef.current;
+    const rawFor = simulationRawRowsSimIdRef.current;
+    if (!raw?.length || rawFor !== simulationId) return false;
+
+    const derivedVariables = scenarioConfig.derived_variables || [];
+    const augmentedRows = (await import('./utils/formulaEvaluator')).augmentRowsWithDerived(
+      raw,
+      derivedVariables,
+    );
+
+    const cc = scenarioConfig.current_configuration;
+    if (cc && (cc.view_mode === 'customer' || cc.view_mode === 'designer')) {
+      setViewMode(cc.view_mode);
+    }
+
+    const timeValues = augmentedRows.map((r) => Number(r['Time (s)'] ?? r.time_sec) ?? 0);
+    setSimulationData(augmentedRows);
+    setSimulationMetadata({
+      id: simulationId,
+      displayName:
+        scenarioConfig.display_name ||
+        simConfig?.simulations?.[simulationId]?.display_name ||
+        simulationId,
+      description: scenarioConfig.description || '',
+      rowCount: augmentedRows.length,
+      timeRange: { min: Math.min(...timeValues), max: Math.max(...timeValues) },
+      columns: Object.keys(augmentedRows[0] || {}),
+      derivedVariables,
+    });
+
+    setSimConfig((prev) => {
+      const sims = prev?.simulations ? { ...prev.simulations } : {};
+      const existing = sims[simulationId] || {};
+      sims[simulationId] = {
+        ...existing,
+        display_name: scenarioConfig.display_name ?? existing.display_name,
+        description: scenarioConfig.description ?? existing.description,
+        has_data: true,
+        event_markers: scenarioConfig.event_markers,
+      };
+      return { simulations: sims };
+    });
+
+    const chartsToDisplay = scenarioConfig.charts_to_display || [];
+    const csvNameForCharts = `${simulationId}.data.csv`;
+    setChartStacks(scenarioConfig.chart_stacks || []);
+    setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
+    const panelMax = getChartPanelMaxHeightPx();
+    if (
+      scenarioConfig.chart_panel_height != null &&
+      scenarioConfig.chart_panel_height >= CHART_PANEL_MIN_HEIGHT
+    ) {
+      setChartPanelHeight(Math.min(scenarioConfig.chart_panel_height, panelMax));
+    }
+    if (scenarioConfig.chart_panel_opacity != null) {
+      setChartPanelOpacity(clampChartPanelOpacity(scenarioConfig.chart_panel_opacity));
+    } else {
+      setChartPanelOpacity(CHART_PANEL_OPACITY_DEFAULT);
+    }
+
+    const initialPerChart = {};
+    if (chartsToDisplay.length > 0) {
+      const newCharts = chartsToDisplay
+        .map((chartDef, index) => {
+          const chartId = `sim-chart-${Date.now()}-${index}`;
+          if (chartDef.sample_step != null) initialPerChart[chartId] = chartDef.sample_step;
+          if (chartDef.type === 'multi') {
+            return {
+              id: chartId,
+              type: 'multi-component',
+              chartType: chartDef.chart_type || 'multi-bar-chart',
+              title: chartDef.title || 'Multi-Component Chart',
+              csvName: csvNameForCharts,
+              timeColumn: chartDef.x_column,
+              components: chartDef.components || [],
+              isMultiComponent: true,
+            };
+          }
+          const component = canvasComponents.find((c) => c.id === chartDef.component_id);
+          if (!component) return null;
+          const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
+          const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
+          return {
+            id: chartId,
+            componentId: component.id,
+            componentName: component.name,
+            chartType: chartDef.chart_type || '2d',
+            csvName: csvNameForCharts,
+            xColumn: chartDef.x_column,
+            ...(isNd ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
+            ...(isStackedNd
+              ? {
+                  yColumns: chartDef.y_columns,
+                  splitBy: chartDef.split_by || 'phase',
+                  ...(chartDef.split_by === 'manual' &&
+                    chartDef.manual_group_breaks?.length && {
+                      manualGroupBreaks: chartDef.manual_group_breaks,
+                    }),
+                }
+              : {}),
+            title:
+              chartDef.title ||
+              (isNd
+                ? `${component.name} - nD`
+                : isStackedNd
+                  ? `${component.name} - Stacked nD`
+                  : `${component.name} - ${chartDef.y_column}`),
+          };
+        })
+        .filter(Boolean);
+      setOpenCharts(newCharts);
+      setPerChartSampleStep(initialPerChart);
+    } else {
+      setOpenCharts([]);
+      setChartStacks([]);
+      setPerChartSampleStep({});
+    }
+
+    setNamedSimulationConfigs(activated.named_configuration_keys || []);
+    return true;
+  }, [canvasComponents, simConfig]);
+
+  /**
+   * Copies a named snapshot onto disk, then updates the UI from the response when possible
+   * (no chart-panel teardown); otherwise falls back to a full scenario load.
    */
   const handleActivateNamedSimulationConfig = async (presetName) => {
     if (!simulationMetadata?.id || !designApiPath) return;
@@ -933,7 +1104,12 @@ function App() {
         alert(msg || `Failed to activate preset (${res.status})`);
         return;
       }
-      await handleRunSimulation(simulationMetadata.id);
+      const activated = await res.json();
+      await mergeCachedSimulationAfterActivate(designApiPath, simulationMetadata.id, activated);
+      const applied = await applyActivatedNamedPresetInPlace(simulationMetadata.id, activated);
+      if (!applied) {
+        await handleRunSimulation(simulationMetadata.id);
+      }
       setActiveNamedSimulationConfig(presetName);
       try {
         if (designApiPath) {
@@ -1054,8 +1230,9 @@ function App() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
       }
-      const result = await response.json();
+      await response.json().catch(() => ({}));
       await refreshSimulationsList();
+      await deleteCachedSimulationPayload(designApiPath, simId);
       // Minimum 2 seconds spinner display
       const elapsed = Date.now() - uploadStartTime;
       const remainingTime = Math.max(0, 2000 - elapsed);
@@ -1115,13 +1292,33 @@ function App() {
         throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
       }
       await refreshSimulationsList();
+      await deleteCachedSimulationPayload(designApiPath, simId);
       if (simulationMetadata?.id === simId) {
+        simulationRawRowsRef.current = null;
+        simulationRawRowsSimIdRef.current = null;
         setSimulationMetadata(null);
         setSimulationData([]);
         setOpenCharts([]);
       }
     } catch (e) {
       alert(`❌ Delete failed: ${e.message}`);
+    }
+  };
+
+  /**
+   * Clear IndexedDB cache for one scenario’s load-simulation payload (this browser only).
+   * The next open of that scenario downloads from the server again.
+   */
+  const handleClearSimulationCache = async (simId) => {
+    if (!designApiPath || !simId) return;
+    try {
+      await deleteCachedSimulationPayload(designApiPath, simId);
+      alert(
+        `Cache cleared for “${simId}”. The next time you open this scenario, data will be loaded from the server again.`,
+      );
+    } catch (e) {
+      console.warn(e);
+      alert('Could not clear simulation cache.');
     }
   };
 
@@ -2115,6 +2312,7 @@ function App() {
             currentConfigName={currentConfigName}
             onUploadSimData={handleUploadSimData}
             onDeleteSimulation={handleDeleteSimulation}
+            onClearSimulationCache={handleClearSimulationCache}
             onViewSimData={handleViewSimData}
             onAddSimulation={handleAddSimulation}
             onAddSimulationsFromXlsx={handleAddSimulationsFromXlsx}
