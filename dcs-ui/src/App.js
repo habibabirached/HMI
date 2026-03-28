@@ -18,6 +18,7 @@ import {
   CHART_PANEL_OPACITY_DEFAULT,
 } from './utils/chartPanelLimits';
 import { parseSimulationDeepLink, buildSimulationDeepLinkQuery, lastScenarioSessionStorageKey } from './utils/simDeepLink';
+import { copyTextToClipboard } from './utils/clipboard';
 import {
   getCachedSimulationPayload,
   setCachedSimulationPayload,
@@ -2071,7 +2072,7 @@ function App() {
     setSimDeepLinkFollowup({ sim: simId, config: namedConfig });
   }, [sessionRestoreTrigger, designApiPath, csvStatus?.use_design_dir, availableSimulations]);
 
-  const handleCopyScenarioLink = useCallback(() => {
+  const handleCopyScenarioLink = useCallback(async () => {
     if (!designApiPath || !simulationMetadata?.id) return;
     const query = buildSimulationDeepLinkQuery({
       designApiPath,
@@ -2079,7 +2080,10 @@ function App() {
       namedConfig: activeNamedSimulationConfig || null,
     });
     const fullUrl = `${window.location.origin}${window.location.pathname}${query}`;
-    navigator.clipboard?.writeText(fullUrl).catch(() => {});
+    if (await copyTextToClipboard(fullUrl)) {
+      return;
+    }
+    window.prompt('Copy this scenario link (select, then Ctrl+C / ⌘C):', fullUrl);
   }, [designApiPath, simulationMetadata?.id, activeNamedSimulationConfig]);
 
   return (

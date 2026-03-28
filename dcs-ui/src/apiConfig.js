@@ -36,6 +36,13 @@
  * out of ten the UI bundle still thinks the API lives on localhost. Rebuild
  * with the correct REACT_APP_API_BASE_URL or empty string behind a proxy.
  *
+ * ACCESSING BY LAN IP (e.g. http://10.x.x.x:3000 from another PC): the browser
+ * runs the JS there — API_BASE_URL must be a host THAT BROWSER can reach (same
+ * IP + backend port, or a reverse proxy on one origin). localhost in the bundle
+ * points at the viewer’s machine, not your server. Session restore in
+ * localStorage is also per-origin: data saved at http://localhost:3000 does not
+ * exist at http://10.x.x.x:3000.
+ *
  * =============================================================================
  */
 
