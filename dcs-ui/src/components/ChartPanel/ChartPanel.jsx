@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { API_BASE_URL } from '../../apiConfig';
+import {
+  CHART_PANEL_MIN_HEIGHT,
+  getChartPanelMaxHeightPx,
+  clampChartPanelOpacity,
+  CHART_PANEL_OPACITY_DEFAULT,
+} from '../../utils/chartPanelLimits';
 import './ChartPanel.css';
 
 // Store native selection listeners per chart so we can clean up on unmount
@@ -18,6 +24,8 @@ const selectionListenersByChart = new Map();
  * - onRemoveChart: Function to remove a specific chart
  * - height: Current panel height in pixels
  * - onHeightChange: Function to update panel height
+ * - panelOpacity: Tray backdrop opacity (0.15–1)
+ * - onPanelOpacityChange: (opacity) => void
  */
 const ChartPanel = ({ 
   charts, 
@@ -27,7 +35,9 @@ const ChartPanel = ({
   onClose, 
   onRemoveChart, 
   height, 
-  onHeightChange, 
+  onHeightChange,
+  panelOpacity = CHART_PANEL_OPACITY_DEFAULT,
+  onPanelOpacityChange,
   simulationTime, 
   simulationRunning, 
   selectedComponentId,
@@ -39,14 +49,44 @@ const ChartPanel = ({
   onGlobalSampleStepChange,
   onPerChartSampleStepChange,
   currentConfigName,
+  /** Prefer this for /api/designs/... paths when set (e.g. archive/leaf). */
+  designCatalogPath = null,
   selectedRowIndices = null,
   onSelectionChange,
   onFocus,
-  isFocused
+  isFocused,
+  /** Labels of saved UI presets in this scenario's .sim.json (Step 2: named snapshots). */
+  namedSimulationConfigs = [],
+  /** Which preset matches what is on screen after an explicit activate; cleared when the user edits charts. */
+  activeNamedSimulationConfig = null,
+  onActivateNamedSimulationConfig,
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ y: 0, height: 0 });
   const [chartWidth, setChartWidth] = useState(500); // Base width for chart cards (min/max derived)
+
+  // Remember the browser width so “wider” can grow cards up to nearly the full screen and limits stay correct after resize.
+  // During SSR we pick a neutral default; the first client paint and resize listener correct it.
+  const [viewportInnerWidth, setViewportInnerWidth] = useState(
+    () => (typeof window !== 'undefined' ? window.innerWidth : 1200),
+  );
+  useEffect(() => {
+    const onResize = () => setViewportInnerWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // One chart column may use at most the content width inside the tray (full viewport minus 16px padding on each side).
+  const chartCardMaxWidthPx = Math.max(320, viewportInnerWidth - 32);
+  // Card CSS uses max-width ≈ chartWidth + 150px; these bounds keep the ◀/▶ buttons consistent with that and avoid invalid ranges on tiny viewports.
+  const chartWidthStateMin = 200;
+  const chartWidthStateMax = Math.max(chartWidthStateMin, chartCardMaxWidthPx - 150);
+
+  // If the user shrinks the window, pull chartWidth down so it never exceeds the new maximum.
+  useEffect(() => {
+    setChartWidth((w) => Math.min(w, chartWidthStateMax));
+  }, [chartWidthStateMax]);
+
   const [chartData, setChartData] = useState({}); // Store fetched CSV data by chart id
   const [loadingCharts, setLoadingCharts] = useState({}); // Track loading state per chart
   const [selectedChartIds, setSelectedChartIds] = useState(new Set()); // For stack/unstack
@@ -101,10 +141,11 @@ const ChartPanel = ({
 
     try {
       let dataRows = null;
-      if (currentConfigName && chart.csvName && chart.csvName.endsWith('.data.csv')) {
+      const designPathSegment = designCatalogPath || currentConfigName;
+      if (designPathSegment && chart.csvName && chart.csvName.endsWith('.data.csv')) {
         const simName = chart.csvName.replace('.data.csv', '');
         const response = await fetch(
-          `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simName)}`
+          `${API_BASE_URL}/api/designs/${encodeURIComponent(designPathSegment)}/simulations/${encodeURIComponent(simName)}`
         );
         if (response.ok) {
           const result = await response.json();
@@ -618,6 +659,17 @@ const ChartPanel = ({
       return [];
     }
 
+    const o = clampChartPanelOpacity(panelOpacity);
+    const scaleEventFill = (c) => {
+      const color = c || 'rgba(255, 0, 0, 0.15)';
+      const m = String(color).match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)/i);
+      if (m) {
+        const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+        return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${a * o})`;
+      }
+      return color;
+    };
+
     const shapes = [];
     
     // Process each event marker definition
@@ -648,7 +700,7 @@ const ChartPanel = ({
             x1: timeValue,
             y0: 0,
             y1: 1,
-            fillcolor: markerConfig.color || 'rgba(255, 0, 0, 0.15)',
+            fillcolor: scaleEventFill(markerConfig.color),
             line: { width: 0 },
             layer: 'below'
           });
@@ -686,7 +738,7 @@ const ChartPanel = ({
             x1: timeValue,
             y0: 0,
             y1: 1,
-            fillcolor: markerConfig.color || 'rgba(255, 0, 0, 0.15)',
+            fillcolor: scaleEventFill(markerConfig.color),
             line: { width: 0 },
             layer: 'below'
           });
@@ -698,13 +750,33 @@ const ChartPanel = ({
   };
 
   /**
+   * Token for Plotly’s layout.uirevision: hold it steady while only pane opacity or card width change so zoom/pan survive cosmetic relayouts.
+   * We tie it to data identity and sample stride, but not simulationTime, so scrubbing during play does not reset the axes every tick.
+   */
+  const getPlotlyUiRevision = (chart, data) => {
+    const step = getSampleStep(chart.id);
+    const n = data?.length ?? 0;
+    const sid = simulationMetadata?.id ?? '';
+    const csv = chart.csvName ?? '';
+    return `${chart.id}|${sid}|${csv}|${n}|${step}`;
+  };
+
+  /**
    * Generate professional Plotly layout
    */
   const generatePlotlyLayout = (chart, data) => {
+    const o = clampChartPanelOpacity(panelOpacity);
+    const rgba = (r, g, b, a = o) => `rgba(${r},${g},${b},${a})`;
+    const paperRgba = rgba(13, 13, 13);
+    const plotRgba = rgba(26, 26, 26);
+    const gridRgba = rgba(42, 42, 42);
+    const lineRgba = rgba(68, 68, 68);
+
     const baseLayout = {
-      // Professional dark theme
-      paper_bgcolor: '#0d0d0d',
-      plot_bgcolor: '#1a1a1a',
+      // When this string stays the same, Plotly keeps user zoom/pan across Plotly.react updates (e.g. new colors after opacity slider).
+      uirevision: getPlotlyUiRevision(chart, data),
+      paper_bgcolor: paperRgba,
+      plot_bgcolor: plotRgba,
       
       // Title
       title: {
@@ -734,14 +806,14 @@ const ChartPanel = ({
           size: 11,
           color: '#999'
         },
-        bgcolor: 'rgba(0, 0, 0, 0.3)',
-        bordercolor: '#444',
+        bgcolor: rgba(0, 0, 0, 0.35 * o),
+        bordercolor: lineRgba,
         borderwidth: 1
       },
       
       // Hover label
       hoverlabel: {
-        bgcolor: '#1a1a1a',
+        bgcolor: plotRgba,
         bordercolor: '#005E60',
         font: {
           family: 'Courier New, monospace',
@@ -767,17 +839,16 @@ const ChartPanel = ({
       if (n === 0) return { ...baseLayout, xaxis: {}, yaxis: {} };
 
       const rowHeight = 1 / n;
-      // Alternate pitch black and normal background for distinct groups
-      const groupBgColors = ['#000000', '#1a1a1a'];
+      const groupBgColors = [rgba(0, 0, 0), rgba(26, 26, 26)];
       const axisStyle = {
-        gridcolor: '#2a2a2a',
+        gridcolor: gridRgba,
         gridwidth: 1,
         showline: true,
-        linecolor: '#444',
+        linecolor: lineRgba,
         linewidth: 2,
         tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
         zeroline: true,
-        zerolinecolor: '#444',
+        zerolinecolor: lineRgba,
         zerolinewidth: 2
       };
 
@@ -810,8 +881,8 @@ const ChartPanel = ({
           y: 1,
           yanchor: 'top',
           font: { family: 'Arial, sans-serif', size: 11, color: '#e0e0e0' },
-          bgcolor: 'rgba(0, 0, 0, 0.6)',
-          bordercolor: '#444',
+          bgcolor: rgba(0, 0, 0, 0.6 * o),
+          bordercolor: lineRgba,
           borderwidth: 2,
           traceorder: 'normal'
         },
@@ -851,14 +922,14 @@ const ChartPanel = ({
             text: chart.timeColumn || 'Time',
             font: { family: 'Arial, sans-serif', size: 14, color: '#00d4a8', weight: 600 }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           gridwidth: 1,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
           zeroline: true,
-          zerolinecolor: '#444',
+          zerolinecolor: lineRgba,
           zerolinewidth: 2
         },
         yaxis: {
@@ -866,14 +937,14 @@ const ChartPanel = ({
             text: yLabelHTML,
             font: { family: 'Arial, sans-serif', size: 13, weight: 600 }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           gridwidth: 1,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
           zeroline: true,
-          zerolinecolor: '#444',
+          zerolinecolor: lineRgba,
           zerolinewidth: 2
         },
         showlegend: true,
@@ -884,8 +955,8 @@ const ChartPanel = ({
           y: -0.15,
           yanchor: 'top',
           font: { family: 'Arial, sans-serif', size: 12, color: '#e0e0e0' },
-          bgcolor: 'rgba(0, 0, 0, 0.5)',
-          bordercolor: 'rgba(0, 94, 96, 0.5)',
+          bgcolor: rgba(0, 0, 0, 0.5 * o),
+          bordercolor: rgba(0, 94, 96, 0.5 * o),
           borderwidth: 2
         }
       };
@@ -921,10 +992,10 @@ const ChartPanel = ({
               weight: 600
             }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           gridwidth: 1,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -934,10 +1005,10 @@ const ChartPanel = ({
         },
         yaxis: {
           title: { text: '' },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           gridwidth: 1,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -945,7 +1016,7 @@ const ChartPanel = ({
             color: '#999'
           },
           zeroline: true,
-          zerolinecolor: '#444',
+          zerolinecolor: lineRgba,
           zerolinewidth: 2,
           ...(yRange ? { range: yRange } : {})
         },
@@ -962,8 +1033,8 @@ const ChartPanel = ({
             size: 12,
             color: '#e0e0e0'
           },
-          bgcolor: 'rgba(0, 0, 0, 0.5)',
-          bordercolor: 'rgba(0, 94, 96, 0.5)',
+          bgcolor: rgba(0, 0, 0, 0.5 * o),
+          bordercolor: rgba(0, 94, 96, 0.5 * o),
           borderwidth: 2
         },
         // Add annotations for component count
@@ -1001,10 +1072,10 @@ const ChartPanel = ({
               weight: 600
             }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           gridwidth: 1,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -1012,7 +1083,7 @@ const ChartPanel = ({
             color: '#999'
           },
           zeroline: true,
-          zerolinecolor: '#444',
+          zerolinecolor: lineRgba,
           zerolinewidth: 2
         },
         yaxis: {
@@ -1025,10 +1096,10 @@ const ChartPanel = ({
               weight: 600
             }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           gridwidth: 1,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -1036,7 +1107,7 @@ const ChartPanel = ({
             color: '#999'
           },
           zeroline: true,
-          zerolinecolor: '#444',
+          zerolinecolor: lineRgba,
           zerolinewidth: 2
         },
         shapes: eventShapes // Add event marker shapes
@@ -1054,9 +1125,9 @@ const ChartPanel = ({
               weight: 600
             }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -1074,9 +1145,9 @@ const ChartPanel = ({
               weight: 600
             }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -1098,9 +1169,9 @@ const ChartPanel = ({
               weight: 600
             }
           },
-          gridcolor: '#2a2a2a',
+          gridcolor: gridRgba,
           showline: true,
-          linecolor: '#444',
+          linecolor: lineRgba,
           linewidth: 2,
           tickfont: {
             family: 'Arial, sans-serif',
@@ -1117,31 +1188,23 @@ const ChartPanel = ({
   /**
    * Plotly configuration for professional controls
    */
-  const plotlyConfig = {
-    // Toolbar buttons (keep select2d for cross-chart linked selection)
-    displayModeBar: true,
-    modeBarButtonsToRemove: ['lasso2d'],
-    modeBarButtonsToAdd: [],
-    
-    // Responsive
-    responsive: true,
-    
-    // Display logo
-    displaylogo: false,
-    
-    // Toolbar position
-    modeBarPosition: 'top',
-    
-    // Enable scroll/mouse wheel zoom
-    scrollZoom: true,
-    
-    // Toolbar styling
-    modeBarStyle: {
-      bgcolor: 'rgba(0, 0, 0, 0.5)',
-      color: '#999',
-      activecolor: '#005E60'
-    }
-  };
+  const plotlyConfig = useMemo(() => {
+    const o = clampChartPanelOpacity(panelOpacity);
+    return {
+      displayModeBar: true,
+      modeBarButtonsToRemove: ['lasso2d'],
+      modeBarButtonsToAdd: [],
+      responsive: true,
+      displaylogo: false,
+      modeBarPosition: 'top',
+      scrollZoom: true,
+      modeBarStyle: {
+        bgcolor: `rgba(0, 0, 0, ${0.5 * o})`,
+        color: '#999',
+        activecolor: '#005E60',
+      },
+    };
+  }, [panelOpacity]);
 
   /**
    * Plotly transition config for smooth animations (multi-bar charts)
@@ -1211,7 +1274,10 @@ const ChartPanel = ({
   const handleResizeMove = (e) => {
     const { y, height: startHeight } = resizeStartRef.current;
     const deltaY = y - e.clientY; // Inverted because panel grows upward
-    const newHeight = Math.max(200, Math.min(800, startHeight + deltaY));
+    const newHeight = Math.max(
+      CHART_PANEL_MIN_HEIGHT,
+      Math.min(getChartPanelMaxHeightPx(), startHeight + deltaY),
+    );
     onHeightChange(newHeight);
   };
 
@@ -1288,10 +1354,17 @@ const ChartPanel = ({
     }
   };
 
+  const shellA = clampChartPanelOpacity(panelOpacity);
+
   return (
     <div
       className={`chart-panel ${isResizing ? 'resizing' : ''}`}
-      style={{ height: `${height}px`, zIndex: isFocused ? 1100 : 1000 }}
+      style={{
+        height: `${height}px`,
+        zIndex: isFocused ? 1100 : 1000,
+        '--chart-panel-shell-a': String(shellA),
+        '--chart-panel-card-a': String(shellA),
+      }}
       onMouseDown={handlePanelMouseDown}
     >
       {/* Resize Handle */}
@@ -1304,82 +1377,135 @@ const ChartPanel = ({
 
       {/* Panel Header - also draggable for resize */}
       <div className="chart-panel-header" onMouseDown={handleResizeStart}>
-        <div className="chart-panel-title">
-          📊 Charts ({charts.length})
-        </div>
-        <div className="chart-panel-header-actions">
-          {selectedChartIds.size > 0 && onStackCharts && (
-            <>
-              <button
-                className="chart-panel-stack-btn"
-                onClick={() => { onStackCharts(selectedChartIds); setSelectedChartIds(new Set()); }}
-                disabled={selectedChartIds.size < 2}
-                title="Stack selected charts vertically"
-              >
-                Stack
-              </button>
-              <button
-                className="chart-panel-unstack-btn"
-                onClick={() => { onUnstackCharts?.(selectedChartIds); setSelectedChartIds(new Set()); }}
-                title="Unstack selected charts"
-              >
-                Unstack
-              </button>
-            </>
-          )}
-          {selectedRowIndices && selectedRowIndices.size > 0 && (
-            <button
-              className="chart-panel-clear-selection"
-              onClick={() => onSelectionChange?.(null)}
-              title="Clear selection"
-            >
-              Clear selection
-            </button>
-          )}
-          <label className="chart-panel-sample-label">
-            Sample:
-            <select
-              className="chart-panel-sample-select"
-              value={globalSampleStep}
-              onChange={(e) => onGlobalSampleStepChange?.(Number(e.target.value))}
-              title="Plot every Nth data point (all charts)"
-            >
-              {SAMPLE_OPTIONS.map((n) => (
-                <option key={n} value={n}>1 in {n}</option>
+        <div className="chart-panel-header-left">
+          <div className="chart-panel-title">
+            📊 Charts ({charts.length})
+          </div>
+          {/* One button per named preset; activating rewrites root + current_configuration on disk and reloads this scenario. */}
+          {namedSimulationConfigs.length > 0 && onActivateNamedSimulationConfig && (
+            <div className="chart-panel-named-configs" onMouseDown={(e) => e.stopPropagation()}>
+              {namedSimulationConfigs.map((presetName) => (
+                <button
+                  key={presetName}
+                  type="button"
+                  className={`chart-panel-named-config-btn${activeNamedSimulationConfig === presetName ? ' chart-panel-named-config-btn-active' : ''}`}
+                  onClick={() => onActivateNamedSimulationConfig(presetName)}
+                  title={`Load preset “${presetName}” from this scenario’s .sim.json`}
+                >
+                  {presetName}
+                </button>
               ))}
-            </select>
-          </label>
-          <span className="chart-panel-size-arrow-gap" />
-          <button
-            type="button"
-            className="chart-panel-size-arrow"
-            onClick={() => setChartWidth(w => Math.max(300, w - 50))}
-            disabled={chartWidth <= 300}
-            title="Narrower chart windows"
-          >
-            ◀
-          </button>
-          <button
-            type="button"
-            className="chart-panel-size-arrow"
-            onClick={() => setChartWidth(w => Math.min(900, w + 50))}
-            disabled={chartWidth >= 900}
-            title="Wider chart windows"
-          >
-            ▶
+            </div>
+          )}
+        </div>
+        <div className="chart-panel-header-right">
+          <div className="chart-panel-header-actions">
+            {selectedChartIds.size > 0 && onStackCharts && (
+              <>
+                <button
+                  className="chart-panel-stack-btn"
+                  onClick={() => { onStackCharts(selectedChartIds); setSelectedChartIds(new Set()); }}
+                  disabled={selectedChartIds.size < 2}
+                  title="Stack selected charts vertically"
+                >
+                  Stack
+                </button>
+                <button
+                  className="chart-panel-unstack-btn"
+                  onClick={() => { onUnstackCharts?.(selectedChartIds); setSelectedChartIds(new Set()); }}
+                  title="Unstack selected charts"
+                >
+                  Unstack
+                </button>
+              </>
+            )}
+            {selectedRowIndices && selectedRowIndices.size > 0 && (
+              <button
+                className="chart-panel-clear-selection"
+                onClick={() => onSelectionChange?.(null)}
+                title="Clear selection"
+              >
+                Clear selection
+              </button>
+            )}
+            <label className="chart-panel-sample-label">
+              Sample:
+              <select
+                className="chart-panel-sample-select"
+                value={globalSampleStep}
+                onChange={(e) => onGlobalSampleStepChange?.(Number(e.target.value))}
+                title="Plot every Nth data point (all charts)"
+              >
+                {SAMPLE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>1 in {n}</option>
+                ))}
+              </select>
+            </label>
+            <span className="chart-panel-size-arrow-gap" />
+            <div
+              className="chart-panel-opacity-wrap"
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Tray & plot opacity — 0% fully transparent; sharp (no blur)"
+            >
+              <span className="chart-panel-opacity-label">Pane</span>
+              <input
+                type="range"
+                className="chart-panel-opacity-slider"
+                min={0}
+                max={100}
+                value={Math.round(shellA * 100)}
+                onChange={(e) =>
+                  onPanelOpacityChange?.(Number(e.target.value) / 100)
+                }
+                aria-label="Chart panel opacity"
+              />
+            </div>
+            {/* Step chart column width by 50px, clamped between chartWidthStateMin and chartWidthStateMax (viewport-based). */}
+            <div
+              className="chart-panel-width-controls"
+              title="Chart column width — ◀ narrower, ▶ wider (all cards in the tray)"
+            >
+              <span className="chart-panel-width-label">Width</span>
+              <button
+                type="button"
+                className="chart-panel-size-arrow"
+                onClick={() =>
+                  setChartWidth((w) =>
+                    Math.min(chartWidthStateMax, Math.max(chartWidthStateMin, w - 50)),
+                  )
+                }
+                disabled={chartWidth <= chartWidthStateMin}
+                aria-label="Narrower chart windows"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                className="chart-panel-size-arrow"
+                onClick={() =>
+                  setChartWidth((w) =>
+                    Math.min(chartWidthStateMax, Math.max(chartWidthStateMin, w + 50)),
+                  )
+                }
+                disabled={chartWidth >= chartWidthStateMax}
+                aria-label="Wider chart windows"
+              >
+                ▶
+              </button>
+            </div>
+          </div>
+          <button className="chart-panel-close" onClick={onClose} title="Close Chart Panel">
+            ×
           </button>
         </div>
-        <button className="chart-panel-close" onClick={onClose} title="Close Chart Panel">
-          ×
-        </button>
       </div>
 
-      {/* Charts Container */}
+      {/* Charts Container — min/max CSS vars size each card; cap max at chartCardMaxWidthPx so widening can reach the screen edge. */}
       <div
         className="chart-panel-content"
         style={{
           '--chart-min-width': `${Math.max(200, chartWidth - 150)}px`,
-          '--chart-max-width': `${Math.min(1000, chartWidth + 150)}px`
+          '--chart-max-width': `${Math.min(chartCardMaxWidthPx, chartWidth + 150)}px`,
         }}
       >
         {displayUnits.map((unit) => (

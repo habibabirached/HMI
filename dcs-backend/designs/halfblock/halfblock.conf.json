@@ -641,12 +641,12 @@
     },
     {
       "id": "comp-aux-1",
-      "type": "auxiliary-loads",
+      "type": "auxiliary-loads-bess",
       "name": "Aux Loads 1",
       "fullName": "Auxiliary Loads",
       "position": {
-        "x": 995,
-        "y": 215
+        "x": 975,
+        "y": 200
       },
       "status": "idle",
       "properties": {
@@ -941,12 +941,12 @@
     },
     {
       "id": "comp-aux-2",
-      "type": "auxiliary-loads",
+      "type": "auxiliary-loads-bess",
       "name": "Aux Loads 2",
       "fullName": "Auxiliary Loads",
       "position": {
-        "x": 995,
-        "y": 665
+        "x": 975,
+        "y": 650
       },
       "status": "idle",
       "properties": {

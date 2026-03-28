@@ -9,7 +9,8 @@
   left: 0;
   right: 0;
   z-index: 1000;
-  background: #0d0d0d;
+  /* --chart-panel-shell-a / --chart-panel-card-a set inline from React (0–1) */
+  background: rgba(13, 13, 13, var(--chart-panel-shell-a, 1));
   border-top: 2px solid #005e60;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
   display: flex;
@@ -57,14 +58,66 @@
 /* Header - draggable for resize */
 .chart-panel-header {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
-  height: 28px;
+  gap: 10px;
   min-height: 28px;
   padding: 4px 12px;
   background: rgba(0, 188, 212, 0.05);
   border-bottom: 1px solid #333;
   cursor: ns-resize;
+  /* Rare narrow layouts: scroll horizontally instead of losing the right-side controls */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Title + named presets share one row (presets immediately after “Charts (N)”); wraps only inside this block if needed. */
+.chart-panel-header-left {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Saved presets for this scenario (.sim.json); load applies snapshot to disk then the app refetches the scenario. */
+.chart-panel-named-configs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.chart-panel-named-config-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: rgba(26, 26, 26, 0.9);
+  color: #aaa;
+  cursor: pointer;
+  max-width: min(18ch, 28vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-panel-named-config-btn:hover {
+  border-color: #005e60;
+  color: #00d4a8;
+}
+
+.chart-panel-named-config-btn-active {
+  border-color: #00d4a8;
+  color: #00d4a8;
+  box-shadow: 0 0 8px rgba(0, 212, 168, 0.35);
 }
 
 .chart-panel-header button,
@@ -73,6 +126,7 @@
 }
 
 .chart-panel-title {
+  flex: 0 0 auto;
   color: #005e60;
   font-size: 11px;
   font-weight: 600;
@@ -80,10 +134,31 @@
   text-transform: uppercase;
 }
 
+/* Sticky so Sample / Pane / Width / close stay reachable when the header scrolls horizontally */
+.chart-panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  padding-left: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(13, 13, 13, 0) 0,
+    rgba(13, 13, 13, 0.82) 10px,
+    rgba(13, 13, 13, 0.96) 100%
+  );
+  box-shadow: -10px 0 14px -12px rgba(0, 0, 0, 0.55);
+}
+
 .chart-panel-header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .chart-panel-sample-label {
@@ -119,12 +194,13 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 1px solid #333;
+  border: 1px solid rgba(51, 51, 51, var(--chart-panel-shell-a, 1));
   border-radius: 6px;
   overflow: hidden;
   flex: 1 1;
   min-width: var(--chart-min-width, 400px);
-  max-width: var(--chart-max-width, 600px);
+  /* If React never sets --chart-max-width, still allow stacks to grow to the tray content width (viewport minus 16px padding each side). */
+  max-width: var(--chart-max-width, calc(100vw - 32px));
   height: 100%;
 }
 
@@ -134,7 +210,7 @@
 }
 
 .chart-panel-stack .chart-panel-chart:not(:last-child) {
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid rgba(51, 51, 51, var(--chart-panel-shell-a, 1));
 }
 
 .chart-panel-chart-checkbox {
@@ -166,6 +242,56 @@
 .chart-panel-size-arrow-gap {
   width: 20px;
   flex-shrink: 0;
+}
+
+.chart-panel-opacity-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.chart-panel-opacity-label {
+  color: #777;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.chart-panel-opacity-slider {
+  width: 72px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #005e60;
+}
+
+.chart-panel-opacity-slider:focus {
+  outline: none;
+}
+
+.chart-panel-opacity-slider:focus-visible {
+  outline: 2px solid #00d4a8;
+  outline-offset: 2px;
+}
+
+.chart-panel-width-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.chart-panel-width-label {
+  color: #777;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
 }
 
 .chart-panel-size-arrow {
@@ -244,7 +370,7 @@
 }
 
 .chart-panel-content::-webkit-scrollbar-track {
-  background: #0d0d0d;
+  background: rgba(13, 13, 13, var(--chart-panel-shell-a, 1));
 }
 
 .chart-panel-content::-webkit-scrollbar-thumb {
@@ -256,17 +382,17 @@
   background: #555;
 }
 
-/* Individual chart card - width controlled by --chart-min-width, --chart-max-width */
+/* Individual chart card: width bounds come from --chart-* (set in JSX); fallback matches full-bleed panel content, not a fixed 600px cap. */
 .chart-panel-chart {
   flex: 1 1;
   min-width: var(--chart-min-width, 400px);
-  max-width: var(--chart-max-width, 600px);
+  max-width: var(--chart-max-width, calc(100vw - 32px));
   height: 100%;
   margin: 0;
   display: flex;
   flex-direction: column;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: rgba(26, 26, 26, var(--chart-panel-card-a, 1));
+  border: 1px solid rgba(51, 51, 51, var(--chart-panel-shell-a, 1));
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   position: relative;

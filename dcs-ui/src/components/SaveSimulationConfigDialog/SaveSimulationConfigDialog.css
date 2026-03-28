@@ -1,0 +1,100 @@
+.save-sim-config-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.save-sim-config-dialog {
+  background: #1a1a1a;
+  border: 1px solid #005e60;
+  border-radius: 8px;
+  padding: 20px 24px;
+  min-width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.save-sim-config-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  color: #00d4a8;
+}
+
+.save-sim-config-help {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #aaa;
+  line-height: 1.4;
+}
+
+.save-sim-config-help code {
+  font-size: 12px;
+  color: #e0e0e0;
+}
+
+.save-sim-config-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.save-sim-config-input {
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.save-sim-config-input:focus {
+  outline: none;
+  border-color: #005e60;
+}
+
+.save-sim-config-overwrite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.save-sim-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.save-sim-config-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid #444;
+}
+
+.save-sim-config-btn.cancel {
+  background: #2a2a2a;
+  color: #ccc;
+}
+
+.save-sim-config-btn.submit {
+  background: rgba(0, 94, 96, 0.4);
+  border-color: #005e60;
+  color: #00d4a8;
+}
+
+.save-sim-config-btn.submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

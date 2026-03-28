@@ -21,6 +21,12 @@
  * shape: 'schematic-ct' — resistor-style zigzag for current transformers; use canvasPrimaryLabel + ctRatio.
  * shape: 'schematic-gsu' — GSU: labels + line-art texture; ratio from properties.primaryVoltageKv / secondaryVoltageKv (kV).
  * shape: 'schematic-bess-xfmr' — BESS xfmr: lightning pair + same stack + hugging outline.
+ * shape: 'schematic-lm2500-andritz' — LM2500 Andritz: card + line-art texture + title / MW (SchematicLm2500Andritz.jsx).
+ *
+ * Primitive shapes use the `shape-` prefix — modules `Canvas/shapes/shape-*.jsx` match these strings exactly:
+ *   'shape-rounded-rect', 'shape-rect', 'shape-circle', 'shape-hexagon', 'shape-bus-bar', 'shape-dashed-rect'
+ * Schematics use `schematic-` — rendered by `Canvas/Schematics/*.jsx` (PascalCase component files).
+ * Every `shape` value has a matching `case` in CanvasComponentBody.jsx.
  * 
  * Dimensions based on typical aspect ratios:
  * - Generators/Turbines: Wider than tall (horizontal equipment)
@@ -41,7 +47,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 80,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect',
+    shape: 'shape-rounded-rect',
     backgroundTexture: '/component-textures/lm2500-line-art.png',
     backgroundTextureOpacity: 0.88
   },
@@ -50,7 +56,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 85,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect',
+    shape: 'schematic-lm2500-andritz',
     backgroundTexture: '/component-textures/lm2500-line-art.png',
     backgroundTextureOpacity: 0.88
   },
@@ -59,7 +65,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 80,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect',
+    shape: 'shape-rounded-rect',
     backgroundTexture: '/component-textures/lm2500-line-art.png',
     backgroundTextureOpacity: 0.88
   },
@@ -68,77 +74,77 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 90,
     icon: '⚙️',
     color: '#ff5722',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'gas-turbine-7h': {
     width: 200,
     height: 110,
     icon: '⚙️',
     color: '#ff5722',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'gas-turbine-9ha': {
     width: 220,
     height: 120,
     icon: '⚙️',
     color: '#ff5722',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'steam-turbine': {
     width: 160,
     height: 90,
     icon: '♨️',
     color: '#9c27b0',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'diesel-generator': {
     width: 120,
     height: 70,
     icon: '🔧',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'gas-turbine-1mw': {
     width: 100,
     height: 60,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'gas-turbine-5mw': {
     width: 120,
     height: 70,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'gas-turbine-10mw': {
     width: 140,
     height: 100,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'recip-gas-engine': {
     width: 120,
     height: 70,
     icon: '🔩',
     color: '#607d8b',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'fuel-cell': {
     width: 90,
     height: 70,
     icon: '⚡',
     color: '#005E60',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'microturbine': {
     width: 80,
     height: 60,
     icon: '⚙️',
     color: '#ff9800',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -149,21 +155,21 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 140,  // TALL (vertical tower with blades)
     icon: '🌀',
     color: '#03a9f4',
-    shape: 'tall-rect'
+    shape: 'shape-rounded-rect'
   },
   'wind-turbine-type4': {
     width: 100,
     height: 150,  // TALL
     icon: '🌀',
     color: '#03a9f4',
-    shape: 'tall-rect'
+    shape: 'shape-rounded-rect'
   },
   'solar-pv': {
     width: 140,
     height: 70,  // WIDE (horizontal panel arrays)
     icon: '☀️',
     color: '#ffc107',
-    shape: 'wide-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -174,21 +180,21 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 100,
     icon: 'G',
     color: '#4caf50',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'motor-large': {
     width: 90,
     height: 90,
     icon: 'M',
     color: '#2196f3',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'shaft-coupling': {
     width: 60,
     height: 40,
     icon: '═',
     color: '#9e9e9e',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
 
   // ============================================================================
@@ -199,7 +205,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 80,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect',
+    shape: 'shape-rounded-rect',
     backgroundTexture: '/component-textures/bess-line-art.png',
     backgroundTextureOpacity: 0.88
   },
@@ -208,7 +214,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 90,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect',
+    shape: 'shape-rounded-rect',
     backgroundTexture: '/component-textures/bess-line-art.png',
     backgroundTextureOpacity: 0.88
   },
@@ -217,7 +223,7 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 100,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect',
+    shape: 'shape-rounded-rect',
     backgroundTexture: '/component-textures/bess-line-art.png',
     backgroundTextureOpacity: 0.88
   },
@@ -226,42 +232,42 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 100,  // Tall rack
     icon: '🔋',
     color: '#4caf50',
-    shape: 'tall-rect'
+    shape: 'shape-rounded-rect'
   },
   'battery-container': {
     width: 120,
     height: 80,
     icon: '🔋',
     color: '#4caf50',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'flywheel': {
     width: 80,
     height: 80,
     icon: '⊚',
     color: '#673ab7',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'supercapacitor': {
     width: 70,
     height: 70,
     icon: '⊢⊣',
     color: '#005E60',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'hydrogen-storage': {
     width: 100,
     height: 120,  // Tall tank
     icon: 'H₂',
     color: '#03a9f4',
-    shape: 'tall-rect'
+    shape: 'shape-rounded-rect'
   },
   'thermal-storage': {
     width: 100,
     height: 100,
     icon: '♨️',
     color: '#ff5722',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -272,56 +278,56 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 70,
     icon: '🔌',
     color: '#9c27b0',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'ups-large': {
     width: 110,
     height: 80,
     icon: '🔌',
     color: '#9c27b0',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'rectifier': {
     width: 80,
     height: 60,
     icon: '⏵',
     color: '#673ab7',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'inverter': {
     width: 80,
     height: 60,
     icon: '⏴',
     color: '#673ab7',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'sst': {
     width: 90,
     height: 70,
     icon: '⚡',
     color: '#005E60',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'dcdc-converter': {
     width: 70,
     height: 60,
     icon: '⇄',
     color: '#607d8b',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'acdc-converter': {
     width: 70,
     height: 60,
     icon: '→',
     color: '#607d8b',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'dcac-converter': {
     width: 70,
     height: 60,
     icon: '←',
     color: '#607d8b',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
 
   // ============================================================================
@@ -371,42 +377,42 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 90,
     icon: '⚡↓',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'dc-xfmr': {
     width: 90,
     height: 90,
     icon: '⚡↓',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'stepdown-transformer': {
     width: 85,
     height: 85,
     icon: '⚡↓',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'isolation-transformer': {
     width: 80,
     height: 80,
     icon: '⚡║',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'auto-transformer': {
     width: 85,
     height: 85,
     icon: '⚡⟲',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'distribution-transformer': {
     width: 70,
     height: 70,
     icon: '⚡↓',
     color: '#795548',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -417,21 +423,21 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 70,
     icon: '⏚',
     color: '#f44336',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'breaker-mv': {
     width: 55,
     height: 65,
     icon: '⏚',
     color: '#ff5722',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'breaker-lv': {
     width: 65,
     height: 60,
     icon: '⏚',
     color: '#ff9800',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'breaker-dc': {
     width: 55,
@@ -460,56 +466,56 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 60,
     icon: '⏚',
     color: '#ff9800',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'line-resistor': {
     width: 56,
     height: 36,
     icon: '⌇',
     color: '#ffc107',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'disconnect-switch': {
     width: 45,
     height: 55,
     icon: '╱',
     color: '#9e9e9e',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'bus-tie-breaker': {
     width: 55,
     height: 65,
     icon: '⏚',
     color: '#ff5722',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'tie-breaker-network': {
     width: 140,
     height: 90,
     icon: '⟷',
     color: '#4caf50',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'recloser': {
     width: 50,
     height: 60,
     icon: '⟲',
     color: '#ff9800',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'protection-relay': {
     width: 40,
     height: 50,
     icon: '🛡️',
     color: '#607d8b',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'fuse': {
     width: 35,
     height: 45,
     icon: '╳',
     color: '#9e9e9e',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
 
   // ============================================================================
@@ -565,28 +571,28 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 50,
     icon: 'VT',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'power-meter': {
     width: 55,
     height: 55,
     icon: '📊',
     color: '#4caf50',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'frequency-meter': {
     width: 50,
     height: 50,
     icon: 'Hz',
     color: '#4caf50',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
   'pmu': {
     width: 60,
     height: 60,
     icon: '📡',
     color: '#005E60',
-    shape: 'rect'
+    shape: 'shape-rect'
   },
 
   // ============================================================================
@@ -597,63 +603,63 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 24,
     icon: '',
     color: '#b0b0b0',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'bus-main': {
     width: 200,
     height: 40,  // WIDE, thin (electrical bar)
     icon: '═══',
     color: '#ffeb3b',
-    shape: 'bus-bar'
+    shape: 'shape-bus-bar'
   },
   'bus-hv': {
     width: 200,
     height: 40,
     icon: '═══',
     color: '#f44336',
-    shape: 'bus-bar'
+    shape: 'shape-bus-bar'
   },
   'bus-hv-vertical': {
     width: 40,
     height: 200,
     icon: '║',
     color: '#f44336',
-    shape: 'bus-bar-vertical'
+    shape: 'shape-bus-bar'
   },
   'bus-mv': {
     width: 180,
     height: 40,
     icon: '═══',
     color: '#ff9800',
-    shape: 'bus-bar'
+    shape: 'shape-bus-bar'
   },
   'bus-lv': {
     width: 160,
     height: 35,
     icon: '═══',
     color: '#ffc107',
-    shape: 'bus-bar'
+    shape: 'shape-bus-bar'
   },
   'bus-dc': {
     width: 160,
     height: 35,
     icon: '───',
     color: '#005E60',
-    shape: 'bus-bar'
+    shape: 'shape-bus-bar'
   },
   'bus-ring': {
     width: 120,
     height: 120,
     icon: '⭕',
     color: '#ff9800',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'bus-sectional': {
     width: 160,
     height: 40,
     icon: '═╪═',
     color: '#ff9800',
-    shape: 'bus-bar'
+    shape: 'shape-bus-bar'
   },
 
   // ============================================================================
@@ -664,35 +670,35 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 90,
     icon: '⚡',
     color: '#4caf50',
-    shape: 'hexagon'
+    shape: 'shape-hexagon'
   },
   'backup-grid': {
     width: 100,
     height: 85,
     icon: '⚡',
     color: '#ff9800',
-    shape: 'hexagon'
+    shape: 'shape-hexagon'
   },
   'islanding-point': {
     width: 65,
     height: 65,
     icon: '⊗',
     color: '#9c27b0',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'pcc': {
     width: 70,
     height: 70,
     icon: '⊕',
     color: '#005E60',
-    shape: 'circle'
+    shape: 'shape-circle'
   },
   'microgrid-controller': {
     width: 90,
     height: 70,
     icon: '⚙️',
     color: '#673ab7',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -703,63 +709,73 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 90,
     icon: '🖥️',
     color: '#2196f3',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'data-hall': {
     width: 130,
     height: 85,
     icon: '🖥️',
     color: '#2196f3',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'it-load': {
     width: 120,
     height: 80,
     icon: '💻',
     color: '#2196f3',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'it-rack-load': {
     width: 70,
     height: 100,  // Tall rack
     icon: '⫾',
     color: '#2196f3',
-    shape: 'tall-rect'
+    shape: 'shape-rounded-rect'
   },
   'cooling-plant': {
     width: 130,
     height: 90,
     icon: '❄️',
     color: '#005E60',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'hvac-load': {
     width: 110,
     height: 80,
     icon: '❄️',
     color: '#005E60',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'auxiliary-loads': {
     width: 110,
     height: 70,
     icon: '⚙️',
     color: '#9e9e9e',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
+  },
+  // Same background treatment as bess-50mw; for large auxiliary / plant loads on one-line.
+  'auxiliary-loads-bess': {
+    width: 150,
+    height: 100,
+    icon: '⚙️',
+    color: '#9e9e9e',
+    shape: 'shape-rounded-rect',
+    backgroundTexture: '/component-textures/bess-line-art.png',
+    backgroundTextureOpacity: 0.88
   },
   'critical-load': {
     width: 130,
     height: 85,
     icon: '⚠️',
     color: '#f44336',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'noncritical-load': {
     width: 120,
     height: 75,
     icon: '○',
     color: '#9e9e9e',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -770,35 +786,35 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 60,
     icon: '🎛️',
     color: '#673ab7',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'ems': {
     width: 95,
     height: 65,
     icon: '📊',
     color: '#673ab7',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'load-shed-ctrl': {
     width: 85,
     height: 60,
     icon: '⚡',
     color: '#ff5722',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'black-start-ctrl': {
     width: 85,
     height: 60,
     icon: '▶️',
     color: '#4caf50',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
   'protection-logic': {
     width: 80,
     height: 60,
     icon: '🛡️',
     color: '#607d8b',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   },
 
   // ============================================================================
@@ -809,35 +825,35 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 140,
     icon: '⚡',
     color: '#455a64',
-    shape: 'dashed-rect'
+    shape: 'shape-dashed-rect'
   },
   'substation': {
     width: 200,
     height: 150,
     icon: '⚡',
     color: '#546e7a',
-    shape: 'dashed-rect'
+    shape: 'shape-dashed-rect'
   },
   'plant-boundary': {
     width: 250,
     height: 180,
     icon: '◻',
     color: '#607d8b',
-    shape: 'dashed-rect'
+    shape: 'shape-dashed-rect'
   },
   'datacenter-boundary': {
     width: 220,
     height: 160,
     icon: '🏢',
     color: '#455a64',
-    shape: 'dashed-rect'
+    shape: 'shape-dashed-rect'
   },
   'container-group': {
     width: 160,
     height: 120,
     icon: '◻',
     color: '#546e7a',
-    shape: 'dashed-rect'
+    shape: 'shape-dashed-rect'
   }
 };
 
@@ -851,7 +867,7 @@ export const getComponentVisualConfig = (componentType) => {
     height: 80,
     icon: '?',
     color: '#9e9e9e',
-    shape: 'rounded-rect'
+    shape: 'shape-rounded-rect'
   };
 };
 

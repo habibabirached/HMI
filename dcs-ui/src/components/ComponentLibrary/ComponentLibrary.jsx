@@ -62,7 +62,7 @@ const ComponentLibrary = ({ onAddComponent, disabled }) => {
             {expandedCategories[categoryGroup.category] && (
               <div className="component-list">
                 {categoryGroup.components.map((component) => {
-                  const visualConfig = getComponentVisualConfig(component.type);
+                  const visualConfig = getComponentVisualConfig(component.id);
                   
                   return (
                     <div

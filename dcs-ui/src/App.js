@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import ComponentLibrary from './components/ComponentLibrary';
 import Canvas from './components/Canvas';
 import PropertyPanel from './components/PropertyPanel';
@@ -8,8 +8,16 @@ import SaveLoadDialog from './components/SaveLoadDialog';
 import ChartPanel from './components/ChartPanel/ChartPanel';
 import ColumnPickerDialog from './components/ColumnPickerDialog/ColumnPickerDialog';
 import ViewDataModal from './components/ViewDataModal/ViewDataModal';
+import SaveSimulationConfigDialog from './components/SaveSimulationConfigDialog/SaveSimulationConfigDialog';
 import * as Scenarios from './scenarios/quickScenarios';
 import { API_BASE_URL } from './apiConfig';
+import {
+  CHART_PANEL_MIN_HEIGHT,
+  getChartPanelMaxHeightPx,
+  clampChartPanelOpacity,
+  CHART_PANEL_OPACITY_DEFAULT,
+} from './utils/chartPanelLimits';
+import { parseSimulationDeepLink, buildSimulationDeepLinkQuery, lastScenarioSessionStorageKey } from './utils/simDeepLink';
 import './styles/App.css';
 
 function App() {
@@ -52,12 +60,34 @@ function App() {
   const [simConfig, setSimConfig] = useState(null); // Simulation configuration JSON (from backend)
   const [simulationData, setSimulationData] = useState([]); // Filtered CSV data for current simulation
   const [simulationMetadata, setSimulationMetadata] = useState(null); // Metadata about current simulation
-  
-  
+
+  // While a scenario is loading (network + parsing + derived columns + charts), we show a linear progress bar
+  // in Simulation Controls. This state holds the percent (0–100), a short status line, and which sim id
+  // is loading so the UI can highlight the right row.
+  const [simulationLoadProgress, setSimulationLoadProgress] = useState(null);
+  // Bump this counter each time the user starts a new scenario load. Older in-flight requests use it to
+  // stop updating the bar (avoids a slow response from overwriting UI after you already picked another scenario).
+  const simulationLoadGenRef = useRef(0);
+  // The browser cannot always report true download % for fetch(), so we use a gentle timer that nudges the
+  // bar forward until the server responds; we clear this interval whenever the real steps advance or finish.
+  const simulationLoadFakeIntervalRef = useRef(null);
+
   // Chart Panel state
   const [openCharts, setOpenCharts] = useState([]); // Charts currently displayed in bottom panel
   const [chartStacks, setChartStacks] = useState([]); // Array of stacks; each stack = array of chart indices
+  // Step 2: named UI presets live as extra keys inside each scenario’s *.sim.json (parallel to current_configuration).
+  const [namedSimulationConfigs, setNamedSimulationConfigs] = useState([]);
+  const [activeNamedSimulationConfig, setActiveNamedSimulationConfig] = useState(null);
+  const activeNamedSimulationConfigRef = useRef(null);
+  /** Deep link calls the same loader as the dialog but must not also run localStorage session-restore for the same navigation. */
+  const loadSkipSessionRestoreRef = useRef(false);
+  const [saveSimConfigDialogOpen, setSaveSimConfigDialogOpen] = useState(false);
+  // After ?design=&sim= opens the catalog design, we run the scenario (and optional named preset) in a second effect.
+  const [simDeepLinkFollowup, setSimDeepLinkFollowup] = useState(null);
+  // Bumped when Load Design finishes so we can read localStorage and queue the same follow-up as a URL deep link.
+  const [sessionRestoreTrigger, setSessionRestoreTrigger] = useState(0);
   const [chartPanelHeight, setChartPanelHeight] = useState(300);
+  const [chartPanelOpacity, setChartPanelOpacity] = useState(CHART_PANEL_OPACITY_DEFAULT);
   const [globalSampleStep, setGlobalSampleStep] = useState(1); // Chart sampling: 1=every row, 2=every 2nd, etc.
   const [perChartSampleStep, setPerChartSampleStep] = useState({}); // Per-chart override: { chartId: step }
   const [selectedRowIndices, setSelectedRowIndices] = useState(null); // Set<number> for cross-chart selection, null = none
@@ -76,8 +106,17 @@ function App() {
   
   const canvasRef = useRef(null);
 
-  const designImageUrl = currentConfigName && csvStatus?.use_design_dir
-    ? `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/image`
+  /** URL path segment for /api/designs/... when using on-disk layouts (includes archive/foo when archived). */
+  const designApiPath = useMemo(() => {
+    if (!currentConfigName) return null;
+    if (csvStatus?.use_design_dir) {
+      return csvStatus.design_catalog_rel || currentConfigName;
+    }
+    return currentConfigName;
+  }, [currentConfigName, csvStatus?.use_design_dir, csvStatus?.design_catalog_rel]);
+
+  const designImageUrl = currentConfigName && csvStatus?.use_design_dir && designApiPath
+    ? `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/image`
     : null;
 
   const handlePanelFocus = (panel, e) => {
@@ -88,9 +127,9 @@ function App() {
   // Add component to canvas
   const handleAddComponent = useCallback((componentDef, position) => {
     const newComponent = {
+      ...componentDef,
       id: `${componentDef.id}-${Date.now()}`,
       type: componentDef.id,
-      ...componentDef,
       position: position || { x: 100, y: 100 },
       status: 'idle', // Start components as idle (gray) until simulation starts
       state: {
@@ -654,8 +693,38 @@ function App() {
       alert('⚠️ No design directory for this configuration.');
       return;
     }
+    if (!designApiPath) {
+      alert('⚠️ Design path not available. Try reloading the configuration.');
+      return;
+    }
+
+    // --- Scenario load progress (linear bar in Simulation Controls) -----------------------------
+    // From here until the fetch completes, the user sees “Loading data” plus a moving %.
+    // loadGen ties all async steps to this click so overlapping runs cannot corrupt the bar.
+    const loadGen = ++simulationLoadGenRef.current;
+    const isStale = () => simulationLoadGenRef.current !== loadGen;
+    const setLoad = (patch) => {
+      if (isStale()) return;
+      setSimulationLoadProgress((prev) => (prev ? { ...prev, ...patch } : prev));
+    };
+    const stopFakeProgress = () => {
+      if (simulationLoadFakeIntervalRef.current != null) {
+        clearInterval(simulationLoadFakeIntervalRef.current);
+        simulationLoadFakeIntervalRef.current = null;
+      }
+    };
+
+    setSimulationLoadProgress({
+      simulationId,
+      percent: 4,
+      status: 'Loading data…',
+    });
     
     console.log('🧹 Clearing existing charts...');
+    // Switching to a different scenario’s CSV clears which preset button should look “active”; same scenario reload (e.g. activate preset) keeps the highlight until we replace it.
+    if (simulationMetadata?.id !== simulationId) {
+      setActiveNamedSimulationConfig(null);
+    }
     setOpenCharts([]);
     setSelectedComponent(null);
     setSelectedConnection(null);
@@ -663,28 +732,68 @@ function App() {
     setSimulationRunning(false);
     setSimulationTime(0);
 
+    // Cancel any previous interval, then creep the bar toward ~82% while we wait on the network
+    // (real milestones jump it later; this avoids a frozen bar on slow links).
+    stopFakeProgress();
+    simulationLoadFakeIntervalRef.current = setInterval(() => {
+      setSimulationLoadProgress((prev) => {
+        if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
+        if (prev.percent >= 82) return prev;
+        return { ...prev, percent: Math.min(82, prev.percent + 1.4) };
+      });
+    }, 90);
+
     try {
       let filteredRows;
       let scenarioConfig;
       let csvNameForCharts;
-      
+
+      setLoad({ percent: 8, status: 'Connecting to server…' });
+
       // Fetch from design dir (per-sim .sim.json + .data.csv)
       const response = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationId)}`
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationId)}`
       );
+      if (isStale()) {
+        stopFakeProgress();
+        return;
+      }
+      stopFakeProgress();
+      setLoad({ percent: 62, status: 'Downloading simulation data…' });
+
       if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
+      setLoad({ percent: 74, status: 'Reading response…' });
       const result = await response.json();
+      if (isStale()) {
+        stopFakeProgress();
+        return;
+      }
       filteredRows = result.data || [];
       scenarioConfig = result.sim_config || {};
       csvNameForCharts = `${simulationId}.data.csv`;
       
       if (!filteredRows || filteredRows.length === 0) {
+        stopFakeProgress();
+        setSimulationLoadProgress(null);
         alert(`⚠️ No data found for simulation "${simulationId}".`);
         return;
       }
 
+      setLoad({ percent: 82, status: 'Processing rows…' });
       const derivedVariables = scenarioConfig.derived_variables || [];
       const augmentedRows = (await import('./utils/formulaEvaluator')).augmentRowsWithDerived(filteredRows, derivedVariables);
+      if (isStale()) {
+        stopFakeProgress();
+        return;
+      }
+      setLoad({ percent: 90, status: 'Applying chart layout…' });
+
+      // Restore designer vs customer from the per-simulation draft blob (current_configuration), populated by the backend even for legacy .sim.json files.
+      const cc = scenarioConfig.current_configuration;
+      if (cc && (cc.view_mode === 'customer' || cc.view_mode === 'designer')) {
+        setViewMode(cc.view_mode);
+      }
+
       const timeValues = augmentedRows.map(r => Number(r['Time (s)'] ?? r.time_sec) ?? 0);
       const simulationMetadata = {
         id: simulationId,
@@ -716,8 +825,17 @@ function App() {
       const chartsToDisplay = scenarioConfig.charts_to_display || [];
       setChartStacks(scenarioConfig.chart_stacks || []);
       setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
-      if (scenarioConfig.chart_panel_height != null && scenarioConfig.chart_panel_height >= 200 && scenarioConfig.chart_panel_height <= 800) {
-        setChartPanelHeight(scenarioConfig.chart_panel_height);
+      const panelMax = getChartPanelMaxHeightPx();
+      if (
+        scenarioConfig.chart_panel_height != null &&
+        scenarioConfig.chart_panel_height >= CHART_PANEL_MIN_HEIGHT
+      ) {
+        setChartPanelHeight(Math.min(scenarioConfig.chart_panel_height, panelMax));
+      }
+      if (scenarioConfig.chart_panel_opacity != null) {
+        setChartPanelOpacity(clampChartPanelOpacity(scenarioConfig.chart_panel_opacity));
+      } else {
+        setChartPanelOpacity(CHART_PANEL_OPACITY_DEFAULT);
       }
       const initialPerChart = {};
       if (chartsToDisplay.length > 0) {
@@ -762,11 +880,104 @@ function App() {
         setChartStacks([]);
         setPerChartSampleStep({});
       }
-      
-      // alert(`✅ Simulation loaded!\n\n${simulationMetadata.displayName}\n${simulationMetadata.rowCount} rows, ${simulationMetadata.timeRange.min}s–${simulationMetadata.timeRange.max}s`);
+
+      if (isStale()) {
+        stopFakeProgress();
+        return;
+      }
+      stopFakeProgress();
+      // Backend lists which extra top-level keys in this .sim.json are chart UI presets (for the chart tray).
+      setNamedSimulationConfigs(result.named_configuration_keys || []);
+      try {
+        if (csvStatus?.use_design_dir && designApiPath) {
+          localStorage.setItem(
+            lastScenarioSessionStorageKey(designApiPath),
+            JSON.stringify({
+              simId: simulationId,
+              namedConfig: activeNamedSimulationConfigRef.current || null,
+            }),
+          );
+        }
+      } catch (_) {
+        /* ignore quota / private mode */
+      }
+      setLoad({ percent: 100, status: 'Complete' });
+      // Brief moment at 100% so the user sees completion; then hide the meter entirely.
+      setTimeout(() => {
+        if (simulationLoadGenRef.current === loadGen) {
+          setSimulationLoadProgress(null);
+        }
+      }, 450);
     } catch (error) {
+      stopFakeProgress();
+      if (simulationLoadGenRef.current === loadGen) {
+        setSimulationLoadProgress(null);
+      }
       console.error('❌ Error loading simulation:', error);
       alert(`❌ Failed to load simulation:\n\n${error.message}`);
+    }
+  };
+
+  /**
+   * Copies a named snapshot onto disk, then re-runs the same scenario load path so openCharts / stacks / viewMode match the file.
+   */
+  const handleActivateNamedSimulationConfig = async (presetName) => {
+    if (!simulationMetadata?.id || !designApiPath) return;
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationMetadata.id)}/named-configurations/${encodeURIComponent(presetName)}/activate`,
+        { method: 'POST' },
+      );
+      if (!res.ok) {
+        const msg = await res.text();
+        alert(msg || `Failed to activate preset (${res.status})`);
+        return;
+      }
+      await handleRunSimulation(simulationMetadata.id);
+      setActiveNamedSimulationConfig(presetName);
+      try {
+        if (designApiPath) {
+          localStorage.setItem(
+            lastScenarioSessionStorageKey(designApiPath),
+            JSON.stringify({ simId: simulationMetadata.id, namedConfig: presetName }),
+          );
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    } catch (e) {
+      console.warn(e);
+      alert('Failed to activate preset');
+    }
+  };
+
+  /**
+   * Flush the live draft to current_configuration on disk, then duplicate that subtree under a user-chosen top-level key.
+   */
+  const handleConfirmSaveSimulationConfig = async ({ name, overwrite }) => {
+    if (!simulationMetadata?.id || !designApiPath) return;
+    try {
+      await persistChartsToSimJson(openCharts);
+      const res = await fetch(
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationMetadata.id)}/named-configurations`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, overwrite }),
+        },
+      );
+      if (!res.ok) {
+        const msg = await res.text();
+        alert(msg || `Save failed (${res.status})`);
+        return;
+      }
+      const data = await res.json();
+      setNamedSimulationConfigs(data.named_configuration_keys || []);
+      setActiveNamedSimulationConfig(name);
+      setSaveSimConfigDialogOpen(false);
+    } catch (e) {
+      console.warn(e);
+      alert('Failed to save named configuration');
     }
   };
 
@@ -774,9 +985,9 @@ function App() {
    * Refresh simulations list from backend (after add or upload)
    */
   const refreshSimulationsList = async () => {
-    if (!currentConfigName) return;
+    if (!currentConfigName || !designApiPath) return;
     try {
-      const listRes = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations`);
+      const listRes = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations`);
       if (listRes.ok) {
         const list = await listRes.json();
         const sims = list.simulations || [];
@@ -794,9 +1005,9 @@ function App() {
    * Add a new simulation scenario (creates .sim.json, then user can upload CSV)
    */
   const handleAddSimulation = async (simName) => {
-    if (!currentConfigName || !simName?.trim()) return;
+    if (!currentConfigName || !designApiPath || !simName?.trim()) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations`, {
+      const response = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: simName.trim() })
@@ -829,14 +1040,14 @@ function App() {
    * Upload CSV data for a simulation (design dir flow only)
    */
   const handleUploadSimData = async (simId, file) => {
-    if (!currentConfigName || !file) return;
+    if (!currentConfigName || !designApiPath || !file) return;
     setIsUploading(true);
     const uploadStartTime = Date.now();
     try {
       const formData = new FormData();
       formData.append('file', file);
       const response = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}/data`,
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simId)}/data`,
         { method: 'POST', body: formData }
       );
       if (!response.ok) {
@@ -864,13 +1075,13 @@ function App() {
    * - Sheet data → CSV content saved to design dir (handled by backend)
    */
   const handleAddSimulationsFromXlsx = async (file) => {
-    if (!currentConfigName || !file) return;
+    if (!currentConfigName || !designApiPath || !file) return;
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
       const response = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/from-xlsx`,
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/from-xlsx`,
         { method: 'POST', body: formData }
       );
       if (!response.ok) {
@@ -892,11 +1103,11 @@ function App() {
    * Delete a simulation (removes .sim.json and .data.csv)
    */
   const handleDeleteSimulation = async (simId) => {
-    if (!currentConfigName || !simId) return;
+    if (!currentConfigName || !designApiPath || !simId) return;
     if (!window.confirm(`Delete simulation "${simId}" and its data? This cannot be undone.`)) return;
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`,
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simId)}`,
         { method: 'DELETE' }
       );
       if (!response.ok) {
@@ -918,12 +1129,12 @@ function App() {
    * View simulation data (first 200 rows in popup)
    */
   const handleViewSimData = async (simId) => {
-    if (!currentConfigName || !simId) return;
+    if (!currentConfigName || !designApiPath || !simId) return;
     const displayName = simConfig?.simulations?.[simId]?.display_name || simId;
     setViewModal({ simName: simId, displayName, data: null, loading: true });
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simId)}`
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simId)}`
       );
       if (!response.ok) throw new Error('Failed to load simulation data');
       const result = await response.json();
@@ -940,10 +1151,15 @@ function App() {
   const handleToggleViewMode = () => {
     const newViewMode = viewMode === 'designer' ? 'customer' : 'designer';
     setViewMode(newViewMode);
-    
+
     // When switching to designer view, stop simulation
     if (newViewMode === 'designer') {
       setSimulationRunning(false);
+    }
+
+    // Persist view_mode into .sim.current_configuration alongside charts so reload restores the same mode for this CSV tab.
+    if (simulationMetadata?.id && currentConfigName && designApiPath) {
+      persistChartsToSimJson(openCharts, { view_mode: newViewMode });
     }
   };
 
@@ -1044,12 +1260,15 @@ function App() {
    * backend format (component_id, x_column, etc.) used in charts_to_display.
    */
   const persistChartsToSimJson = useCallback(async (charts, overrides = {}) => {
-    if (!simulationMetadata?.id || !currentConfigName) return;
+    if (!simulationMetadata?.id || !currentConfigName || !designApiPath) return;
     const effectiveGlobal = overrides.chart_sample_default ?? globalSampleStep;
     const effectivePerChart = overrides.perChartSampleStep ?? perChartSampleStep;
     const effectiveHeight = overrides.chart_panel_height ?? chartPanelHeight;
+    const effectiveOpacity = overrides.chart_panel_opacity ?? chartPanelOpacity;
     const effectiveStacks = overrides.chart_stacks ?? chartStacks;
     const effectiveDerived = overrides.derived_variables ?? simulationMetadata?.derivedVariables;
+    // Sent on every persist so current_configuration.view_mode in .sim.json matches the toggle when the user reopens this scenario.
+    const effectiveViewMode = overrides.view_mode ?? viewMode;
     try {
       const charts_to_display = charts.map(c => {
         let base;
@@ -1099,17 +1318,24 @@ function App() {
         chart_stacks: effectiveStacks,
         chart_sample_default: effectiveGlobal,
         chart_panel_height: effectiveHeight,
+        chart_panel_opacity: effectiveOpacity,
+        view_mode: effectiveViewMode,
         ...(effectiveDerived != null && { derived_variables: effectiveDerived })
       };
       const res = await fetch(
-        `${API_BASE_URL}/api/designs/${encodeURIComponent(currentConfigName)}/simulations/${encodeURIComponent(simulationMetadata.id)}/config`,
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationMetadata.id)}/config`,
         { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
       );
-      if (!res.ok) console.warn('Failed to persist charts:', await res.text());
+      if (!res.ok) {
+        console.warn('Failed to persist charts:', await res.text());
+      } else {
+        // Edits no longer match a frozen named snapshot; only clearing after a successful write avoids flicker on failed PUTs.
+        setActiveNamedSimulationConfig(null);
+      }
     } catch (e) {
       console.warn('persistChartsToSimJson error:', e);
     }
-  }, [simulationMetadata?.id, simulationMetadata?.derivedVariables, currentConfigName, globalSampleStep, perChartSampleStep, chartPanelHeight, chartStacks]);
+  }, [simulationMetadata?.id, simulationMetadata?.derivedVariables, designApiPath, globalSampleStep, perChartSampleStep, chartPanelHeight, chartPanelOpacity, chartStacks, viewMode]);
 
   const persistChartPanelHeightRef = useRef(null);
   const handleChartPanelHeightChange = useCallback((newHeight) => {
@@ -1120,6 +1346,19 @@ function App() {
         persistChartsToSimJson(openCharts, { chart_panel_height: newHeight });
       }
       persistChartPanelHeightRef.current = null;
+    }, 400);
+  }, [simulationMetadata?.id, openCharts, persistChartsToSimJson]);
+
+  const persistChartPanelOpacityRef = useRef(null);
+  const handleChartPanelOpacityChange = useCallback((nextOpacity) => {
+    const clamped = clampChartPanelOpacity(nextOpacity);
+    setChartPanelOpacity(clamped);
+    if (persistChartPanelOpacityRef.current) clearTimeout(persistChartPanelOpacityRef.current);
+    persistChartPanelOpacityRef.current = setTimeout(() => {
+      if (simulationMetadata?.id && openCharts.length > 0) {
+        persistChartsToSimJson(openCharts, { chart_panel_opacity: clamped });
+      }
+      persistChartPanelOpacityRef.current = null;
     }, 400);
   }, [simulationMetadata?.id, openCharts, persistChartsToSimJson]);
 
@@ -1408,6 +1647,9 @@ function App() {
    * Handle Load - Apply loaded configuration to the app
    */
   const handleConfigurationLoaded = (loadedConfig) => {
+    const skipSessionRestore = loadSkipSessionRestoreRef.current;
+    loadSkipSessionRestoreRef.current = false;
+
     console.log('✅ Loading configuration:', loadedConfig.name);
     console.log('🔍 Full loadedConfig:', loadedConfig); // DEBUG: See entire response
     console.log('🔍 csv_status:', loadedConfig.csv_status); // DEBUG: Check csv_status
@@ -1471,7 +1713,12 @@ function App() {
     // Reset selection
     setSelectedComponent(null);
     setSelectedConnection(null);
-    
+
+    // Step 4: after Load Design (not URL bootstrap), re-open the last scenario tab for this folder via localStorage.
+    if (!skipSessionRestore && loadedConfig.csv_status?.use_design_dir) {
+      setSessionRestoreTrigger((n) => n + 1);
+    }
+
     console.log('✅ Configuration loaded and applied');
   };
 
@@ -1505,6 +1752,138 @@ function App() {
       }
     };
   };
+
+  // Keep latest handlers in refs so one-shot URL bootstrap effects do not capture stale closures or re-run on every render.
+  const handleConfigurationLoadedRef = useRef(null);
+  const handleRunSimulationRef = useRef(null);
+  const deepLinkBootstrapStartedRef = useRef(false);
+
+  useEffect(() => {
+    activeNamedSimulationConfigRef.current = activeNamedSimulationConfig;
+  });
+
+  useEffect(() => {
+    handleConfigurationLoadedRef.current = handleConfigurationLoaded;
+    handleRunSimulationRef.current = handleRunSimulation;
+  });
+
+  // Step 3: optional startup URL ?design=catalogPath&sim=ScenarioId&config=NamedPreset — load canvas from disk, then hydrate charts like a manual scenario click.
+  // React Strict Mode runs mount → cleanup → mount again; we must reset deepLinkBootstrapStartedRef in cleanup or the remount exits early and never fetches.
+  useEffect(() => {
+    if (deepLinkBootstrapStartedRef.current) return;
+    const parsed = parseSimulationDeepLink(window.location.search);
+    if (!parsed) return;
+    deepLinkBootstrapStartedRef.current = true;
+    console.log('[Deep link] Parsed URL → design=%s sim=%s config=%s', parsed.design, parsed.sim, parsed.config ?? '(current draft)');
+    let cancelled = false;
+    (async () => {
+      try {
+        const url = `${API_BASE_URL}/api/designs/catalog/${encodeURIComponent(parsed.design)}/load`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          if (!cancelled) console.warn('[Deep link] Design load failed', res.status, await res.text());
+          return;
+        }
+        const loadedConfig = await res.json();
+        if (cancelled) {
+          console.log('[Deep link] Ignored design response (superseded remount)');
+          return;
+        }
+        console.log('[Deep link] Design loaded, applying canvas…');
+        loadSkipSessionRestoreRef.current = true;
+        handleConfigurationLoadedRef.current?.(loadedConfig);
+        setSimDeepLinkFollowup({ sim: parsed.sim, config: parsed.config });
+      } catch (e) {
+        if (!cancelled) console.warn('[Deep link] Error', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      deepLinkBootstrapStartedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!simDeepLinkFollowup) return;
+    if (!designApiPath || !csvStatus?.use_design_dir) return;
+    const { sim, config } = simDeepLinkFollowup;
+    if (availableSimulations.length === 0) return;
+    if (!availableSimulations.includes(sim)) {
+      console.warn(
+        `[Deep link] Simulation id "${sim}" not in this design. Available:`,
+        availableSimulations,
+      );
+      setSimDeepLinkFollowup(null);
+      return;
+    }
+    setSimDeepLinkFollowup(null);
+    let cancelled = false;
+    console.log('[Deep link] Running scenario', sim, config ? `+ preset "${config}"` : '');
+    (async () => {
+      try {
+        if (config) {
+          const actRes = await fetch(
+            `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(sim)}/named-configurations/${encodeURIComponent(config)}/activate`,
+            { method: 'POST' },
+          );
+          if (!actRes.ok) {
+            if (!cancelled) alert((await actRes.text()) || `Failed to activate preset (${actRes.status})`);
+            return;
+          }
+        }
+        if (cancelled) return;
+        await handleRunSimulationRef.current?.(sim);
+        if (cancelled) return;
+        if (config) setActiveNamedSimulationConfig(config);
+        if (typeof window !== 'undefined' && window.location.search.includes('design=')) {
+          window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash || ''}`);
+        }
+      } catch (e) {
+        if (!cancelled) console.warn('Deep link follow-up failed', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [simDeepLinkFollowup, designApiPath, csvStatus?.use_design_dir, availableSimulations]);
+
+  useEffect(() => {
+    if (sessionRestoreTrigger === 0) return;
+    if (!designApiPath || !csvStatus?.use_design_dir) return;
+    if (availableSimulations.length === 0) return;
+    let stored;
+    try {
+      const raw = localStorage.getItem(lastScenarioSessionStorageKey(designApiPath));
+      if (!raw) {
+        setSessionRestoreTrigger(0);
+        return;
+      }
+      stored = JSON.parse(raw);
+    } catch {
+      setSessionRestoreTrigger(0);
+      return;
+    }
+    const simId = stored?.simId;
+    const namedConfig = stored?.namedConfig ?? null;
+    if (!simId || !availableSimulations.includes(simId)) {
+      setSessionRestoreTrigger(0);
+      return;
+    }
+    setSessionRestoreTrigger(0);
+    console.log('[Session restore] Resuming', simId, namedConfig || 'current draft');
+    setSimDeepLinkFollowup({ sim: simId, config: namedConfig });
+  }, [sessionRestoreTrigger, designApiPath, csvStatus?.use_design_dir, availableSimulations]);
+
+  const handleCopyScenarioLink = useCallback(() => {
+    if (!designApiPath || !simulationMetadata?.id) return;
+    const query = buildSimulationDeepLinkQuery({
+      designApiPath,
+      simulationId: simulationMetadata.id,
+      namedConfig: activeNamedSimulationConfig || null,
+    });
+    const fullUrl = `${window.location.origin}${window.location.pathname}${query}`;
+    navigator.clipboard?.writeText(fullUrl).catch(() => {});
+  }, [designApiPath, simulationMetadata?.id, activeNamedSimulationConfig]);
 
   return (
     <div className="app-container">
@@ -1576,9 +1955,13 @@ function App() {
           }}
           onSave={handleQuickSave}
           onSaveAs={handleOpenSaveDialog}
+          onSaveSimulationConfig={() => setSaveSimConfigDialogOpen(true)}
           onLoad={handleOpenLoadDialog}
           hasComponents={canvasComponents.length > 0}
           canSave={currentConfigName !== null}
+          canSaveSimulationConfig={Boolean(csvStatus?.use_design_dir && simulationMetadata?.id && designApiPath)}
+          onCopyScenarioLink={handleCopyScenarioLink}
+          canCopyScenarioLink={Boolean(csvStatus?.use_design_dir && simulationMetadata?.id && designApiPath)}
         />
       </header>
 
@@ -1735,6 +2118,8 @@ function App() {
             onViewSimData={handleViewSimData}
             onAddSimulation={handleAddSimulation}
             onAddSimulationsFromXlsx={handleAddSimulationsFromXlsx}
+            /* Drives the “Loading data” linear bar under the scenario list while handleRunSimulation runs. */
+            simulationLoadProgress={simulationLoadProgress}
           />
         </div>
       </div>
@@ -1775,6 +2160,8 @@ function App() {
           onRemoveChart={handleRemoveChart}
           height={chartPanelHeight}
           onHeightChange={handleChartPanelHeightChange}
+          panelOpacity={chartPanelOpacity}
+          onPanelOpacityChange={handleChartPanelOpacityChange}
           simulationTime={simulationTime}
           simulationRunning={simulationRunning}
           selectedComponentId={selectedComponent?.id}
@@ -1799,12 +2186,25 @@ function App() {
             });
           }}
           currentConfigName={currentConfigName}
+          designCatalogPath={designApiPath}
           selectedRowIndices={selectedRowIndices}
           onSelectionChange={setSelectedRowIndices}
           onFocus={(e) => handlePanelFocus('charts', e)}
           isFocused={focusedPanel === 'charts'}
+          namedSimulationConfigs={namedSimulationConfigs}
+          activeNamedSimulationConfig={activeNamedSimulationConfig}
+          onActivateNamedSimulationConfig={
+            csvStatus?.use_design_dir && designApiPath ? handleActivateNamedSimulationConfig : undefined
+          }
         />
       )}
+
+      <SaveSimulationConfigDialog
+        open={saveSimConfigDialogOpen}
+        existingNames={namedSimulationConfigs}
+        onClose={() => setSaveSimConfigDialogOpen(false)}
+        onSave={handleConfirmSaveSimulationConfig}
+      />
 
       {/* Saving Spinner Overlay */}
       {isSaving && (

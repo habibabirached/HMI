@@ -14,9 +14,13 @@ const Toolbar = ({
   onResetView,
   onSave,
   onSaveAs,
+  onSaveSimulationConfig,
+  onCopyScenarioLink,
   onLoad,
   hasComponents,
-  canSave // Whether we can do a quick save (config name exists)
+  canSave, // Whether we can do a quick save (config name exists)
+  canSaveSimulationConfig, // Design-dir scenario loaded: open “Save configuration as” for .sim.json presets
+  canCopyScenarioLink, // Scenario running from design dir: copy ?design=&sim=&config= link
 }) => {
   /**
    * Toggle fullscreen for the entire page
@@ -76,6 +80,26 @@ const Toolbar = ({
             title="Save Design As (create new config)"
           >
             💾 Save Design As
+          </button>
+        )}
+        {canSaveSimulationConfig && (
+          <button
+            type="button"
+            className="btn-save-sim-config"
+            onClick={onSaveSimulationConfig}
+            title="Save configuration as: snapshot current charts and panel settings into this scenario’s .sim.json under a name"
+          >
+            💾 Save configuration as
+          </button>
+        )}
+        {canCopyScenarioLink && (
+          <button
+            type="button"
+            className="btn-copy-scenario-link"
+            onClick={onCopyScenarioLink}
+            title="Copy a link that opens this design, loads this scenario, and optionally the highlighted chart preset"
+          >
+            🔗 Copy scenario link
           </button>
         )}
         <button className="btn-load" onClick={onLoad} title="Load Configuration">

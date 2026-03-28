@@ -406,6 +406,103 @@
   flex: 1;
 }
 
+/* During an active scenario load, play buttons are disabled. This look signals “busy” without a spinner. */
+.control-btn-scenario:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Highlights the row whose scenario is currently loading so it’s easy to see which request is in flight. */
+.scenario-button-row-loading {
+  outline: 1px solid rgba(0, 212, 168, 0.5);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Container for the horizontal progress UI: title, track, and footer with % + status from the app state. */
+.sim-load-progress {
+  margin-top: 16px;
+  padding: 14px 14px 12px;
+  background: linear-gradient(180deg, rgba(0, 94, 96, 0.12), rgba(13, 13, 13, 0.85));
+  border: 1px solid rgba(0, 94, 96, 0.45);
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgba(0, 212, 168, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Matches other teal accents in this panel; reads as a section title above the bar. */
+.sim-load-progress-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #00d4a8;
+  margin-bottom: 10px;
+}
+
+/* Full width of the unfilled portion; the green fill grows over it as `width` updates from React. */
+.sim-load-progress-bar-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* Gradient + shimmer animation: reads like a “tech” pulse along the bar instead of a spinning circle. */
+.sim-load-progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #004d4f 0%,
+    #00d4a8 45%,
+    #66ffe0 55%,
+    #00d4a8 100%
+  );
+  background-size: 180% 100%;
+  box-shadow: 0 0 12px rgba(0, 212, 168, 0.7);
+  transition: width 0.22s ease-out;
+  animation: sim-load-linear-shimmer 1.35s ease-in-out infinite;
+}
+
+/* Shifts background-position so the highlight appears to travel horizontally along the fill. */
+@keyframes sim-load-linear-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+/* Left: numeric percent; right: human-readable step (e.g. “Processing rows…”) from the backend flow. */
+.sim-load-progress-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.sim-load-progress-percent {
+  font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #e0f7f4;
+  letter-spacing: 0.04em;
+}
+
+.sim-load-progress-status {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: #9eccc7;
+  line-height: 1.35;
+}
+
 .control-btn-upload {
   min-width: 32px;
   padding: 4px 6px;

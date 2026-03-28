@@ -11,7 +11,7 @@ These schemas define the "shape" of data that flows in and out of our API endpoi
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 from datetime import datetime
 
 # ------------------------------------------------------------------------------------------------------
@@ -291,13 +291,23 @@ class ConfigurationListItem(BaseModel):
 class DesignCatalogItem(BaseModel):
     """One row for GET /api/designs/catalog — a folder under designs/ with a matching .conf.json."""
 
-    design_dir: str = Field(..., description="Directory name under designs/, e.g. halfblock")
+    design_dir: str = Field(
+        ...,
+        description="Path under designs/: e.g. halfblock or archive/halfblock (use in load/delete/archive APIs)",
+    )
     name: str = Field(..., description="Display name from .conf.json")
     description: Optional[str] = Field(None, description="Description from .conf.json")
     db_id: Optional[int] = Field(None, description="Configurations.id if a DB row matches name")
     conf_updated_at: Optional[datetime] = Field(
         None, description="Last filesystem mtime of the .conf.json file"
     )
+
+
+class DesignCatalogBundle(BaseModel):
+    """GET /api/designs/catalog — active designs plus designs under designs/archive/."""
+
+    active: list[DesignCatalogItem]
+    archived: list[DesignCatalogItem]
 
 
 # ------------------------------------------------------------------------------------------------------
@@ -307,6 +317,20 @@ class DesignCatalogItem(BaseModel):
 class CreateSimulationRequest(BaseModel):
     """Request body for creating a new simulation scenario."""
     name: str = Field(..., description="Name for the new simulation", min_length=1)
+
+
+# ------------------------------------------------------------------------------------------------------
+# NAMED SIMULATION UI PRESETS (per *.sim.json, same directory as the CSV scenario)
+# ------------------------------------------------------------------------------------------------------
+
+
+class SaveNamedSimulationConfigRequest(BaseModel):
+    """
+    Saves a snapshot of current_configuration under a user-chosen top-level key in the .sim.json file.
+    overwrite must be true to replace an existing preset with the same name.
+    """
+    name: str = Field(..., description="Preset label (letters, digits, underscore, hyphen)", min_length=1, max_length=64)
+    overwrite: bool = Field(False, description="If true, replace an existing preset with this name")
 
 
 # ------------------------------------------------------------------------------------------------------
@@ -328,13 +352,24 @@ class UpdateSimulationConfigRequest(BaseModel):
     Each chart in charts_to_display may have an optional sample_step for per-chart override.
     chart_panel_height: chart panel height in pixels; if None, keep existing.
     derived_variables: formula-based columns (name + formula); computed at runtime, not stored in CSV.
+    view_mode: designer vs customer; copied into current_configuration so reopening the scenario restores the toggle.
     """
     charts_to_display: list = Field(default_factory=list, description="Array of chart definitions (each may have sample_step)")
     chart_stacks: Optional[list] = Field(default=None, description="Array of stacks; each stack is array of chart indices. If None, keep existing.")
     event_markers: Optional[dict] = Field(default=None, description="Event markers; if None, keep existing")
     chart_sample_default: Optional[int] = Field(default=None, description="Global sample step (1,2,4,8,16); if None, keep existing")
     chart_panel_height: Optional[int] = Field(default=None, description="Chart panel height in pixels; if None, keep existing")
+    chart_panel_opacity: Optional[float] = Field(
+        default=None,
+        description="Chart tray / plot surface opacity 0–1; if None, keep existing",
+        ge=0,
+        le=1.0,
+    )
     derived_variables: Optional[list] = Field(default=None, description="Derived variables [{name, formula}]; if None, keep existing")
+    view_mode: Optional[Literal["designer", "customer"]] = Field(
+        default=None,
+        description="UI view mode persisted inside current_configuration; omit to keep previous value",
+    )
 
 
 # ------------------------------------------------------------------------------------------------------

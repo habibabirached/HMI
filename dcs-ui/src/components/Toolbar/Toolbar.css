@@ -158,6 +158,8 @@
 /* Save/Load Buttons */
 .btn-save,
 .btn-save-as,
+.btn-save-sim-config,
+.btn-copy-scenario-link,
 .btn-load,
 .btn-csv {
   padding: 6px 16px;
@@ -189,8 +191,21 @@
   font-size: 13px;
 }
 
+/* Snapshot of chart UI into the active scenario’s .sim.json (not a full design directory copy). */
+.btn-save-sim-config {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.btn-copy-scenario-link {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .btn-save:hover,
-.btn-save-as:hover {
+.btn-save-as:hover,
+.btn-save-sim-config:hover,
+.btn-copy-scenario-link:hover {
   background: #2a2a2a;
   border-color: #4caf50;
   color: #4caf50;

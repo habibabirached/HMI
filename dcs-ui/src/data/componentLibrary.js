@@ -168,6 +168,7 @@ export const COMPONENT_LIBRARY = [
       { id: 'cooling-plant', name: 'Cooling', fullName: 'Cooling Plant', type: 'cooling', properties: { rating: 15, voltage: 0.48, unit: 'MW' } },
       { id: 'hvac-load', name: 'HVAC Load', fullName: 'HVAC / Cooling Load', type: 'hvac', properties: { rating: 5, voltage: 0.48, unit: 'MW' } },
       { id: 'auxiliary-loads', name: 'Aux Loads', fullName: 'Auxiliary Loads', type: 'auxiliary', properties: { rating: 5, voltage: 0.48, unit: 'MW' } },
+      { id: 'auxiliary-loads-bess', name: 'Aux Loads (BESS panel)', fullName: 'Auxiliary Loads — BESS-style background', type: 'auxiliary', properties: { rating: 5, voltage: 0.48, unit: 'MW' } },
       { id: 'critical-load', name: 'Critical Load', fullName: 'Critical Load Block', type: 'critical', properties: { rating: 20, voltage: 0.48, unit: 'MW' } },
       { id: 'noncritical-load', name: 'Non-Crit Load', fullName: 'Non-Critical Load Block', type: 'non-critical', properties: { rating: 10, voltage: 0.48, unit: 'MW' } }
     ]

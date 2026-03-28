@@ -24,6 +24,8 @@ import './SimulationControls.css';
  * - onRunSimulation: function - callback when user clicks a simulation button
  * - activeSimulationId: string | null - STEP 2: ID of the simulation currently loaded; the matching
  *   scenario button gets a bright "active" style so the user sees which sim they're in
+ * - simulationLoadProgress: { simulationId, percent, status } | null - When present, shows a linear
+ *   progress bar and status under the scenario list, and disables scenario play buttons until the load ends.
  */
 const SimulationControls = ({ 
   mode, 
@@ -53,7 +55,10 @@ const SimulationControls = ({
   onDeleteSimulation,
   onViewSimData,
   onAddSimulation,
-  onAddSimulationsFromXlsx
+  onAddSimulationsFromXlsx,
+  // Set by App while a scenario CSV is downloading or being processed. Used to render the linear meter,
+  // show the current phase in plain language, and prevent double-clicks on another scenario mid-load.
+  simulationLoadProgress = null,
 }) => {
   const [showAddSimForm, setShowAddSimForm] = React.useState(false);
   const [newSimName, setNewSimName] = React.useState('');
@@ -467,10 +472,18 @@ const SimulationControls = ({
                 /* STEP 2: Compare this button's simId to the loaded simulation; if they match,
                    we add the 'active' class so it stands out with a brighter, glowing style. */
                 const isActive = activeSimulationId != null && simId === activeSimulationId;
+                // Subtle outline on the row that matches the scenario currently being fetched.
+                const isLoadingThis =
+                  simulationLoadProgress && simulationLoadProgress.simulationId === simId;
                 return (
-                  <div key={simId} className="scenario-button-row">
+                  <div
+                    key={simId}
+                    className={`scenario-button-row${isLoadingThis ? ' scenario-button-row-loading' : ''}`}
+                  >
+                    {/* Disable all scenario play buttons during a load so we do not stack parallel fetches. */}
                     <button
                       className={`control-btn control-btn-scenario${isActive ? ' control-btn-scenario-active' : ''}`}
+                      disabled={!!simulationLoadProgress}
                       onClick={() => {
                         console.log('🎬 Simulation scenario clicked:', simId);
                         if (onRunSimulation) {
@@ -535,6 +548,33 @@ const SimulationControls = ({
                 );
               })}
             </div>
+
+            {/* Linear progress + labels: fed from App.handleRunSimulation. aria-live keeps screen readers
+                informed as percent and status text change. */}
+            {simulationLoadProgress && (
+              <div className="sim-load-progress" aria-live="polite">
+                <div className="sim-load-progress-heading">Loading data</div>
+                <div className="sim-load-progress-bar-track">
+                  <div
+                    className="sim-load-progress-bar-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, simulationLoadProgress.percent))}%`,
+                    }}
+                  />
+                </div>
+                <div className="sim-load-progress-footer">
+                  <span className="sim-load-progress-percent">
+                    {Math.round(
+                      Math.min(100, Math.max(0, simulationLoadProgress.percent)),
+                    )}
+                    %
+                  </span>
+                  <span className="sim-load-progress-status">
+                    {simulationLoadProgress.status}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

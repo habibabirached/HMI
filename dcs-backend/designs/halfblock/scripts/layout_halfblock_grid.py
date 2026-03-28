@@ -26,6 +26,7 @@ DIMS = {
     "inverter": (80, 60),
     "it-rack-load": (70, 100),
     "auxiliary-loads": (110, 70),
+    "auxiliary-loads-bess": (150, 100),
     "ups": (90, 70),
 }
 
