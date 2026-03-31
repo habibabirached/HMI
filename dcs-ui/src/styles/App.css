@@ -399,8 +399,10 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(4px);
+  /* Dim only — no backdrop blur, so the canvas behind stays sharp. */
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;

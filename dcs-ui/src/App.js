@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect, useLayoutEffect } from 'react';
 import ComponentLibrary from './components/ComponentLibrary';
 import Canvas from './components/Canvas';
 import PropertyPanel from './components/PropertyPanel';
@@ -24,8 +24,25 @@ import {
   setCachedSimulationPayload,
   deleteCachedSimulationPayload,
   mergeCachedSimulationAfterActivate,
+  simulationPayloadStoreKey,
 } from './utils/simulationDataCache';
 import './styles/App.css';
+
+/** Verbose trace for deep links / session restore / copy-link debugging — filter console by `[DCS:` */
+function dcsSimDbg(phase, payload) {
+  console.log(`[DCS:sim] ${phase}`, payload ?? '');
+}
+
+/**
+ * One line in the saved chart list can carry chart_card_width = “how wide only THIS box is.”
+ * When the file leaves it out, that chart follows the big default width (the top toolbar).
+ */
+function chartCardWidthFromDef(chartDef) {
+  if (!chartDef || chartDef.chart_card_width == null) return undefined;
+  const n = Number(chartDef.chart_card_width);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(4000, Math.max(200, Math.round(n)));
+}
 
 function App() {
   // Application mode: 'design' or 'simulation'
@@ -36,6 +53,11 @@ function App() {
   
   // Canvas state
   const [canvasComponents, setCanvasComponents] = useState([]);
+  /** Always use for chart-to-component resolution inside async loaders (state can lag one beat behind Load Design). */
+  const canvasComponentsRef = useRef([]);
+  useLayoutEffect(() => {
+    canvasComponentsRef.current = canvasComponents;
+  }, [canvasComponents]);
   const [connections, setConnections] = useState([]);
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [selectedConnection, setSelectedConnection] = useState(null);
@@ -86,6 +108,8 @@ function App() {
   const [namedSimulationConfigs, setNamedSimulationConfigs] = useState([]);
   const [activeNamedSimulationConfig, setActiveNamedSimulationConfig] = useState(null);
   const activeNamedSimulationConfigRef = useRef(null);
+  /** Last preset the user chose (for draft styling when disk draft diverges after edits). */
+  const [lastNamedPresetForUi, setLastNamedPresetForUi] = useState(null);
   /** Raw API `data` rows from the last successful load (before derived columns); same-scenario preset switches reuse this to avoid clearing the chart panel. */
   const simulationRawRowsRef = useRef(null);
   const simulationRawRowsSimIdRef = useRef(null);
@@ -94,10 +118,15 @@ function App() {
   const [saveSimConfigDialogOpen, setSaveSimConfigDialogOpen] = useState(false);
   // After ?design=&sim= opens the catalog design, we run the scenario (and optional named preset) in a second effect.
   const [simDeepLinkFollowup, setSimDeepLinkFollowup] = useState(null);
+  /** Incremented on this effect’s cleanup so in-flight async from a Strict Mode “aborted” run does not clear follow-up or apply stale results. */
+  const deepLinkFollowupEpochRef = useRef(0);
   // Bumped when Load Design finishes so we can read localStorage and queue the same follow-up as a URL deep link.
   const [sessionRestoreTrigger, setSessionRestoreTrigger] = useState(0);
   const [chartPanelHeight, setChartPanelHeight] = useState(300);
   const [chartPanelOpacity, setChartPanelOpacity] = useState(CHART_PANEL_OPACITY_DEFAULT);
+  const [chartCardWidth, setChartCardWidth] = useState(500);
+  const persistChartCardWidthRef = useRef(null);
+  const persistPerChartCardWidthRef = useRef(null);
   const [globalSampleStep, setGlobalSampleStep] = useState(1); // Chart sampling: 1=every row, 2=every 2nd, etc.
   const [perChartSampleStep, setPerChartSampleStep] = useState({}); // Per-chart override: { chartId: step }
   const [selectedRowIndices, setSelectedRowIndices] = useState(null); // Set<number> for cross-chart selection, null = none
@@ -193,9 +222,49 @@ function App() {
       to: toId,
       voltage: 0,
       type: 'AC',
-      status: 'normal'
+      status: 'normal',
+      style: { useAuto: true }
     };
     setConnections(prev => [...prev, newConnection]);
+  }, []);
+
+  const handleUpdateConnection = useCallback((connectionId, patch) => {
+    const mergeStyle = (prev, stylePatch) => {
+      if (stylePatch == null) return prev;
+      const base = { ...(prev || {}) };
+      const next = { ...base, ...stylePatch };
+      if (stylePatch.shadow != null) {
+        next.shadow = {
+          blur: 4,
+          offsetX: 2,
+          offsetY: 2,
+          opacity: 0.35,
+          color: '#000000',
+          ...(base.shadow || {}),
+          ...stylePatch.shadow
+        };
+      }
+      return next;
+    };
+    setConnections(prev => {
+      const mapped = prev.map(c => {
+        if (c.id !== connectionId) return c;
+        const next = { ...c, ...patch };
+        if (patch.style != null) {
+          next.style = mergeStyle(c.style, patch.style);
+        }
+        return next;
+      });
+      return mapped;
+    });
+    setSelectedConnection(prev => {
+      if (!prev || prev.id !== connectionId) return prev;
+      const next = { ...prev, ...patch };
+      if (patch.style != null) {
+        next.style = mergeStyle(prev.style, patch.style);
+      }
+      return next;
+    });
   }, []);
 
   // Delete connection
@@ -684,11 +753,38 @@ function App() {
    * 3. Filter CSV data to only this simulation
    * 4. Start playback
    */
-  const handleRunSimulation = async (simulationId) => {
+  /**
+   * @param {string} simulationId
+   * @param {{ presetResult?: object, cachePresetName?: string } | undefined} options
+   *        presetResult — full API-shaped payload (used by deep links when a preset slot is already in IndexedDB).
+   *        cachePresetName — after a successful load, duplicate `result` under design::sim#preset for future links.
+   */
+  const handleRunSimulation = async (simulationId, options = {}) => {
+    const perfT0 = performance.now();
+    const perfMark = (label, extra = undefined) => {
+      const ms = (performance.now() - perfT0).toFixed(1);
+      if (extra !== undefined) {
+        console.log(`[DCS:perf] handleRunSimulation +${ms}ms`, label, extra);
+      } else {
+        console.log(`[DCS:perf] handleRunSimulation +${ms}ms`, label);
+      }
+    };
     console.log('🎬 Run simulation clicked:', simulationId);
     console.log('📊 Current configuration:', currentConfigName);
     console.log('📊 CSV status:', csvStatus);
-    
+    dcsSimDbg('handleRunSimulation ▶ start', {
+      simulationId,
+      optionsKeys: options ? Object.keys(options) : [],
+      options,
+      currentConfigName,
+      designApiPath,
+      canvasLen_state: canvasComponents.length,
+      canvasLen_ref: canvasComponentsRef.current.length,
+      canvasIds_sample: canvasComponentsRef.current.slice(0, 8).map((c) => c.id),
+      availableSimulationsCount: availableSimulations.length,
+      loadGen: simulationLoadGenRef.current,
+    });
+
     if (!currentConfigName) {
       alert('⚠️ No configuration loaded. Please load a design first.');
       return;
@@ -707,6 +803,11 @@ function App() {
       alert('⚠️ Design path not available. Try reloading the configuration.');
       return;
     }
+
+    perfMark('passed guards, showing progress bar', {
+      simulationId,
+      optionsKeys: Object.keys(options || {}),
+    });
 
     // --- Scenario load progress (linear bar in Simulation Controls) -----------------------------
     // From here until the fetch completes, the user sees “Loading data” plus a moving %.
@@ -735,6 +836,7 @@ function App() {
     // Switching to a different scenario’s CSV clears which preset button should look “active”; same scenario reload (e.g. activate preset) keeps the highlight until we replace it.
     if (simulationMetadata?.id !== simulationId) {
       setActiveNamedSimulationConfig(null);
+      setLastNamedPresetForUi(null);
       simulationRawRowsRef.current = null;
       simulationRawRowsSimIdRef.current = null;
     }
@@ -753,64 +855,115 @@ function App() {
       let csvNameForCharts;
       let result;
 
-      const cached = await getCachedSimulationPayload(designApiPath, simulationId);
-      if (isStale()) {
-        stopFakeProgress();
-        return;
-      }
-
-      if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
+      const presetResult = options.presetResult;
+      if (
+        presetResult &&
+        Array.isArray(presetResult.data) &&
+        presetResult.data.length > 0
+      ) {
+        dcsSimDbg('handleRunSimulation ◆ data source = presetResult (IndexedDB preset slot)', {
+          dataRows: presetResult.data.length,
+          hasSimConfig: !!presetResult.sim_config,
+          chartsToDisplayPreset: presetResult.sim_config?.charts_to_display?.length ?? 0,
+        });
         stopFakeProgress();
         setLoad({
           percent: 35,
           status: 'Loading data from cache…',
           loadSource: 'cache',
         });
-        result = cached;
+        result = presetResult;
+        perfMark('using presetResult (IndexedDB)', { rows: presetResult.data?.length });
       } else {
-        setLoad({
-          percent: 8,
-          status: 'Loading data from server…',
-          loadSource: 'server',
+        const defaultKey = simulationPayloadStoreKey(designApiPath, simulationId, null);
+        const cached = await getCachedSimulationPayload(designApiPath, simulationId, null);
+        perfMark('IndexedDB default slot read complete', {
+          hit: !!(cached?.data?.length),
+          rows: cached?.data?.length ?? 0,
         });
-        // Creep the bar while we wait on the network (server loads only).
-        simulationLoadFakeIntervalRef.current = setInterval(() => {
-          setSimulationLoadProgress((prev) => {
-            if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
-            if (prev.loadSource !== 'server') return prev;
-            if (prev.percent >= 82) return prev;
-            return { ...prev, percent: Math.min(82, prev.percent + 1.4) };
+        if (isStale()) {
+          stopFakeProgress();
+          dcsSimDbg('handleRunSimulation ✖ stale after default IDB read', { simulationId });
+          return;
+        }
+
+        if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
+          dcsSimDbg('handleRunSimulation ◆ data source = default IDB cache', {
+            key: defaultKey,
+            dataRows: cached.data.length,
+            chartsToDisplayCached: cached.sim_config?.charts_to_display?.length ?? 0,
           });
-        }, 90);
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationId)}`
-        );
-        if (isStale()) {
           stopFakeProgress();
-          return;
-        }
-        stopFakeProgress();
-        setLoad({ percent: 62, status: 'Downloading simulation data…' });
+          setLoad({
+            percent: 35,
+            status: 'Loading data from cache…',
+            loadSource: 'cache',
+          });
+          result = cached;
+          perfMark('using default IDB cache');
+        } else {
+          dcsSimDbg('handleRunSimulation ◆ data source = SERVER (no default cache hit)', {
+            keyChecked: defaultKey,
+            cachedWasNull: cached == null,
+            cachedDataLen: cached?.data?.length ?? 0,
+            fetchUrl: `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationId)}`,
+          });
+          setLoad({
+            percent: 8,
+            status: 'Loading data from server…',
+            loadSource: 'server',
+          });
+          // Creep the bar while we wait on the network (server loads only).
+          simulationLoadFakeIntervalRef.current = setInterval(() => {
+            setSimulationLoadProgress((prev) => {
+              if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
+              if (prev.loadSource !== 'server') return prev;
+              if (prev.percent >= 82) return prev;
+              return { ...prev, percent: Math.min(82, prev.percent + 1.4) };
+            });
+          }, 90);
 
-        if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
-        setLoad({ percent: 74, status: 'Reading response…' });
-        result = await response.json();
-        if (isStale()) {
+          const response = await fetch(
+            `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationId)}`
+          );
+          perfMark('GET simulation HTTP response received', { ok: response.ok, status: response.status });
+          if (isStale()) {
+            stopFakeProgress();
+            return;
+          }
           stopFakeProgress();
-          return;
-        }
-        try {
-          await setCachedSimulationPayload(designApiPath, simulationId, result);
-        } catch (_) {
-          /* ignore IDB write errors */
+          setLoad({ percent: 62, status: 'Downloading simulation data…' });
+
+          if (!response.ok) throw new Error(`Failed to load simulation: ${response.statusText}`);
+          setLoad({ percent: 74, status: 'Reading response…' });
+          result = await response.json();
+          perfMark('response.json() parsed', { dataRows: result?.data?.length });
+          if (isStale()) {
+            stopFakeProgress();
+            return;
+          }
+          try {
+            await setCachedSimulationPayload(designApiPath, simulationId, result, null);
+          } catch (_) {
+            /* ignore IDB write errors */
+          }
         }
       }
 
       filteredRows = result.data || [];
       scenarioConfig = result.sim_config || {};
       csvNameForCharts = `${simulationId}.data.csv`;
-      
+
+      const chartsToDisplay = scenarioConfig.charts_to_display || [];
+      dcsSimDbg('handleRunSimulation ◈ after result parse', {
+        filteredRows: filteredRows.length,
+        chartsToDisplayCount: chartsToDisplay.length,
+        chartStacksCount: (scenarioConfig.chart_stacks || []).length,
+        chartDefSample: chartsToDisplay.slice(0, 3),
+        canvasRefLen: canvasComponentsRef.current.length,
+        canvasRefIds: canvasComponentsRef.current.slice(0, 12).map((c) => c.id),
+      });
+
       if (!filteredRows || filteredRows.length === 0) {
         stopFakeProgress();
         setSimulationLoadProgress(null);
@@ -823,7 +976,12 @@ function App() {
 
       setLoad({ percent: 82, status: 'Processing rows…' });
       const derivedVariables = scenarioConfig.derived_variables || [];
+      perfMark('before augmentRowsWithDerived', {
+        rows: filteredRows.length,
+        derivedVars: derivedVariables.length,
+      });
       const augmentedRows = (await import('./utils/formulaEvaluator')).augmentRowsWithDerived(filteredRows, derivedVariables);
+      perfMark('after augmentRowsWithDerived', { rows: augmentedRows.length });
       if (isStale()) {
         stopFakeProgress();
         return;
@@ -864,7 +1022,6 @@ function App() {
         return { simulations: sims };
       });
       
-      const chartsToDisplay = scenarioConfig.charts_to_display || [];
       setChartStacks(scenarioConfig.chart_stacks || []);
       setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
       const panelMax = getChartPanelMaxHeightPx();
@@ -879,13 +1036,21 @@ function App() {
       } else {
         setChartPanelOpacity(CHART_PANEL_OPACITY_DEFAULT);
       }
+      {
+        const wRaw = scenarioConfig.chart_card_width ?? cc?.chart_card_width;
+        if (wRaw != null && Number.isFinite(Number(wRaw))) {
+          setChartCardWidth(Math.min(4000, Math.max(200, Math.round(Number(wRaw)))));
+        } else {
+          setChartCardWidth(500);
+        }
+      }
       const initialPerChart = {};
       if (chartsToDisplay.length > 0) {
         const newCharts = chartsToDisplay.map((chartDef, index) => {
           const chartId = `sim-chart-${Date.now()}-${index}`;
           if (chartDef.sample_step != null) initialPerChart[chartId] = chartDef.sample_step;
           if (chartDef.type === 'multi') {
-            return {
+            const multi = {
               id: chartId,
               type: 'multi-component',
               chartType: chartDef.chart_type || 'multi-bar-chart',
@@ -893,14 +1058,23 @@ function App() {
               csvName: csvNameForCharts,
               timeColumn: chartDef.x_column,
               components: chartDef.components || [],
-              isMultiComponent: true
+              isMultiComponent: true,
             };
+            const pcw = chartCardWidthFromDef(chartDef);
+            return pcw != null ? { ...multi, chartCardWidth: pcw } : multi;
           }
-          const component = canvasComponents.find(c => c.id === chartDef.component_id);
-          if (!component) return null;
+          const component = canvasComponentsRef.current.find((c) => c.id === chartDef.component_id);
+          if (!component) {
+            dcsSimDbg('handleRunSimulation ⚠ chart dropped — no canvas component for chartDef.component_id', {
+              wantedId: chartDef.component_id,
+              chartTitle: chartDef.title,
+              chartType: chartDef.chart_type,
+            });
+            return null;
+          }
           const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
           const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
-          return {
+          const single = {
             id: chartId,
             componentId: component.id,
             componentName: component.name,
@@ -915,10 +1089,26 @@ function App() {
             } : {}),
             title: chartDef.title || (isNd ? `${component.name} - nD` : isStackedNd ? `${component.name} - Stacked nD` : `${component.name} - ${chartDef.y_column}`)
           };
+          const pcw = chartCardWidthFromDef(chartDef);
+          return pcw != null ? { ...single, chartCardWidth: pcw } : single;
         }).filter(Boolean);
+        dcsSimDbg('handleRunSimulation ◈ openCharts build', {
+          requestedCharts: chartsToDisplay.length,
+          builtCharts: newCharts.length,
+          dropped: chartsToDisplay.length - newCharts.length,
+        });
+        if (chartsToDisplay.length > 0 && newCharts.length === 0) {
+          dcsSimDbg('handleRunSimulation ⚠⚠ ALL charts dropped — check component_id vs canvas ids', {
+            chartComponentIds: chartsToDisplay.map((d) => d.component_id).filter(Boolean),
+            canvasIds: canvasComponentsRef.current.map((c) => c.id),
+          });
+        }
         setOpenCharts(newCharts);
         setPerChartSampleStep(initialPerChart);
       } else {
+        dcsSimDbg('handleRunSimulation ◈ no charts_to_display in sim_config — chart panel stays empty', {
+          simKeys: Object.keys(scenarioConfig),
+        });
         setChartStacks([]);
         setPerChartSampleStep({});
       }
@@ -930,6 +1120,14 @@ function App() {
       stopFakeProgress();
       // Backend lists which extra top-level keys in this .sim.json are chart UI presets (for the chart tray).
       setNamedSimulationConfigs(result.named_configuration_keys || []);
+      const cachePresetName = options.cachePresetName;
+      if (cachePresetName && result) {
+        try {
+          await setCachedSimulationPayload(designApiPath, simulationId, result, cachePresetName);
+        } catch (_) {
+          /* ignore IDB write errors */
+        }
+      }
       try {
         if (csvStatus?.use_design_dir && designApiPath) {
           localStorage.setItem(
@@ -944,6 +1142,17 @@ function App() {
         /* ignore quota / private mode */
       }
       setLoad({ percent: 100, status: 'Complete' });
+      perfMark('✓ complete (progress bar will hide in 450ms)', {
+        simulationId,
+        charts: chartsToDisplay.length,
+        totalMs: Math.round(performance.now() - perfT0),
+      });
+      dcsSimDbg('handleRunSimulation ✓ complete', {
+        simulationId,
+        chartsToDisplayFromConfig: chartsToDisplay.length,
+        cachePresetWritten: !!options.cachePresetName,
+        cachePresetName: options.cachePresetName ?? null,
+      });
       // Brief moment at 100% so the user sees completion; then hide the meter entirely.
       setTimeout(() => {
         if (simulationLoadGenRef.current === loadGen) {
@@ -955,7 +1164,12 @@ function App() {
       if (simulationLoadGenRef.current === loadGen) {
         setSimulationLoadProgress(null);
       }
+      console.log('[DCS:perf] handleRunSimulation FAILED', {
+        ms: Math.round(performance.now() - perfT0),
+        message: error?.message,
+      });
       console.error('❌ Error loading simulation:', error);
+      dcsSimDbg('handleRunSimulation ✖ ERROR', { message: error?.message, stack: error?.stack });
       alert(`❌ Failed to load simulation:\n\n${error.message}`);
     }
   };
@@ -966,16 +1180,33 @@ function App() {
    * @returns {Promise<boolean>} true if applied, false if raw rows are missing (caller should full load).
    */
   const applyActivatedNamedPresetInPlace = useCallback(async (simulationId, activated) => {
+    const t0 = performance.now();
     const scenarioConfig = activated.sim_config || {};
     const raw = simulationRawRowsRef.current;
     const rawFor = simulationRawRowsSimIdRef.current;
-    if (!raw?.length || rawFor !== simulationId) return false;
+    if (!raw?.length || rawFor !== simulationId) {
+      console.log('[DCS:perf] applyActivatedNamedPresetInPlace ⏭ skip', {
+        ms: Math.round(performance.now() - t0),
+        rawLen: raw?.length ?? 0,
+        rawFor,
+        simulationId,
+      });
+      return false;
+    }
 
     const derivedVariables = scenarioConfig.derived_variables || [];
+    console.log('[DCS:perf] applyActivatedNamedPresetInPlace ▶ augmentRows', {
+      rows: raw.length,
+      derivedVars: derivedVariables.length,
+    });
     const augmentedRows = (await import('./utils/formulaEvaluator')).augmentRowsWithDerived(
       raw,
       derivedVariables,
     );
+    console.log('[DCS:perf] applyActivatedNamedPresetInPlace after augmentRows', {
+      augmentMs: Math.round(performance.now() - t0),
+      outRows: augmentedRows.length,
+    });
 
     const cc = scenarioConfig.current_configuration;
     if (cc && (cc.view_mode === 'customer' || cc.view_mode === 'designer')) {
@@ -1026,6 +1257,14 @@ function App() {
     } else {
       setChartPanelOpacity(CHART_PANEL_OPACITY_DEFAULT);
     }
+    {
+      const wRaw = scenarioConfig.chart_card_width ?? cc?.chart_card_width;
+      if (wRaw != null && Number.isFinite(Number(wRaw))) {
+        setChartCardWidth(Math.min(4000, Math.max(200, Math.round(Number(wRaw)))));
+      } else {
+        setChartCardWidth(500);
+      }
+    }
 
     const initialPerChart = {};
     if (chartsToDisplay.length > 0) {
@@ -1034,7 +1273,7 @@ function App() {
           const chartId = `sim-chart-${Date.now()}-${index}`;
           if (chartDef.sample_step != null) initialPerChart[chartId] = chartDef.sample_step;
           if (chartDef.type === 'multi') {
-            return {
+            const multi = {
               id: chartId,
               type: 'multi-component',
               chartType: chartDef.chart_type || 'multi-bar-chart',
@@ -1044,12 +1283,14 @@ function App() {
               components: chartDef.components || [],
               isMultiComponent: true,
             };
+            const pcw = chartCardWidthFromDef(chartDef);
+            return pcw != null ? { ...multi, chartCardWidth: pcw } : multi;
           }
-          const component = canvasComponents.find((c) => c.id === chartDef.component_id);
+          const component = canvasComponentsRef.current.find((c) => c.id === chartDef.component_id);
           if (!component) return null;
           const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
           const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
-          return {
+          const single = {
             id: chartId,
             componentId: component.id,
             componentName: component.name,
@@ -1075,6 +1316,8 @@ function App() {
                   ? `${component.name} - Stacked nD`
                   : `${component.name} - ${chartDef.y_column}`),
           };
+          const pcw = chartCardWidthFromDef(chartDef);
+          return pcw != null ? { ...single, chartCardWidth: pcw } : single;
         })
         .filter(Boolean);
       setOpenCharts(newCharts);
@@ -1086,8 +1329,11 @@ function App() {
     }
 
     setNamedSimulationConfigs(activated.named_configuration_keys || []);
+    console.log('[DCS:perf] applyActivatedNamedPresetInPlace ✓ done', {
+      totalMs: Math.round(performance.now() - t0),
+    });
     return true;
-  }, [canvasComponents, simConfig]);
+  }, [simConfig]);
 
   /**
    * Copies a named snapshot onto disk, then updates the UI from the response when possible
@@ -1095,11 +1341,21 @@ function App() {
    */
   const handleActivateNamedSimulationConfig = async (presetName) => {
     if (!simulationMetadata?.id || !designApiPath) return;
+    const t0 = performance.now();
+    console.log('[DCS:perf] activateNamedPreset ▶ START', {
+      presetName,
+      simId: simulationMetadata.id,
+      note: 'Progress bar is NOT shown for in-place preset apply — only handleRunSimulation sets simulationLoadProgress',
+    });
     try {
       const res = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationMetadata.id)}/named-configurations/${encodeURIComponent(presetName)}/activate`,
         { method: 'POST' },
       );
+      console.log('[DCS:perf] activateNamedPreset POST /activate done', {
+        ms: Math.round(performance.now() - t0),
+        ok: res.ok,
+      });
       if (!res.ok) {
         const msg = await res.text();
         alert(msg || `Failed to activate preset (${res.status})`);
@@ -1107,11 +1363,51 @@ function App() {
       }
       const activated = await res.json();
       await mergeCachedSimulationAfterActivate(designApiPath, simulationMetadata.id, activated);
+      console.log('[DCS:perf] activateNamedPreset after mergeCachedSimulationAfterActivate', {
+        ms: Math.round(performance.now() - t0),
+      });
+      const tApply = performance.now();
       const applied = await applyActivatedNamedPresetInPlace(simulationMetadata.id, activated);
-      if (!applied) {
-        await handleRunSimulation(simulationMetadata.id);
+      console.log('[DCS:perf] activateNamedPreset applyActivatedNamedPresetInPlace', {
+        applied,
+        applyMs: Math.round(performance.now() - tApply),
+        totalMs: Math.round(performance.now() - t0),
+      });
+      if (applied) {
+        const snap = simulationRawRowsRef.current;
+        if (snap?.length) {
+          try {
+            await setCachedSimulationPayload(
+              designApiPath,
+              simulationMetadata.id,
+              {
+                data: snap,
+                sim_config: activated.sim_config,
+                named_configuration_keys: activated.named_configuration_keys || [],
+                design_name: activated.design_name,
+                sim_name: activated.sim_name,
+                row_count: snap.length,
+              },
+              presetName,
+            );
+          } catch (_) {
+            /* ignore IDB */
+          }
+        }
+        console.log('[DCS:perf] activateNamedPreset ✓ in-place path (no full handleRunSimulation)', {
+          totalMs: Math.round(performance.now() - t0),
+        });
+      } else {
+        console.log('[DCS:perf] activateNamedPreset → fallback handleRunSimulation (no raw rows for in-place)', {
+          ms: Math.round(performance.now() - t0),
+        });
+        await handleRunSimulation(simulationMetadata.id, { cachePresetName: presetName });
+        console.log('[DCS:perf] activateNamedPreset ✓ after fallback handleRunSimulation', {
+          totalMs: Math.round(performance.now() - t0),
+        });
       }
       setActiveNamedSimulationConfig(presetName);
+      setLastNamedPresetForUi(presetName);
       try {
         if (designApiPath) {
           localStorage.setItem(
@@ -1134,7 +1430,15 @@ function App() {
   const handleConfirmSaveSimulationConfig = async ({ name, overwrite }) => {
     if (!simulationMetadata?.id || !designApiPath) return;
     try {
-      await persistChartsToSimJson(openCharts);
+      if (persistChartCardWidthRef.current) {
+        clearTimeout(persistChartCardWidthRef.current);
+        persistChartCardWidthRef.current = null;
+      }
+      if (persistPerChartCardWidthRef.current) {
+        clearTimeout(persistPerChartCardWidthRef.current);
+        persistPerChartCardWidthRef.current = null;
+      }
+      await persistChartsToSimJson(openCharts, { chart_card_width: chartCardWidth });
       const res = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simulationMetadata.id)}/named-configurations`,
         {
@@ -1151,6 +1455,7 @@ function App() {
       const data = await res.json();
       setNamedSimulationConfigs(data.named_configuration_keys || []);
       setActiveNamedSimulationConfig(name);
+      setLastNamedPresetForUi(name);
       setSaveSimConfigDialogOpen(false);
     } catch (e) {
       console.warn(e);
@@ -1297,6 +1602,7 @@ function App() {
       if (simulationMetadata?.id === simId) {
         simulationRawRowsRef.current = null;
         simulationRawRowsSimIdRef.current = null;
+        setLastNamedPresetForUi(null);
         setSimulationMetadata(null);
         setSimulationData([]);
         setOpenCharts([]);
@@ -1456,6 +1762,7 @@ function App() {
    * an active simulation from a design dir (simulationMetadata.id + currentConfigName).
    * The conversion maps our openCharts format (componentId, xColumn, etc.) to the
    * backend format (component_id, x_column, etc.) used in charts_to_display.
+   * Sends chart_card_width so PUT updates root + current_configuration (named presets copy that subtree).
    */
   const persistChartsToSimJson = useCallback(async (charts, overrides = {}) => {
     if (!simulationMetadata?.id || !currentConfigName || !designApiPath) return;
@@ -1463,6 +1770,7 @@ function App() {
     const effectivePerChart = overrides.perChartSampleStep ?? perChartSampleStep;
     const effectiveHeight = overrides.chart_panel_height ?? chartPanelHeight;
     const effectiveOpacity = overrides.chart_panel_opacity ?? chartPanelOpacity;
+    const effectiveCardWidth = overrides.chart_card_width ?? chartCardWidth;
     const effectiveStacks = overrides.chart_stacks ?? chartStacks;
     const effectiveDerived = overrides.derived_variables ?? simulationMetadata?.derivedVariables;
     // Sent on every persist so current_configuration.view_mode in .sim.json matches the toggle when the user reopens this scenario.
@@ -1509,6 +1817,9 @@ function App() {
           };
         }
         if (effectivePerChart[c.id] != null) base.sample_step = effectivePerChart[c.id];
+        if (c.chartCardWidth != null && Number.isFinite(Number(c.chartCardWidth))) {
+          base.chart_card_width = Math.min(4000, Math.max(200, Math.round(Number(c.chartCardWidth))));
+        }
         return base;
       });
       const body = {
@@ -1517,6 +1828,7 @@ function App() {
         chart_sample_default: effectiveGlobal,
         chart_panel_height: effectiveHeight,
         chart_panel_opacity: effectiveOpacity,
+        chart_card_width: effectiveCardWidth,
         view_mode: effectiveViewMode,
         ...(effectiveDerived != null && { derived_variables: effectiveDerived })
       };
@@ -1533,7 +1845,50 @@ function App() {
     } catch (e) {
       console.warn('persistChartsToSimJson error:', e);
     }
-  }, [simulationMetadata?.id, simulationMetadata?.derivedVariables, designApiPath, globalSampleStep, perChartSampleStep, chartPanelHeight, chartPanelOpacity, chartStacks, viewMode]);
+  }, [simulationMetadata?.id, simulationMetadata?.derivedVariables, designApiPath, globalSampleStep, perChartSampleStep, chartPanelHeight, chartPanelOpacity, chartCardWidth, chartStacks, viewMode]);
+
+  const handleChartCardWidthChange = useCallback(
+    (nextWidth) => {
+      const w = Number(nextWidth);
+      if (!Number.isFinite(w)) return;
+      const clamped = Math.min(4000, Math.max(200, Math.round(w)));
+      setChartCardWidth(clamped);
+      if (persistChartCardWidthRef.current) clearTimeout(persistChartCardWidthRef.current);
+      persistChartCardWidthRef.current = setTimeout(() => {
+        if (simulationMetadata?.id) {
+          persistChartsToSimJson(openCharts, { chart_card_width: clamped });
+        }
+        persistChartCardWidthRef.current = null;
+      }, 400);
+    },
+    [simulationMetadata?.id, openCharts, persistChartsToSimJson],
+  );
+
+  /**
+   * chartId = which graph box. nextWidth = narrower/wider number, or null = “forget special width, use top toolbar default.”
+   */
+  const handlePerChartCardWidthChange = useCallback(
+    (chartId, nextWidth) => {
+      setOpenCharts((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== chartId) return c;
+          if (nextWidth == null) {
+            const { chartCardWidth: _omit, ...rest } = c;
+            return rest;
+          }
+          const clamped = Math.min(4000, Math.max(200, Math.round(Number(nextWidth))));
+          return { ...c, chartCardWidth: clamped };
+        });
+        if (persistPerChartCardWidthRef.current) clearTimeout(persistPerChartCardWidthRef.current);
+        persistPerChartCardWidthRef.current = setTimeout(() => {
+          if (simulationMetadata?.id) persistChartsToSimJson(next);
+          persistPerChartCardWidthRef.current = null;
+        }, 400);
+        return next;
+      });
+    },
+    [simulationMetadata?.id, persistChartsToSimJson],
+  );
 
   const persistChartPanelHeightRef = useRef(null);
   const handleChartPanelHeightChange = useCallback((newHeight) => {
@@ -1845,8 +2200,22 @@ function App() {
    * Handle Load - Apply loaded configuration to the app
    */
   const handleConfigurationLoaded = (loadedConfig) => {
+    const perfT0 = performance.now();
+    console.log('[DCS:perf] handleConfigurationLoaded ▶ START', {
+      name: loadedConfig.name,
+      t: perfT0,
+    });
     const skipSessionRestore = loadSkipSessionRestoreRef.current;
     loadSkipSessionRestoreRef.current = false;
+
+    dcsSimDbg('handleConfigurationLoaded ▶', {
+      configName: loadedConfig.name,
+      skipSessionRestore,
+      use_design_dir: loadedConfig.csv_status?.use_design_dir,
+      design_catalog_rel: loadedConfig.csv_status?.design_catalog_rel,
+      canvasComponentCount: loadedConfig.data?.canvasComponents?.length ?? 0,
+      availableSimIds: (loadedConfig.csv_status?.available_simulations || []).map((s) => s.id),
+    });
 
     console.log('✅ Loading configuration:', loadedConfig.name);
     console.log('🔍 Full loadedConfig:', loadedConfig); // DEBUG: See entire response
@@ -1917,7 +2286,18 @@ function App() {
       setSessionRestoreTrigger((n) => n + 1);
     }
 
+    setLastNamedPresetForUi(null);
+
     console.log('✅ Configuration loaded and applied');
+    console.log('[DCS:perf] handleConfigurationLoaded ✓ END (sync React state queued)', {
+      totalMs: Math.round(performance.now() - perfT0),
+      sessionRestoreWillRun: !skipSessionRestore && !!loadedConfig.csv_status?.use_design_dir,
+      note: 'Session restore may start handleRunSimulation async next — watch [DCS:perf] handleRunSimulation',
+    });
+    dcsSimDbg('handleConfigurationLoaded ✓ applied (session restore will bump unless skipSessionRestore)', {
+      skipSessionRestore,
+      willTriggerSessionRestore: !skipSessionRestore && !!loadedConfig.csv_status?.use_design_dir,
+    });
   };
 
   /**
@@ -1972,6 +2352,12 @@ function App() {
     const parsed = parseSimulationDeepLink(window.location.search);
     if (!parsed) return;
     deepLinkBootstrapStartedRef.current = true;
+    dcsSimDbg('URL bootstrap parsed', {
+      design: parsed.design,
+      sim: parsed.sim,
+      config: parsed.config ?? '(current draft)',
+      rawSearch: window.location.search,
+    });
     console.log('[Deep link] Parsed URL → design=%s sim=%s config=%s', parsed.design, parsed.sim, parsed.config ?? '(current draft)');
     let cancelled = false;
     (async () => {
@@ -2003,72 +2389,170 @@ function App() {
 
   useEffect(() => {
     if (!simDeepLinkFollowup) return;
-    if (!designApiPath || !csvStatus?.use_design_dir) return;
+    if (!designApiPath || !csvStatus?.use_design_dir) {
+      dcsSimDbg('deepLink follow-up ⏸ wait designApiPath / use_design_dir', {
+        simDeepLinkFollowup,
+        designApiPath,
+        use_design_dir: csvStatus?.use_design_dir,
+      });
+      return;
+    }
     const { sim, config } = simDeepLinkFollowup;
-    if (availableSimulations.length === 0) return;
+    if (availableSimulations.length === 0) {
+      dcsSimDbg('deepLink follow-up ⏸ wait availableSimulations', { sim, config, designApiPath });
+      return;
+    }
     if (!availableSimulations.includes(sim)) {
       console.warn(
         `[Deep link] Simulation id "${sim}" not in this design. Available:`,
         availableSimulations,
       );
+      dcsSimDbg('deepLink follow-up ✖ sim not in design list', { sim, availableSimulations });
       setSimDeepLinkFollowup(null);
       return;
     }
-    setSimDeepLinkFollowup(null);
-    let cancelled = false;
+    // Do not clear simDeepLinkFollowup before awaits: Strict Mode cleanup used to run mid-IDB, then we skipped handleRunSimulation
+    // while follow-up was already null — graphs never loaded. Epoch lets the latest effect run clear state in finally.
+    const epochAtStart = deepLinkFollowupEpochRef.current;
+    const followupStillCurrent = () => deepLinkFollowupEpochRef.current === epochAtStart;
+    const presetKey = config ? simulationPayloadStoreKey(designApiPath, sim, config) : null;
+    dcsSimDbg('deepLink follow-up ▶ RUN', {
+      sim,
+      config,
+      designApiPath,
+      presetIdbKey: presetKey,
+      canvasRefLenNow: canvasComponentsRef.current.length,
+    });
     console.log('[Deep link] Running scenario', sim, config ? `+ preset "${config}"` : '');
+    const deepLinkT0 = performance.now();
+    console.log('[DCS:perf] simDeepLinkFollowup ▶ async start', { sim, config: config || null });
     (async () => {
       try {
         if (config) {
-          const actRes = await fetch(
-            `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(sim)}/named-configurations/${encodeURIComponent(config)}/activate`,
-            { method: 'POST' },
-          );
-          if (!actRes.ok) {
-            if (!cancelled) alert((await actRes.text()) || `Failed to activate preset (${actRes.status})`);
-            return;
+          activeNamedSimulationConfigRef.current = config;
+          const presetCached = await getCachedSimulationPayload(designApiPath, sim, config);
+          console.log('[DCS:perf] simDeepLinkFollowup preset IDB lookup', {
+            ms: Math.round(performance.now() - deepLinkT0),
+            hit: !!(presetCached?.data?.length),
+            rows: presetCached?.data?.length ?? 0,
+          });
+          dcsSimDbg('deepLink preset IDB lookup', {
+            key: presetKey,
+            hit: !!(presetCached?.data?.length),
+            rows: presetCached?.data?.length ?? 0,
+          });
+          if (presetCached?.data?.length) {
+            if (!followupStillCurrent()) {
+              dcsSimDbg('deepLink preset path aborted (superseded remount) before handleRunSimulation');
+              return;
+            }
+            dcsSimDbg('deepLink → handleRunSimulation (preset cache hit, no activate POST)', { sim });
+            await handleRunSimulationRef.current?.(sim, { presetResult: presetCached });
+          } else {
+            dcsSimDbg('deepLink → activate POST then handleRunSimulation with cachePresetName', {
+              sim,
+              config,
+            });
+            const actRes = await fetch(
+              `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(sim)}/named-configurations/${encodeURIComponent(config)}/activate`,
+              { method: 'POST' },
+            );
+            if (!actRes.ok) {
+              if (followupStillCurrent()) {
+                alert((await actRes.text()) || `Failed to activate preset (${actRes.status})`);
+              }
+              return;
+            }
+            const activated = await actRes.json().catch(() => ({}));
+            await mergeCachedSimulationAfterActivate(designApiPath, sim, activated);
+            if (!followupStillCurrent()) {
+              dcsSimDbg('deepLink activate path aborted (superseded remount) before handleRunSimulation');
+              return;
+            }
+            await handleRunSimulationRef.current?.(sim, { cachePresetName: config });
           }
+        } else if (followupStillCurrent()) {
+          dcsSimDbg('deepLink → handleRunSimulation (no named preset)', { sim });
+          console.log('[DCS:perf] simDeepLinkFollowup → handleRunSimulation (draft)', {
+            ms: Math.round(performance.now() - deepLinkT0),
+          });
+          await handleRunSimulationRef.current?.(sim);
         }
-        if (cancelled) return;
-        await handleRunSimulationRef.current?.(sim);
-        if (cancelled) return;
-        if (config) setActiveNamedSimulationConfig(config);
+        if (!followupStillCurrent()) return;
+        if (config) {
+          setActiveNamedSimulationConfig(config);
+          setLastNamedPresetForUi(config);
+        }
+        dcsSimDbg('deepLink follow-up ✓ finished UI flags; stripping URL query if present', {
+          hadDesignQuery: typeof window !== 'undefined' && window.location.search.includes('design='),
+        });
         if (typeof window !== 'undefined' && window.location.search.includes('design=')) {
           window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash || ''}`);
         }
       } catch (e) {
-        if (!cancelled) console.warn('Deep link follow-up failed', e);
+        if (followupStillCurrent()) console.warn('Deep link follow-up failed', e);
+        if (followupStillCurrent()) dcsSimDbg('deepLink follow-up ✖ exception', { message: e?.message, stack: e?.stack });
+      } finally {
+        console.log('[DCS:perf] simDeepLinkFollowup finally', {
+          totalMs: Math.round(performance.now() - deepLinkT0),
+          sim,
+          config: config || null,
+        });
+        if (followupStillCurrent()) {
+          setSimDeepLinkFollowup(null);
+        }
       }
     })();
     return () => {
-      cancelled = true;
+      deepLinkFollowupEpochRef.current += 1;
     };
   }, [simDeepLinkFollowup, designApiPath, csvStatus?.use_design_dir, availableSimulations]);
 
   useEffect(() => {
     if (sessionRestoreTrigger === 0) return;
-    if (!designApiPath || !csvStatus?.use_design_dir) return;
-    if (availableSimulations.length === 0) return;
+    if (!designApiPath || !csvStatus?.use_design_dir) {
+      dcsSimDbg('session restore ⏸ gated', { sessionRestoreTrigger, designApiPath, use_design_dir: csvStatus?.use_design_dir });
+      return;
+    }
+    if (availableSimulations.length === 0) {
+      dcsSimDbg('session restore ⏸ wait simulations list', { designApiPath });
+      return;
+    }
     let stored;
+    const lsKey = lastScenarioSessionStorageKey(designApiPath);
     try {
-      const raw = localStorage.getItem(lastScenarioSessionStorageKey(designApiPath));
+      const raw = localStorage.getItem(lsKey);
       if (!raw) {
+        dcsSimDbg('session restore ⏹ no localStorage entry', { lsKey });
         setSessionRestoreTrigger(0);
         return;
       }
       stored = JSON.parse(raw);
-    } catch {
+    } catch (e) {
+      dcsSimDbg('session restore ✖ parse localStorage failed', { lsKey, message: e?.message });
       setSessionRestoreTrigger(0);
       return;
     }
     const simId = stored?.simId;
     const namedConfig = stored?.namedConfig ?? null;
     if (!simId || !availableSimulations.includes(simId)) {
+      dcsSimDbg('session restore ⏹ sim not available', { simId, namedConfig, availableSimulations });
       setSessionRestoreTrigger(0);
       return;
     }
     setSessionRestoreTrigger(0);
+    dcsSimDbg('session restore → queue same as deep link', {
+      simId,
+      namedConfig: namedConfig || '(current draft / null)',
+      designApiPath,
+      lsKey: lastScenarioSessionStorageKey(designApiPath),
+    });
     console.log('[Session restore] Resuming', simId, namedConfig || 'current draft');
+    console.log('[DCS:perf] sessionRestore → setSimDeepLinkFollowup (will run handleRunSimulation async)', {
+      simId,
+      namedConfig: namedConfig || null,
+      note: 'This runs after Load Design; can overlap with SaveLoad 1s dialog close',
+    });
     setSimDeepLinkFollowup({ sim: simId, config: namedConfig });
   }, [sessionRestoreTrigger, designApiPath, csvStatus?.use_design_dir, availableSimulations]);
 
@@ -2080,11 +2564,41 @@ function App() {
       namedConfig: activeNamedSimulationConfig || null,
     });
     const fullUrl = `${window.location.origin}${window.location.pathname}${query}`;
+    dcsSimDbg('═══ COPY SCENARIO LINK ═══ paste into address bar in this or another tab', {
+      fullUrl,
+      query,
+      parts: { designApiPath, simulationId: simulationMetadata.id, namedConfig: activeNamedSimulationConfig || null },
+      filterConsole: 'Copy all lines starting with [DCS:',
+    });
     if (await copyTextToClipboard(fullUrl)) {
+      dcsSimDbg('clipboard: scenario link copy OK');
       return;
     }
+    dcsSimDbg('clipboard: scenario link fell back to prompt');
     window.prompt('Copy this scenario link (select, then Ctrl+C / ⌘C):', fullUrl);
   }, [designApiPath, simulationMetadata?.id, activeNamedSimulationConfig]);
+
+  /** Deep link with a specific named preset (conf01, …) for sharing to another browser. */
+  const handleCopyNamedPresetLink = useCallback(async (presetName) => {
+    if (!designApiPath || !simulationMetadata?.id || !presetName) return;
+    const query = buildSimulationDeepLinkQuery({
+      designApiPath,
+      simulationId: simulationMetadata.id,
+      namedConfig: presetName,
+    });
+    const fullUrl = `${window.location.origin}${window.location.pathname}${query}`;
+    dcsSimDbg('═══ COPY NAMED PRESET LINK ═══', {
+      fullUrl,
+      presetName,
+      parts: { designApiPath, simulationId: simulationMetadata.id, namedConfig: presetName },
+    });
+    if (await copyTextToClipboard(fullUrl)) {
+      dcsSimDbg('clipboard: preset link copy OK', { presetName });
+      return;
+    }
+    dcsSimDbg('clipboard: preset link fell back to prompt', { presetName });
+    window.prompt('Copy this preset link (select, then Ctrl+C / ⌘C):', fullUrl);
+  }, [designApiPath, simulationMetadata?.id]);
 
   return (
     <div className="app-container">
@@ -2234,6 +2748,7 @@ function App() {
             onAddDerivedVariable={handleAddDerivedVariable}
             canvasComponents={canvasComponents}
             onUpdateComponent={handleUpdateComponent}
+            onUpdateConnection={handleUpdateConnection}
             onDeleteComponent={handleDeleteComponent}
             onDeleteConnection={handleDeleteConnection}
             onAddChartFromBuilder={handleAddChartFromBuilder}
@@ -2364,6 +2879,9 @@ function App() {
           onHeightChange={handleChartPanelHeightChange}
           panelOpacity={chartPanelOpacity}
           onPanelOpacityChange={handleChartPanelOpacityChange}
+          chartCardWidth={chartCardWidth}
+          onChartCardWidthChange={handleChartCardWidthChange}
+          onPerChartCardWidthChange={handlePerChartCardWidthChange}
           simulationTime={simulationTime}
           simulationRunning={simulationRunning}
           selectedComponentId={selectedComponent?.id}
@@ -2395,8 +2913,12 @@ function App() {
           isFocused={focusedPanel === 'charts'}
           namedSimulationConfigs={namedSimulationConfigs}
           activeNamedSimulationConfig={activeNamedSimulationConfig}
+          lastNamedPresetForUi={lastNamedPresetForUi}
           onActivateNamedSimulationConfig={
             csvStatus?.use_design_dir && designApiPath ? handleActivateNamedSimulationConfig : undefined
+          }
+          onCopyNamedPresetLink={
+            csvStatus?.use_design_dir && designApiPath ? handleCopyNamedPresetLink : undefined
           }
         />
       )}

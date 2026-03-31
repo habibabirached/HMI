@@ -1,11 +1,168 @@
-import React, { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useMemo } from 'react';
 import ChartContextMenu from '../ChartContextMenu/ChartContextMenu';
 import MultiComponentContextMenu from '../MultiComponentContextMenu/MultiComponentContextMenu';
 import MultiComponentChartDialog from '../MultiComponentChartDialog/MultiComponentChartDialog';
 import KeyboardShortcuts from './KeyboardShortcuts';
 import CanvasBlock from './CanvasBlock';
-import { getComponentVisualConfig, getComponentDimensions } from '../../data/componentVisuals';
+import { getComponentVisualConfig } from '../../data/componentVisuals';
+import { resolveConnectionRenderParams } from '../../utils/connectionLineStyle';
 import './Canvas.css';
+
+function sanitizeSvgGradientId(connId) {
+  return String(connId).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/** macOS treats Control+primary-click as a context menu (same as right-click). */
+function isMacLikePlatform() {
+  if (typeof navigator === 'undefined') return false;
+  const p = navigator.platform || '';
+  const ua = typeof navigator.userAgent === 'string' ? navigator.userAgent : '';
+  return /Mac|iPhone|iPod|iPad/i.test(p) || /Mac OS X/.test(ua);
+}
+
+function clampConn(n, lo, hi) {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+/**
+ * Manhattan routes on bounding boxes: lines start/end on face toward the other component,
+ * never from geometric center inside the symbol.
+ * ax,ay → bx,by are logical attachment anchors (after bus-aware adjustments).
+ */
+function orthogonalEdgeConnection(
+  fromComp,
+  toComp,
+  fromW,
+  fromH,
+  toW,
+  toH,
+  ax,
+  ay,
+  bx,
+  by,
+  eps = 1,
+) {
+  const B0 = {
+    x: fromComp.position.x,
+    y: fromComp.position.y,
+    w: fromW,
+    h: fromH,
+  };
+  const B1 = {
+    x: toComp.position.x,
+    y: toComp.position.y,
+    w: toW,
+    h: toH,
+  };
+
+  const dx = bx - ax;
+  const dy = by - ay;
+
+  if (Math.abs(dx) < eps && Math.abs(dy) < eps) {
+    return {
+      segments: [[ax, ay, bx, by]],
+      gradientLine: { x1: ax, y1: ay, x2: bx, y2: by },
+    };
+  }
+
+  if (Math.abs(dx) < eps) {
+    const y0 = dy > 0 ? B0.y + B0.h : B0.y;
+    const y1 = dy > 0 ? B1.y : B1.y + B1.h;
+    const xCol = clampConn(ax, B0.x + 0.5, B0.x + B0.w - 0.5);
+    const seg = [xCol, y0, xCol, y1];
+    return {
+      segments: [seg],
+      gradientLine: { x1: seg[0], y1: seg[1], x2: seg[2], y2: seg[3] },
+    };
+  }
+
+  if (Math.abs(dy) < eps) {
+    const yTrunk = clampConn(ay, B0.y + 0.5, B0.y + B0.h - 0.5);
+    const x0 = dx > 0 ? B0.x + B0.w : B0.x;
+    const x1 = dx > 0 ? B1.x : B1.x + B1.w;
+    const seg = [x0, yTrunk, x1, yTrunk];
+    return {
+      segments: [seg],
+      gradientLine: { x1: seg[0], y1: seg[1], x2: seg[2], y2: seg[3] },
+    };
+  }
+
+  const horizFirst = Math.abs(dx) >= Math.abs(dy);
+
+  if (horizFirst) {
+    const yTrunk = clampConn(ay, B0.y + 0.5, B0.y + B0.h - 0.5);
+    const xOut = dx > 0 ? B0.x + B0.w : B0.x;
+    const xCol = clampConn(bx, B1.x + 0.5, B1.x + B1.w - 0.5);
+
+    if (Math.abs(by - yTrunk) < eps) {
+      const xIn = dx > 0 ? B1.x : B1.x + B1.w;
+      const seg = [xOut, yTrunk, xIn, yTrunk];
+      return {
+        segments: [seg],
+        gradientLine: { x1: seg[0], y1: seg[1], x2: seg[2], y2: seg[3] },
+      };
+    }
+
+    const yEnd = by > yTrunk ? B1.y : B1.y + B1.h;
+    return {
+      segments: [
+        [xOut, yTrunk, xCol, yTrunk],
+        [xCol, yTrunk, xCol, yEnd],
+      ],
+      gradientLine: null,
+    };
+  }
+
+  const xTrunk = clampConn(ax, B0.x + 0.5, B0.x + B0.w - 0.5);
+  const yOut = dy > 0 ? B0.y + B0.h : B0.y;
+  const yCol = clampConn(by, B1.y + 0.5, B1.y + B1.h - 0.5);
+
+  if (Math.abs(bx - xTrunk) < eps) {
+    const yIn = dy > 0 ? B1.y : B1.y + B1.h;
+    const seg = [xTrunk, yOut, xTrunk, yIn];
+    return {
+      segments: [seg],
+      gradientLine: { x1: seg[0], y1: seg[1], x2: seg[2], y2: seg[3] },
+    };
+  }
+
+  const xEnd = bx >= xTrunk ? B1.x : B1.x + B1.w;
+  return {
+    segments: [
+      [xTrunk, yOut, xTrunk, yCol],
+      [xTrunk, yCol, xEnd, yCol],
+    ],
+    gradientLine: null,
+  };
+}
+
+/** Width/height used for grid snapping — must match build_fullblock_conf.snap_component_to_grid. */
+function getLayoutDimensionsForSnap(comp) {
+  const base = getComponentVisualConfig(comp.type);
+  return {
+    width: comp.visualOverrides?.width ?? base.width,
+    height: comp.visualOverrides?.height ?? base.height,
+  };
+}
+
+function bboxFromSegments(segments, halfStroke, pad) {
+  let sx0 = Infinity;
+  let sx1 = -Infinity;
+  let sy0 = Infinity;
+  let sy1 = -Infinity;
+  for (const [xa, ya, xb, yb] of segments) {
+    sx0 = Math.min(sx0, xa, xb);
+    sx1 = Math.max(sx1, xa, xb);
+    sy0 = Math.min(sy0, ya, yb);
+    sy1 = Math.max(sy1, ya, yb);
+  }
+  return {
+    frameX: sx0 - halfStroke - pad,
+    frameY: sy0 - halfStroke - pad,
+    frameW: sx1 - sx0 + 2 * halfStroke + 2 * pad,
+    frameH: sy1 - sy0 + 2 * halfStroke + 2 * pad,
+  };
+}
 
 const Canvas = forwardRef(({
   components,
@@ -39,6 +196,105 @@ const Canvas = forwardRef(({
   systemState
 }, ref) => {
   const canvasRef = useRef(null);
+
+  const connectionRenderList = useMemo(() => {
+    return connections.map((conn) => {
+      const fromComp = components.find((c) => c.id === conn.from);
+      const toComp = components.find((c) => c.id === conn.to);
+      if (!fromComp || !toComp) {
+        // eslint-disable-next-line no-console
+        console.warn('[Canvas] connection skipped (missing component)', conn.id, conn.from, conn.to);
+        return null;
+      }
+
+      const fromVisual = getComponentVisualConfig(fromComp.type);
+      const toVisual = getComponentVisualConfig(toComp.type);
+
+      const fromWidth = fromComp.visualOverrides?.width || fromVisual.width;
+      const fromHeight = fromComp.visualOverrides?.height || fromVisual.height;
+      const toWidth = toComp.visualOverrides?.width || toVisual.width;
+      const toHeight = toComp.visualOverrides?.height || toVisual.height;
+
+      let fromCenterX = fromComp.position.x + fromWidth / 2;
+      let fromCenterY = fromComp.position.y + fromHeight / 2;
+      let toCenterX = toComp.position.x + toWidth / 2;
+      let toCenterY = toComp.position.y + toHeight / 2;
+
+      const VERTICAL_BUS_TYPES = ['bus-hv-vertical'];
+      const HORIZONTAL_BUS_TYPES = ['bus-hv', 'bus-mv', 'bus-lv', 'bus-dc', 'bus-main'];
+      const fromIsVerticalBus = VERTICAL_BUS_TYPES.includes(fromComp.type);
+      const toIsVerticalBus = VERTICAL_BUS_TYPES.includes(toComp.type);
+      const fromIsHorizontalBus = HORIZONTAL_BUS_TYPES.includes(fromComp.type);
+      const toIsHorizontalBus = HORIZONTAL_BUS_TYPES.includes(toComp.type);
+      if (fromIsVerticalBus) {
+        const busLeft = fromComp.position.x;
+        const busRight = fromComp.position.x + fromWidth;
+        const busEdgeX = toCenterX < fromCenterX ? busLeft : busRight;
+        fromCenterX = busEdgeX;
+        fromCenterY = toCenterY;
+      }
+      if (toIsVerticalBus) {
+        const busLeft = toComp.position.x;
+        const busRight = toComp.position.x + toWidth;
+        const busEdgeX = fromCenterX < toCenterX ? busRight : busLeft;
+        toCenterX = busEdgeX;
+        toCenterY = fromCenterY;
+      }
+      if (fromIsHorizontalBus) {
+        const busLeft = fromComp.position.x;
+        const busRight = fromComp.position.x + fromWidth;
+        const busMidY = fromComp.position.y + fromHeight / 2;
+        const busTop = fromComp.position.y;
+        const busBottom = fromComp.position.y + fromHeight;
+        fromCenterY = toCenterY < busMidY ? busTop : busBottom;
+        fromCenterX = Math.min(busRight, Math.max(busLeft, toCenterX));
+      }
+      if (toIsHorizontalBus) {
+        const busLeft = toComp.position.x;
+        const busRight = toComp.position.x + toWidth;
+        const busMidY = toComp.position.y + toHeight / 2;
+        const busTop = toComp.position.y;
+        const busBottom = toComp.position.y + toHeight;
+        toCenterY = fromCenterY < busMidY ? busTop : busBottom;
+        toCenterX = Math.min(busRight, Math.max(busLeft, fromCenterX));
+      }
+
+      const { segments, gradientLine } = orthogonalEdgeConnection(
+        fromComp,
+        toComp,
+        fromWidth,
+        fromHeight,
+        toWidth,
+        toHeight,
+        fromCenterX,
+        fromCenterY,
+        toCenterX,
+        toCenterY,
+      );
+
+      const isEnergized = fromComp.status === 'normal' || fromComp.status === 'online';
+      const resolved = resolveConnectionRenderParams(
+        conn,
+        fromComp.type,
+        toComp.type,
+        isEnergized
+      );
+      const gradientId = `conn-line-grad-${sanitizeSvgGradientId(conn.id)}`;
+
+      return {
+        conn,
+        fromCenterX,
+        fromCenterY,
+        toCenterX,
+        toCenterY,
+        segments,
+        gradientLine,
+        resolved,
+        gradientId
+      };
+    }).filter(Boolean);
+  }, [connections, components]);
+
   const [draggingComponent, setDraggingComponent] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
@@ -79,11 +335,13 @@ const Canvas = forwardRef(({
 
     const component = JSON.parse(componentData);
     const rect = canvasRef.current.getBoundingClientRect();
-    
+
     const rawX = (e.clientX - rect.left - pan.x) / zoom;
     const rawY = (e.clientY - rect.top - pan.y) / zoom;
-    
-    const { width, height } = getComponentDimensions(component.id);
+
+    const base = getComponentVisualConfig(component.type || component.id);
+    const width = component.visualOverrides?.width ?? base.width;
+    const height = component.visualOverrides?.height ?? base.height;
     const snapped = snapCenterToGrid(rawX, rawY, width, height);
 
     onAddComponent(component, snapped);
@@ -137,10 +395,28 @@ const Canvas = forwardRef(({
       return;
     }
     
-    // Ctrl/Cmd + click = Start connection
+    // ⌘/Ctrl + click = start or finish connection (design mode only above).
+    // Finish on mousedown so we don't start a drag and lose mouseup on the target.
     if (e.ctrlKey || e.metaKey) {
-      console.log('🔗 Ctrl+Click - Starting connection from:', component.name);
+      if (connecting && connecting !== component.id) {
+        onAddConnection(connecting, component.id);
+        setConnecting(null);
+        setConnectingTo(null);
+        onSelectComponent(component);
+        return;
+      }
+      console.log('🔗 Modifier+Click - Starting connection from:', component.name);
       setConnecting(component.id);
+      return;
+    }
+
+    if (connecting) {
+      if (connecting !== component.id) {
+        onAddConnection(connecting, component.id);
+      }
+      setConnecting(null);
+      setConnectingTo(null);
+      onSelectComponent(component);
       return;
     }
 
@@ -161,7 +437,14 @@ const Canvas = forwardRef(({
   const handleComponentContextMenu = (e, component) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
+    // macOS: Control+click synthesizes a contextmenu for "secondary click".
+    // That must not open the chart menu or clear in-progress wiring — mousedown already
+    // handled ⌘/Ctrl+click as "start connection".
+    if (mode === 'design' && isMacLikePlatform() && e.ctrlKey) {
+      return;
+    }
+
     // CRITICAL: Clear any dragging state when context menu opens
     setDraggingComponent(null);
     setConnecting(null);
@@ -326,7 +609,9 @@ const Canvas = forwardRef(({
       const rawY = (e.clientY - rect.top - pan.y) / zoom - dragOffset.y;
 
       const comp = components.find(c => c.id === draggingComponent);
-      const { width, height } = comp ? getComponentDimensions(comp.type) : { width: 100, height: 60 };
+      const { width, height } = comp
+        ? getLayoutDimensionsForSnap(comp)
+        : { width: 100, height: 60 };
       const snapped = snapCenterToGrid(rawX, rawY, width, height);
 
       onMoveComponent(draggingComponent, snapped);
@@ -494,14 +779,18 @@ const Canvas = forwardRef(({
         }
         
         if (dx !== 0 || dy !== 0) {
-          // Move all selected components
+          // Move all selected components; re-snap center so positions stay on the design lattice
           selectedComponents.forEach(compId => {
             const comp = components.find(c => c.id === compId);
             if (comp) {
-              onMoveComponent(compId, {
-                x: comp.position.x + dx,
-                y: comp.position.y + dy
-              });
+              const { width, height } = getLayoutDimensionsForSnap(comp);
+              const snapped = snapCenterToGrid(
+                comp.position.x + dx,
+                comp.position.y + dy,
+                width,
+                height
+              );
+              onMoveComponent(compId, snapped);
             }
           });
           console.log('⌨️  Arrow keys - Moved', selectedComponents.length, 'components by', dx, dy);
@@ -553,113 +842,123 @@ const Canvas = forwardRef(({
             <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
               <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#2a2a2a" strokeWidth="0.5"/>
             </pattern>
+            {/*
+              Per-connection shadow uses CSS filter on the <line> (see dropShadowCss in
+              connectionLineStyle). SVG feDropShadow without feMerge drops the gradient stroke.
+            */}
+            {connectionRenderList
+              .filter((row) => row.gradientLine)
+              .map((row) => (
+                <linearGradient
+                  key={row.gradientId}
+                  id={row.gradientId}
+                  gradientUnits="userSpaceOnUse"
+                  x1={row.gradientLine.x1}
+                  y1={row.gradientLine.y1}
+                  x2={row.gradientLine.x2}
+                  y2={row.gradientLine.y2}
+                >
+                  {row.resolved.stops.map((s, i) => (
+                    <stop
+                      key={i}
+                      offset={s.offset}
+                      stopColor={s.color}
+                      stopOpacity={s.opacity}
+                    />
+                  ))}
+                </linearGradient>
+              ))}
           </defs>
           <rect width="10000" height="10000" fill="url(#grid)" />
 
-          {/* ================================================================
-              RENDER CONNECTIONS (Power Flow Lines)
-              ================================================================
-              This draws lines between components showing electrical connections.
-              
-              POWER FLOW VISUALIZATION:
-              The lines change appearance based on whether power is flowing:
-              
-              GREEN SOLID LINE:
-              - The upstream component (fromComp) is operational
-              - Status is 'normal' (closed breaker, online turbine, etc.)
-              - Power CAN flow through this connection
-              
-              GREY DASHED LINE:
-              - The upstream component is NOT operational
-              - Status is 'offline', 'tripped', or 'open'
-              - NO power flows through this connection
-              
-              This creates a visual "energy map" - you can see at a glance
-              which parts of your system have power and which don't!
-          ================================================================ */}
-          {connections.map(conn => {
-            // Find the two components this connection links
-            const fromComp = components.find(c => c.id === conn.from);
-            const toComp = components.find(c => c.id === conn.to);
-            
-            // If either component doesn't exist, skip this connection
-            if (!fromComp || !toComp) return null;
-
-            // Get component dimensions for proper centering
-            // IMPORTANT: Use overrides if they exist, otherwise use defaults
-            const fromVisual = getComponentVisualConfig(fromComp.type);
-            const toVisual = getComponentVisualConfig(toComp.type);
-            
-            const fromWidth = fromComp.visualOverrides?.width || fromVisual.width;
-            const fromHeight = fromComp.visualOverrides?.height || fromVisual.height;
-            const toWidth = toComp.visualOverrides?.width || toVisual.width;
-            const toHeight = toComp.visualOverrides?.height || toVisual.height;
-            
-            let fromCenterX = fromComp.position.x + (fromWidth / 2);
-            let fromCenterY = fromComp.position.y + (fromHeight / 2);
-            let toCenterX = toComp.position.x + (toWidth / 2);
-            let toCenterY = toComp.position.y + (toHeight / 2);
-
-            // Vertical bus: use edge connection so lines are horizontal at the bus
-            const VERTICAL_BUS_TYPES = ['bus-hv-vertical'];
-            const fromIsVerticalBus = VERTICAL_BUS_TYPES.includes(fromComp.type);
-            const toIsVerticalBus = VERTICAL_BUS_TYPES.includes(toComp.type);
-            if (fromIsVerticalBus) {
-              const busLeft = fromComp.position.x;
-              const busRight = fromComp.position.x + fromWidth;
-              const busEdgeX = toCenterX < fromCenterX ? busLeft : busRight;
-              fromCenterX = busEdgeX;
-              fromCenterY = toCenterY;
-            }
-            if (toIsVerticalBus) {
-              const busLeft = toComp.position.x;
-              const busRight = toComp.position.x + toWidth;
-              const busEdgeX = fromCenterX < toCenterX ? busRight : busLeft;
-              toCenterX = busEdgeX;
-              toCenterY = fromCenterY;
-            }
-
-            // Check if this connection is currently selected by the user
+          {/* Electrical connections: static lines, role colors (producer / consumer / neutral), no flow animation */}
+          {connectionRenderList.map((row) => {
+            const {
+              conn,
+              fromCenterX,
+              fromCenterY,
+              toCenterX,
+              toCenterY,
+              segments,
+              gradientLine,
+              resolved,
+              gradientId
+            } = row;
             const isSelected = selectedConnection?.id === conn.id;
-            
-            // Power flow logic
-            const isEnergized = fromComp.status === 'normal' || fromComp.status === 'online';
-            
-            // DEBUG: Log power flow status when hovering
-            const handleConnectionHover = () => {
-              console.log('⚡ Connection:', 
-                fromComp.name, '→', toComp.name, 
-                '| Energized:', isEnergized, 
-                '| From status:', fromComp.status);
-            };
+            const strokeW = resolved.strokeWidth;
+            const flowClass =
+              resolved.animation === 'forward'
+                ? 'connection-line--flow-forward'
+                : resolved.animation === 'reverse'
+                  ? 'connection-line--flow-reverse'
+                  : '';
+
+            /** Selection frame: 10px screen padding around line bbox (incl. round caps). */
+            const selectionPadPx = 10;
+            const zu = Math.max(Number(zoom) || 1, 0.01);
+            const pad = selectionPadPx / zu;
+            const halfStroke = strokeW / 2;
+            const { frameX, frameY, frameW, frameH } = bboxFromSegments(
+              segments,
+              halfStroke,
+              pad
+            );
+            const frameStrokeU = Math.max(1.25 / zu, 0.5);
+
+            const useGradientStroke = gradientLine != null;
+            const endStop = resolved.stops[resolved.stops.length - 1];
+            const segmentStroke = useGradientStroke
+              ? `url(#${gradientId})`
+              : endStop.color;
+            const segmentStrokeOpacity = useGradientStroke ? undefined : endStop.opacity;
 
             return (
-              <g key={conn.id}>
-                <line
-                  x1={fromCenterX}
-                  y1={fromCenterY}
-                  x2={toCenterX}
-                  y2={toCenterY}
-                  stroke={
-                    isEnergized 
-                      ? '#4caf50'
-                      : '#666'
-                  }
-                  strokeWidth={isSelected ? 4 : 2}
-                  className={`connection-line ${isEnergized ? 'energized' : 'de-energized'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectConnection(conn);
-                  }}
-                  onMouseEnter={handleConnectionHover}
-                  style={{ cursor: 'pointer' }}
-                />
-                {/* Connection voltage label */}
+              <g
+                key={conn.id}
+                style={{
+                  cursor: 'pointer',
+                  ...(resolved.dropShadowCss ? { filter: resolved.dropShadowCss } : {}),
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectConnection(conn);
+                }}
+              >
+                {isSelected && (
+                  <rect
+                    x={frameX}
+                    y={frameY}
+                    width={frameW}
+                    height={frameH}
+                    fill="none"
+                    stroke="rgba(0, 220, 210, 0.9)"
+                    strokeWidth={frameStrokeU}
+                    className="connection-line--selection-frame"
+                    pointerEvents="none"
+                  />
+                )}
+                {segments.map(([x1, y1, x2, y2], segIdx) => (
+                  <line
+                    key={segIdx}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke={segmentStroke}
+                    strokeOpacity={segmentStrokeOpacity}
+                    strokeWidth={strokeW}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray={resolved.animation !== 'none' ? '12 8' : undefined}
+                    className={`connection-line ${flowClass}${isSelected ? ' connection-line--selected' : ''}`}
+                    pointerEvents="stroke"
+                  />
+                ))}
                 <text
                   x={(fromCenterX + toCenterX) / 2}
-                  y={(fromCenterY + toCenterY) / 2 + 15}
-                  fill="#ff9800"
-                  fontSize="10"
+                  y={(fromCenterY + toCenterY) / 2 + 18}
+                  fill="#b0bec5"
+                  fontSize="11"
                   textAnchor="middle"
                   pointerEvents="none"
                 >
@@ -673,24 +972,47 @@ const Canvas = forwardRef(({
           {connecting && connectingTo && (() => {
             const fromComp = components.find(c => c.id === connecting);
             if (!fromComp) return null;
-            
+
             const fromVisual = getComponentVisualConfig(fromComp.type);
             const fromWidth = fromComp.visualOverrides?.width || fromVisual.width;
             const fromHeight = fromComp.visualOverrides?.height || fromVisual.height;
-            const fromCenterX = fromComp.position.x + (fromWidth / 2);
-            const fromCenterY = fromComp.position.y + (fromHeight / 2);
-            
+            const fromCenterX = fromComp.position.x + fromWidth / 2;
+            const fromCenterY = fromComp.position.y + fromHeight / 2;
+            const mx = connectingTo.x;
+            const my = connectingTo.y;
+            const hoverStub = {
+              position: { x: mx - 0.5, y: my - 0.5 },
+              type: 'bus-knot',
+            };
+            const { segments: previewSegs } = orthogonalEdgeConnection(
+              fromComp,
+              hoverStub,
+              fromWidth,
+              fromHeight,
+              1,
+              1,
+              fromCenterX,
+              fromCenterY,
+              mx,
+              my
+            );
+
             return (
-              <line
-                x1={fromCenterX}
-                y1={fromCenterY}
-                x2={connectingTo.x}
-                y2={connectingTo.y}
-                stroke="#005E60"
-                strokeWidth="2"
-                strokeDasharray="5,5"
-                pointerEvents="none"
-              />
+              <g pointerEvents="none" opacity={0.85}>
+                {previewSegs.map(([x1, y1, x2, y2], i) => (
+                  <line
+                    key={i}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="#8a8a8a"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </g>
             );
           })()}
 
@@ -724,7 +1046,7 @@ const Canvas = forwardRef(({
         <div>Connections: {connections.length}</div>
         {mode === 'design' && viewMode === 'designer' && (
           <div className="canvas-hint">
-            💡 Drag components from library | Shift+Click to multi-select | Ctrl+Click to connect | Alt+Drag to pan
+            💡 Drag from library | Shift+Click multi-select | ⌘/Ctrl+Click connect | Right-click charts | Alt+Drag pan
           </div>
         )}
       </div>

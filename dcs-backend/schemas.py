@@ -349,7 +349,7 @@ class UpdateSimulationConfigRequest(BaseModel):
     When the user adds or removes charts in the UI, we send the new charts_to_display
     here so the backend can overwrite the file.
     chart_sample_default: global sample rate (1, 2, 4, 8, 16 = plot every Nth row).
-    Each chart in charts_to_display may have an optional sample_step for per-chart override.
+    Each chart in charts_to_display may have optional sample_step and chart_card_width (per-chart tray width px; omit to use scenario chart_card_width).
     chart_panel_height: chart panel height in pixels; if None, keep existing.
     derived_variables: formula-based columns (name + formula); computed at runtime, not stored in CSV.
     view_mode: designer vs customer; copied into current_configuration so reopening the scenario restores the toggle.
@@ -364,6 +364,12 @@ class UpdateSimulationConfigRequest(BaseModel):
         description="Chart tray / plot surface opacity 0–1; if None, keep existing",
         ge=0,
         le=1.0,
+    )
+    chart_card_width: Optional[int] = Field(
+        default=None,
+        description="Tray chart card width in px (toolbar ◀ ▶); if None, keep existing; mirrored in current_configuration / named presets",
+        ge=200,
+        le=4000,
     )
     derived_variables: Optional[list] = Field(default=None, description="Derived variables [{name, formula}]; if None, keep existing")
     view_mode: Optional[Literal["designer", "customer"]] = Field(

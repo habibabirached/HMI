@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { COMPONENT_LIBRARY } from '../../data/componentLibrary';
 import { getComponentVisualConfig } from '../../data/componentVisuals';
+import { isComponentUsedInReferenceDesigns } from '../../data/designUsedComponentTypes';
 import './ComponentLibrary.css';
 
 const ComponentLibrary = ({ onAddComponent, disabled }) => {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [showUsedOnly, setShowUsedOnly] = useState(false);
 
   const toggleCategory = (category) => {
     setExpandedCategories(prev => ({
@@ -25,16 +27,34 @@ const ComponentLibrary = ({ onAddComponent, disabled }) => {
 
   const filteredLibrary = COMPONENT_LIBRARY.map(categoryGroup => ({
     ...categoryGroup,
-    components: categoryGroup.components.filter(comp =>
-      comp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comp.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    components: categoryGroup.components
+      .filter(comp => !showUsedOnly || isComponentUsedInReferenceDesigns(comp))
+      .filter(comp =>
+        comp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        comp.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+      )
   })).filter(categoryGroup => categoryGroup.components.length > 0);
 
   return (
     <div className={`component-library ${disabled ? 'disabled' : ''}`}>
       <div className="library-header">
         <h2>Component Arsenal</h2>
+        <div className="library-arsenal-filter" title="FullBlock + HalfBlock designs">
+          <span className={`library-filter-label ${!showUsedOnly ? 'active' : ''}`}>All</span>
+          <label className="library-filter-toggle">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={showUsedOnly}
+              onChange={(e) => setShowUsedOnly(e.target.checked)}
+              disabled={disabled}
+              aria-checked={showUsedOnly}
+              aria-label="Used only: FullBlock and HalfBlock palette"
+            />
+            <span className="library-filter-slider" />
+          </label>
+          <span className={`library-filter-label ${showUsedOnly ? 'active' : ''}`}>Used</span>
+        </div>
         <input
           type="text"
           className="library-search"

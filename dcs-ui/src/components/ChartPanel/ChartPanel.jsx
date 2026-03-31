@@ -26,6 +26,8 @@ const selectionListenersByChart = new Map();
  * - onHeightChange: Function to update panel height
  * - panelOpacity: Tray backdrop opacity (0.15–1)
  * - onPanelOpacityChange: (opacity) => void
+ * - chartCardWidth / onChartCardWidthChange: tray chart column width (px), persisted from App
+ * - onPerChartCardWidthChange(chartId, widthPx | null): this chart only; null = follow top bar (e.g. double-click resize edge)
  */
 const ChartPanel = ({ 
   charts, 
@@ -38,6 +40,9 @@ const ChartPanel = ({
   onHeightChange,
   panelOpacity = CHART_PANEL_OPACITY_DEFAULT,
   onPanelOpacityChange,
+  chartCardWidth = 500,
+  onChartCardWidthChange,
+  onPerChartCardWidthChange,
   simulationTime, 
   simulationRunning, 
   selectedComponentId,
@@ -59,11 +64,14 @@ const ChartPanel = ({
   namedSimulationConfigs = [],
   /** Which preset matches what is on screen after an explicit activate; cleared when the user edits charts. */
   activeNamedSimulationConfig = null,
+  /** Last preset clicked; used for faded “draft” outline when the live draft no longer matches that snapshot. */
+  lastNamedPresetForUi = null,
   onActivateNamedSimulationConfig,
+  /** Copy a shareable URL that opens this design + scenario + this named preset on another machine. */
+  onCopyNamedPresetLink,
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ y: 0, height: 0 });
-  const [chartWidth, setChartWidth] = useState(500); // Base width for chart cards (min/max derived)
 
   // Remember the browser width so “wider” can grow cards up to nearly the full screen and limits stay correct after resize.
   // During SSR we pick a neutral default; the first client paint and resize listener correct it.
@@ -78,14 +86,84 @@ const ChartPanel = ({
 
   // One chart column may use at most the content width inside the tray (full viewport minus 16px padding on each side).
   const chartCardMaxWidthPx = Math.max(320, viewportInnerWidth - 32);
-  // Card CSS uses max-width ≈ chartWidth + 150px; these bounds keep the ◀/▶ buttons consistent with that and avoid invalid ranges on tiny viewports.
+  // Card CSS uses max-width ≈ chartCardWidth + 150px; clamp range so drag-resize stays sane when the window is tiny.
   const chartWidthStateMin = 200;
   const chartWidthStateMax = Math.max(chartWidthStateMin, chartCardMaxWidthPx - 150);
 
-  // If the user shrinks the window, pull chartWidth down so it never exceeds the new maximum.
   useEffect(() => {
-    setChartWidth((w) => Math.min(w, chartWidthStateMax));
-  }, [chartWidthStateMax]);
+    if (!onChartCardWidthChange) return;
+    const clamped = Math.min(chartCardWidth, chartWidthStateMax);
+    if (clamped !== chartCardWidth) onChartCardWidthChange(clamped);
+  }, [chartWidthStateMax, chartCardWidth, onChartCardWidthChange]);
+
+  /** “How wide is THIS chart’s box?” — its own number, or if it has none, the big number from the top bar. */
+  const effectiveCardWidthPx = (chart) => {
+    const own = chart.chartCardWidth;
+    const raw =
+      own != null && Number.isFinite(Number(own)) ? Number(own) : chartCardWidth;
+    const clamped = Math.min(4000, Math.max(200, Math.round(raw)));
+    return Math.min(chartWidthStateMax, Math.max(chartWidthStateMin, clamped));
+  };
+
+  const cardWidthCssVars = (chart) => {
+    const w = effectiveCardWidthPx(chart);
+    return {
+      '--chart-min-width': `${Math.max(200, w - 150)}px`,
+      '--chart-max-width': `${Math.min(chartCardMaxWidthPx, w + 150)}px`,
+    };
+  };
+
+  /** While you drag the right edge of one chart box: remember where the mouse started and how wide that box was. */
+  const chartResizeDragRef = useRef(null);
+  useEffect(() => {
+    const onMove = (e) => {
+      const t = chartResizeDragRef.current;
+      if (!t) return;
+      const next = Math.min(
+        chartWidthStateMax,
+        Math.max(chartWidthStateMin, Math.round(t.startW + (e.clientX - t.startX))),
+      );
+      if (next !== t.lastApplied) {
+        t.lastApplied = next;
+        onPerChartCardWidthChange?.(t.chartId, next);
+      }
+    };
+    const endDrag = () => {
+      chartResizeDragRef.current = null;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+    };
+  }, [chartWidthStateMin, chartWidthStateMax, onPerChartCardWidthChange]);
+
+  const chartResizeEdge = (chart) => (
+    <div
+      className="chart-panel-chart-resize-edge"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const startW = effectiveCardWidthPx(chart);
+        chartResizeDragRef.current = {
+          chartId: chart.id,
+          startX: e.clientX,
+          startW,
+          lastApplied: startW,
+        };
+      }}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onPerChartCardWidthChange?.(chart.id, null);
+      }}
+      title="Drag right edge to resize · Double-click = use top-bar default width"
+    />
+  );
 
   const [chartData, setChartData] = useState({}); // Store fetched CSV data by chart id
   const [loadingCharts, setLoadingCharts] = useState({}); // Track loading state per chart
@@ -1384,17 +1462,46 @@ const ChartPanel = ({
           {/* One button per named preset; activating rewrites root + current_configuration on disk and reloads this scenario. */}
           {namedSimulationConfigs.length > 0 && onActivateNamedSimulationConfig && (
             <div className="chart-panel-named-configs" onMouseDown={(e) => e.stopPropagation()}>
-              {namedSimulationConfigs.map((presetName) => (
-                <button
-                  key={presetName}
-                  type="button"
-                  className={`chart-panel-named-config-btn${activeNamedSimulationConfig === presetName ? ' chart-panel-named-config-btn-active' : ''}`}
-                  onClick={() => onActivateNamedSimulationConfig(presetName)}
-                  title={`Load preset “${presetName}” from this scenario’s .sim.json`}
-                >
-                  {presetName}
-                </button>
-              ))}
+              {namedSimulationConfigs.map((presetName) => {
+                const isActivePreset = activeNamedSimulationConfig === presetName;
+                const isDraftHint =
+                  !isActivePreset &&
+                  lastNamedPresetForUi === presetName &&
+                  lastNamedPresetForUi != null;
+                return (
+                <div key={presetName} className="chart-panel-named-config-row">
+                  <button
+                    type="button"
+                    className={`chart-panel-named-config-btn${
+                      isActivePreset ? ' chart-panel-named-config-btn-active' : ''
+                    }${isDraftHint ? ' chart-panel-named-config-btn-draft' : ''}`}
+                    onClick={() => onActivateNamedSimulationConfig(presetName)}
+                    title={
+                      isActivePreset
+                        ? `Loaded snapshot “${presetName}” (matches file)`
+                        : isDraftHint
+                          ? `Your chart draft diverged from “${presetName}”; click to reload that preset`
+                          : `Load preset “${presetName}” from this scenario’s .sim.json`
+                    }
+                  >
+                    {presetName}
+                  </button>
+                  {onCopyNamedPresetLink && (
+                    <button
+                      type="button"
+                      className="chart-panel-named-config-copy-link"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCopyNamedPresetLink(presetName);
+                      }}
+                      title={`Copy a link that opens this design, scenario, and preset “${presetName}” (e.g. on another computer)`}
+                    >
+                      Copy link
+                    </button>
+                  )}
+                </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1470,11 +1577,14 @@ const ChartPanel = ({
                 type="button"
                 className="chart-panel-size-arrow"
                 onClick={() =>
-                  setChartWidth((w) =>
-                    Math.min(chartWidthStateMax, Math.max(chartWidthStateMin, w - 50)),
+                  onChartCardWidthChange?.(
+                    Math.min(
+                      chartWidthStateMax,
+                      Math.max(chartWidthStateMin, chartCardWidth - 50),
+                    ),
                   )
                 }
-                disabled={chartWidth <= chartWidthStateMin}
+                disabled={chartCardWidth <= chartWidthStateMin}
                 aria-label="Narrower chart windows"
               >
                 ◀
@@ -1483,11 +1593,14 @@ const ChartPanel = ({
                 type="button"
                 className="chart-panel-size-arrow"
                 onClick={() =>
-                  setChartWidth((w) =>
-                    Math.min(chartWidthStateMax, Math.max(chartWidthStateMin, w + 50)),
+                  onChartCardWidthChange?.(
+                    Math.min(
+                      chartWidthStateMax,
+                      Math.max(chartWidthStateMin, chartCardWidth + 50),
+                    ),
                   )
                 }
-                disabled={chartWidth >= chartWidthStateMax}
+                disabled={chartCardWidth >= chartWidthStateMax}
                 aria-label="Wider chart windows"
               >
                 ▶
@@ -1500,14 +1613,8 @@ const ChartPanel = ({
         </div>
       </div>
 
-      {/* Charts Container — min/max CSS vars size each card; cap max at chartCardMaxWidthPx so widening can reach the screen edge. */}
-      <div
-        className="chart-panel-content"
-        style={{
-          '--chart-min-width': `${Math.max(200, chartWidth - 150)}px`,
-          '--chart-max-width': `${Math.min(chartCardMaxWidthPx, chartWidth + 150)}px`,
-        }}
-      >
+      {/* Each chart sets its own --chart-* vars (own width or top-bar default). */}
+      <div className="chart-panel-content">
         {displayUnits.map((unit) => (
           unit.type === 'stack' ? (
             <div key={`stack-${unit.charts.map(c => c.id).join('-')}`} className="chart-panel-stack">
@@ -1519,6 +1626,7 @@ const ChartPanel = ({
                     key={chart.id} 
                     id={`chart-${chart.id}`} 
                     className={`chart-panel-chart chart-in-stack ${isHighlighted ? 'highlighted' : ''} ${isSelected ? 'selected' : ''}`}
+                    style={cardWidthCssVars(chart)}
                   >
                     <div className="chart-panel-chart-header">
                       <input
@@ -1621,6 +1729,7 @@ const ChartPanel = ({
                 </div>
               )}
             </div>
+            {chartResizeEdge(chart)}
           </div>
                 );
               })}
@@ -1635,6 +1744,7 @@ const ChartPanel = ({
                   key={chart.id}
                   id={`chart-${chart.id}`}
                   className={`chart-panel-chart ${isHighlighted ? 'highlighted' : ''} ${isSelected ? 'selected' : ''}`}
+                  style={cardWidthCssVars(chart)}
                 >
                   <div className="chart-panel-chart-header">
                     <input
@@ -1701,6 +1811,7 @@ const ChartPanel = ({
                       <div className="chart-panel-chart-empty"><div className="chart-panel-empty-icon">📊</div><div>No data available</div></div>
                     )}
                   </div>
+                  {chartResizeEdge(chart)}
                 </div>
               );
             })()

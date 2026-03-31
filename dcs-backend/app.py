@@ -1401,6 +1401,7 @@ SIM_JSON_RESERVED_ROOT_KEYS = frozenset(
         "chart_sample_default",
         "chart_panel_height",
         "chart_panel_opacity",
+        "chart_card_width",
         "chart_stacks",
         "current_configuration",
     }
@@ -1469,6 +1470,10 @@ def _normalize_sim_config_current_configuration(sim_config: dict) -> None:
     if chart_panel_opacity is None:
         chart_panel_opacity = sim_config.get("chart_panel_opacity")
 
+    chart_card_width = cc.get("chart_card_width")
+    if chart_card_width is None:
+        chart_card_width = sim_config.get("chart_card_width")
+
     derived_variables = cc.get("derived_variables")
     if derived_variables is None:
         derived_variables = list(sim_config.get("derived_variables") or [])
@@ -1484,9 +1489,12 @@ def _normalize_sim_config_current_configuration(sim_config: dict) -> None:
         "chart_sample_default": chart_sample_default,
         "chart_panel_height": chart_panel_height,
         "chart_panel_opacity": chart_panel_opacity,
+        "chart_card_width": chart_card_width,
         "derived_variables": derived_variables,
         "event_markers": event_markers,
     }
+    if sim_config.get("chart_card_width") is None and chart_card_width is not None:
+        sim_config["chart_card_width"] = chart_card_width
 
 
 def _refresh_current_configuration_snapshot(sim_config: dict, view_mode_override: Optional[str]) -> None:
@@ -1509,6 +1517,7 @@ def _refresh_current_configuration_snapshot(sim_config: dict, view_mode_override
         "chart_sample_default": sim_config.get("chart_sample_default"),
         "chart_panel_height": sim_config.get("chart_panel_height"),
         "chart_panel_opacity": sim_config.get("chart_panel_opacity"),
+        "chart_card_width": sim_config.get("chart_card_width"),
         "derived_variables": list(sim_config.get("derived_variables") or []),
         "event_markers": dict(sim_config.get("event_markers") or {}),
     }
@@ -1538,6 +1547,8 @@ async def update_simulation_config(design_name: str, sim_name: str, body: Update
             sim_config["chart_panel_height"] = body.chart_panel_height
         if body.chart_panel_opacity is not None:
             sim_config["chart_panel_opacity"] = body.chart_panel_opacity
+        if body.chart_card_width is not None:
+            sim_config["chart_card_width"] = int(body.chart_card_width)
         if body.derived_variables is not None:
             sim_config["derived_variables"] = [{"name": d["name"], "formula": d["formula"]} for d in body.derived_variables]
 
@@ -1572,6 +1583,8 @@ def _apply_snapshot_to_sim_roots(sim_config: dict, snap: dict) -> None:
         sim_config["chart_panel_height"] = snap["chart_panel_height"]
     if "chart_panel_opacity" in snap:
         sim_config["chart_panel_opacity"] = snap["chart_panel_opacity"]
+    if "chart_card_width" in snap:
+        sim_config["chart_card_width"] = snap["chart_card_width"]
     if "derived_variables" in snap:
         sim_config["derived_variables"] = copy.deepcopy(snap["derived_variables"])
     if "event_markers" in snap:

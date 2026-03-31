@@ -11,6 +11,8 @@ function SchematicEarthBreaker({
   strokeWidthVal: _strokeWidthVal,
   primaryLabel,
   secondaryLabel,
+  /** One-line square frame (e.g. sectional CB on bus), width/height = one grid cell. */
+  showFrame = false,
 }) {
   const cx = width / 2;
   /** Slight downward shift + compact bars so top/bottom labels clear the graphic. */
@@ -25,9 +27,23 @@ function SchematicEarthBreaker({
   const y2 = y1 + step;
   const y3 = y2 + step;
 
+  const pad = 1.5;
   return (
     <>
       <rect width={width} height={height} fill="transparent" stroke="none" rx="4" />
+      {showFrame ? (
+        <rect
+          x={pad}
+          y={pad}
+          width={width - 2 * pad}
+          height={height - 2 * pad}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={2}
+          rx={3}
+          pointerEvents="none"
+        />
+      ) : null}
       <g pointerEvents="none">
         <line
           x1={cx}

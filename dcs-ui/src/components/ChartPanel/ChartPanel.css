@@ -88,9 +88,35 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 0 1 auto;
   min-width: 0;
+}
+
+.chart-panel-named-config-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+
+.chart-panel-named-config-copy-link {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: none;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: rgba(40, 55, 60, 0.85);
+  color: #9dd;
+  cursor: pointer;
+}
+
+.chart-panel-named-config-copy-link:hover {
+  border-color: #005e60;
+  color: #00d4a8;
 }
 
 .chart-panel-named-config-btn {
@@ -114,10 +140,27 @@
   color: #00d4a8;
 }
 
+/* Synced with a named snapshot on disk (after activate or save-as). */
 .chart-panel-named-config-btn-active {
-  border-color: #00d4a8;
-  color: #00d4a8;
-  box-shadow: 0 0 8px rgba(0, 212, 168, 0.35);
+  border-color: #e8a928;
+  color: #fff2c4;
+  background: rgba(90, 58, 12, 0.55);
+  box-shadow: 0 0 14px rgba(232, 169, 40, 0.55);
+}
+
+/* Last preset you chose, but current_configuration on disk was saved with edits — not the pure snapshot. */
+.chart-panel-named-config-btn-draft {
+  opacity: 0.85;
+  border: 1px dashed rgba(200, 170, 90, 0.75);
+  color: #b8a078;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(180, 150, 70, 0.22);
+  transform: scale(1.06);
+}
+
+.chart-panel-named-config-btn-draft:hover {
+  border-color: rgba(220, 190, 110, 0.9);
+  color: #d4c4a4;
 }
 
 .chart-panel-header button,
@@ -193,6 +236,7 @@
 .chart-panel-stack {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0;
   border: 1px solid rgba(51, 51, 51, var(--chart-panel-shell-a, 1));
   border-radius: 6px;
@@ -540,6 +584,23 @@
 .chart-panel-chart-sample:focus {
   border-color: #005e60;
   outline: none;
+}
+
+/* Invisible “window edge” on the right of each chart — drag ↔ to resize, double-click = follow top-bar default */
+.chart-panel-chart-resize-edge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  z-index: 35;
+  cursor: ew-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.chart-panel-chart-resize-edge:hover {
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 168, 0.12));
 }
 
 .chart-panel-chart-close {

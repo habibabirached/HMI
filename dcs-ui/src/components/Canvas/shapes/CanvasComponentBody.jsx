@@ -5,6 +5,7 @@ import SchematicCT from '../Schematics/SchematicCT';
 import SchematicGSU from '../Schematics/SchematicGSU';
 import SchematicBessXfmr from '../Schematics/SchematicBessXfmr';
 import SchematicLm2500Andritz from '../Schematics/SchematicLm2500Andritz';
+import SchematicManualLineSwitch from '../Schematics/SchematicManualLineSwitch';
 import ShapeRoundedRect from './shape-rounded-rect';
 import ShapeRect from './shape-rect';
 import ShapeCircle from './shape-circle';
@@ -24,7 +25,7 @@ const passthrough = (component, visualConfig, width, height, strokeColor, stroke
 
 /**
  * One explicit branch per visualConfig.shape (see componentVisuals.js).
- * Primitive modules: ./shape-*.jsx match `shape-*` strings. Schematics: ../Schematics/* (PascalCase files).
+ * Primitive modules: ./shape-*.jsx match the shape-* prefix. Schematics: ../Schematics/ (PascalCase).
  */
 export default function CanvasComponentBody({
   component,
@@ -52,7 +53,7 @@ export default function CanvasComponentBody({
         component?.type,
       );
     }
-    return <ShapeRoundedRect {...p} />;
+    return React.createElement(ShapeRoundedRect, p);
   }
 
   const canvasPrimaryText = primaryLabelText(component, visualConfig);
@@ -75,6 +76,31 @@ export default function CanvasComponentBody({
     case 'schematic-earth-breaker':
       return (
         <SchematicEarthBreaker
+          width={width}
+          height={height}
+          strokeColor={strokeColor}
+          strokeWidthVal={strokeWidthVal}
+          primaryLabel={canvasPrimaryText}
+          secondaryLabel={canvasSecondaryText}
+        />
+      );
+
+    case 'schematic-earth-breaker-framed':
+      return (
+        <SchematicEarthBreaker
+          width={width}
+          height={height}
+          strokeColor={strokeColor}
+          strokeWidthVal={strokeWidthVal}
+          primaryLabel={canvasPrimaryText}
+          secondaryLabel={canvasSecondaryText}
+          showFrame
+        />
+      );
+
+    case 'schematic-manual-line-switch':
+      return (
+        <SchematicManualLineSwitch
           width={width}
           height={height}
           strokeColor={strokeColor}
@@ -139,22 +165,22 @@ export default function CanvasComponentBody({
       );
 
     case 'shape-rounded-rect':
-      return <ShapeRoundedRect {...p} />;
+      return React.createElement(ShapeRoundedRect, p);
 
     case 'shape-rect':
-      return <ShapeRect {...p} />;
+      return React.createElement(ShapeRect, p);
 
     case 'shape-circle':
-      return <ShapeCircle {...p} />;
+      return React.createElement(ShapeCircle, p);
 
     case 'shape-hexagon':
-      return <ShapeHexagon {...p} />;
+      return React.createElement(ShapeHexagon, p);
 
     case 'shape-bus-bar':
-      return <ShapeBusBar {...p} />;
+      return React.createElement(ShapeBusBar, p);
 
     case 'shape-dashed-rect':
-      return <ShapeDashedRect {...p} />;
+      return React.createElement(ShapeDashedRect, p);
 
     default:
       if (process.env.NODE_ENV === 'development') {
@@ -166,6 +192,6 @@ export default function CanvasComponentBody({
           component?.type,
         );
       }
-      return <ShapeRoundedRect {...p} />;
+      return React.createElement(ShapeRoundedRect, p);
   }
 }

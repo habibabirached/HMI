@@ -1,15 +1,24 @@
 /**
  * Persistent browser cache for GET /api/designs/.../simulations/{id} payloads (sim_config + data rows).
  * Stored in IndexedDB (on-disk in the user profile), shared across tabs on the same origin.
- * No versioning — callers invalidate manually or on upload/delete.
+ *
+ * Keys:
+ * - `design::simId` — last default load for that scenario (current_configuration on disk at fetch time).
+ * - `design::simId#presetName` — full snapshot after activating that named preset (same data[], that preset’s sim_config).
  */
 
 const DB_NAME = 'dcs-simulation-api-payload';
 const DB_VERSION = 1;
 const STORE = 'simulationPayloads';
 
-function storeKey(designApiPath, simulationId) {
-  return `${designApiPath}::${simulationId}`;
+function idbDbg(action, detail) {
+  console.log(`[DCS:idb] ${action}`, detail ?? '');
+}
+
+export function simulationPayloadStoreKey(designApiPath, simulationId, presetName = null) {
+  const base = `${designApiPath}::${simulationId}`;
+  if (!presetName) return base;
+  return `${base}#${presetName}`;
 }
 
 function openDb() {
@@ -27,52 +36,83 @@ function openDb() {
 }
 
 /**
+ * @param {string|null} presetName - If set, read snapshot for that named preset (conf01, …).
  * @returns {Promise<object|null>} Same shape as the load-simulation API body, or null.
  */
-export async function getCachedSimulationPayload(designApiPath, simulationId) {
+export async function getCachedSimulationPayload(designApiPath, simulationId, presetName = null) {
   if (!designApiPath || !simulationId) return null;
   try {
     const db = await openDb();
-    return await new Promise((resolve, reject) => {
+    const key = simulationPayloadStoreKey(designApiPath, simulationId, presetName);
+    const row = await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, 'readonly');
-      const req = tx.objectStore(STORE).get(storeKey(designApiPath, simulationId));
+      const req = tx.objectStore(STORE).get(key);
       req.onsuccess = () => resolve(req.result ?? null);
       req.onerror = () => reject(req.error);
     });
+    idbDbg('get', {
+      key,
+      hit: !!row,
+      dataRows: row?.data?.length ?? 0,
+      hasSimConfig: !!row?.sim_config,
+      chartsToDisplay: row?.sim_config?.charts_to_display?.length ?? 0,
+    });
+    return row;
   } catch (e) {
     console.warn('simulationDataCache: read failed', e);
+    idbDbg('get ERROR', { message: e?.message });
     return null;
   }
 }
 
 /**
- * @param {object} payload - Full JSON from load_design_simulation
- * After the server sends the big JSON (settings + all the table rows), we copy that whole answer into the drawer under the same label. Next time we can skip the download.
+ * @param {object} payload - Full JSON from load_design_simulation (or equivalent).
+ * @param {string|null} presetName - If set, store under preset-specific key for deep links / conf buttons.
  */
-export async function setCachedSimulationPayload(designApiPath, simulationId, payload) {
+export async function setCachedSimulationPayload(designApiPath, simulationId, payload, presetName = null) {
   if (!designApiPath || !simulationId || !payload) return;
   try {
     const db = await openDb();
+    const key = simulationPayloadStoreKey(designApiPath, simulationId, presetName);
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
-      tx.objectStore(STORE).put(payload, storeKey(designApiPath, simulationId));
+      tx.objectStore(STORE).put(payload, key);
+    });
+    idbDbg('put', {
+      key,
+      dataRows: payload?.data?.length ?? 0,
+      chartsToDisplay: payload?.sim_config?.charts_to_display?.length ?? 0,
     });
   } catch (e) {
     console.warn('simulationDataCache: write failed', e);
+    idbDbg('put ERROR', { message: e?.message });
   }
 }
 
+/** Deletes `design::sim` and every `design::sim#*` preset entry for this scenario. */
 export async function deleteCachedSimulationPayload(designApiPath, simulationId) {
   if (!designApiPath || !simulationId) return;
+  const prefix = `${designApiPath}::${simulationId}`;
+  idbDbg('delete all keys with prefix', { prefix });
   try {
     const db = await openDb();
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
-      tx.objectStore(STORE).delete(storeKey(designApiPath, simulationId));
+      const store = tx.objectStore(STORE);
+      const r = store.openCursor();
+      r.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (!cursor) return;
+        const k = cursor.key;
+        if (typeof k === 'string' && (k === prefix || k.startsWith(`${prefix}#`))) {
+          cursor.delete();
+        }
+        cursor.continue();
+      };
     });
   } catch (e) {
     console.warn('simulationDataCache: delete failed', e);
@@ -81,12 +121,18 @@ export async function deleteCachedSimulationPayload(designApiPath, simulationId)
 
 /**
  * After activating a named preset, the CSV rows are unchanged but sim_config on disk is new.
- * Update the cached payload so a subsequent handleRunSimulation can serve from IndexedDB with fresh UI config.
+ * Update the **default** cached payload (design::sim) when present.
  */
 export async function mergeCachedSimulationAfterActivate(designApiPath, simulationId, activateResponse) {
   if (!designApiPath || !simulationId || !activateResponse) return;
-  const existing = await getCachedSimulationPayload(designApiPath, simulationId);
-  if (!existing) return;
+  const existing = await getCachedSimulationPayload(designApiPath, simulationId, null);
+  if (!existing) {
+    idbDbg('mergeAfterActivate skipped (no default cache row)', {
+      designApiPath,
+      simulationId,
+    });
+    return;
+  }
   const next = {
     ...existing,
     sim_config: activateResponse.sim_config ?? existing.sim_config,
@@ -96,5 +142,5 @@ export async function mergeCachedSimulationAfterActivate(designApiPath, simulati
     sim_name: activateResponse.sim_name ?? existing.sim_name,
     row_count: existing.row_count ?? (existing.data?.length ?? 0),
   };
-  await setCachedSimulationPayload(designApiPath, simulationId, next);
+  await setCachedSimulationPayload(designApiPath, simulationId, next, null);
 }

@@ -53,7 +53,7 @@ export const COMPONENT_VISUAL_CONFIG = {
   },
   'gas-turbine-lm2500-andritz': {
     width: 150,
-    height: 85,
+    height: 100,
     icon: '⚙️',
     color: '#ff9800',
     shape: 'schematic-lm2500-andritz',
@@ -274,8 +274,8 @@ export const COMPONENT_VISUAL_CONFIG = {
   // POWER ELECTRONICS (Square, compact)
   // ============================================================================
   'ups': {
-    width: 90,
-    height: 70,
+    width: 100,
+    height: 100,
     icon: '🔌',
     color: '#9c27b0',
     shape: 'shape-rounded-rect'
@@ -300,6 +300,15 @@ export const COMPONENT_VISUAL_CONFIG = {
     icon: '⏴',
     color: '#673ab7',
     shape: 'shape-rect'
+  },
+  /** Single-line UPS branch: combined rectifier + inverter (matches classic SLD one box). */
+  'it-pcs-rect-inv': {
+    width: 100,
+    height: 50,
+    icon: '⎋',
+    color: '#673ab7',
+    shape: 'shape-rect',
+    canvasPrimaryLabel: 'Rect/Inv'
   },
   'sst': {
     width: 90,
@@ -356,7 +365,7 @@ export const COMPONENT_VISUAL_CONFIG = {
   },
   'bess-transformer': {
     width: 100,
-    height: 118,
+    height: 100,
     icon: '⚡⚡',
     color: '#2e7d7d',
     shape: 'schematic-bess-xfmr',
@@ -365,7 +374,7 @@ export const COMPONENT_VISUAL_CONFIG = {
   },
   'bess-xfmr': {
     width: 100,
-    height: 118,
+    height: 100,
     icon: '⚡⚡',
     color: '#2e7d7d',
     shape: 'schematic-bess-xfmr',
@@ -419,11 +428,19 @@ export const COMPONENT_VISUAL_CONFIG = {
   // SWITCHGEAR & PROTECTION (Small, compact)
   // ============================================================================
   'breaker-hv': {
-    width: 60,
-    height: 70,
+    width: 50,
+    height: 50,
     icon: '⏚',
     color: '#f44336',
-    shape: 'shape-rect'
+    shape: 'schematic-earth-breaker'
+  },
+  /** Same symbol as breaker-hv with a visible 1×1 grid square frame (sectional / graphic-only CB). */
+  'breaker-hv-boxed': {
+    width: 50,
+    height: 50,
+    icon: '⏚',
+    color: '#f44336',
+    shape: 'schematic-earth-breaker-framed'
   },
   'breaker-mv': {
     width: 55,
@@ -433,29 +450,29 @@ export const COMPONENT_VISUAL_CONFIG = {
     shape: 'shape-rect'
   },
   'breaker-lv': {
-    width: 65,
-    height: 60,
+    width: 50,
+    height: 50,
     icon: '⏚',
     color: '#ff9800',
-    shape: 'shape-rect'
+    shape: 'schematic-earth-breaker'
   },
   'breaker-dc': {
-    width: 55,
-    height: 65,
+    width: 50,
+    height: 50,
     icon: '⏚',
     color: '#8bc34a',
     shape: 'schematic-earth-breaker'
   },
   'breaker-bess': {
-    width: 55,
-    height: 65,
+    width: 50,
+    height: 50,
     icon: '⏚',
     color: '#f44336',
     shape: 'schematic-earth-breaker'
   },
   'breaker-gen-13.8': {
     width: 50,
-    height: 60,
+    height: 50,
     icon: '⏚',
     color: '#ff9800',
     shape: 'schematic-breaker',
@@ -481,6 +498,14 @@ export const COMPONENT_VISUAL_CONFIG = {
     icon: '╱',
     color: '#9e9e9e',
     shape: 'shape-rect'
+  },
+  /** Manual knife disconnect on the one-line (gap + blade; IEC-style). */
+  'manual-line-switch': {
+    width: 50,
+    height: 50,
+    icon: '',
+    color: '#b0bec5',
+    shape: 'schematic-manual-line-switch',
   },
   'bus-tie-breaker': {
     width: 55,
@@ -599,8 +624,8 @@ export const COMPONENT_VISUAL_CONFIG = {
   // BUSES (Very wide, thin bars)
   // ============================================================================
   'bus-knot': {
-    width: 24,
-    height: 24,
+    width: 50,
+    height: 50,
     icon: '',
     color: '#b0b0b0',
     shape: 'shape-circle'
@@ -619,9 +644,10 @@ export const COMPONENT_VISUAL_CONFIG = {
     color: '#f44336',
     shape: 'shape-bus-bar'
   },
+  /** Half a 50px grid cell wide; default height 5× grid (segments override height in design). */
   'bus-hv-vertical': {
-    width: 40,
-    height: 200,
+    width: 25,
+    height: 250,
     icon: '║',
     color: '#f44336',
     shape: 'shape-bus-bar'
@@ -726,8 +752,8 @@ export const COMPONENT_VISUAL_CONFIG = {
     shape: 'shape-rounded-rect'
   },
   'it-rack-load': {
-    width: 70,
-    height: 100,  // Tall rack
+    width: 100,
+    height: 100,
     icon: '⫾',
     color: '#2196f3',
     shape: 'shape-rounded-rect'

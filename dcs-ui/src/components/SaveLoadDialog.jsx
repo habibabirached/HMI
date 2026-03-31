@@ -50,6 +50,7 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
     if (mode !== 'load') return;
 
     const fetchLoadList = async () => {
+      const t0 = performance.now();
       setLoading(true);
       setMessage(null);
       try {
@@ -80,6 +81,7 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
             `✅ Fetched disk catalog (${active.length} active, ${archived.length} archived)`,
           );
         }
+        console.log(`[DCS:perf] SaveLoad list: done`, { ms: Math.round(performance.now() - t0), useDatabaseList });
       } catch (error) {
         console.error('❌ Error fetching load list:', error);
         setMessage({ type: 'error', text: `Failed to load list: ${error.message}` });
@@ -88,6 +90,7 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
         }
       } finally {
         setLoading(false);
+        console.log(`[DCS:perf] SaveLoad list: finally`, { ms: Math.round(performance.now() - t0) });
       }
     };
 
@@ -162,52 +165,80 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
   };
 
   const handleLoadFromDisk = async (designDir) => {
+    const t0 = performance.now();
     setLoading(true);
     setMessage(null);
     try {
-      console.log(`📂 Loading from disk catalog: ${designDir}`);
+      console.log(`[DCS:perf] SaveLoad disk: start`, { designDir, t0 });
       const response = await fetch(
         `${API_BASE_URL}/api/designs/catalog/${encodeURIComponent(designDir)}/load`,
       );
+      console.log(`[DCS:perf] SaveLoad disk: fetch done`, {
+        ms: Math.round(performance.now() - t0),
+        ok: response.ok,
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP ${response.status}`);
       }
       const loadedConfig = await response.json();
+      console.log(`[DCS:perf] SaveLoad disk: JSON parsed`, {
+        ms: Math.round(performance.now() - t0),
+        name: loadedConfig.name,
+        canvasN: loadedConfig.data?.canvasComponents?.length,
+        connN: loadedConfig.data?.connections?.length,
+      });
       console.log(`✅ Configuration loaded: ${loadedConfig.name}`);
-      setMessage({ type: 'success', text: `Configuration "${loadedConfig.name}" loaded!` });
+      const tOnLoad = performance.now();
       if (onLoad) onLoad(loadedConfig);
-      setTimeout(() => onClose(), 1000);
+      console.log(`[DCS:perf] SaveLoad disk: onLoad() returned (sync work in parent)`, {
+        onLoadMs: Math.round(performance.now() - tOnLoad),
+        totalMs: Math.round(performance.now() - t0),
+      });
+      // Close immediately after apply — do NOT delay (e.g. 1s). Session restore runs
+      // handleRunSimulation on the main thread (~multi‑second augmentRows); a timer would
+      // starve behind that work and keep the modal up ~3s+ after load.
+      console.log(`[DCS:perf] SaveLoad disk: onClose() now`, {
+        totalMs: Math.round(performance.now() - t0),
+      });
+      onClose();
     } catch (error) {
       console.error('❌ Error loading configuration:', error);
       setMessage({ type: 'error', text: `Failed to load: ${error.message}` });
     } finally {
       setLoading(false);
+      console.log(`[DCS:perf] SaveLoad disk: finally (dialog loading spinner off)`, {
+        totalMs: Math.round(performance.now() - t0),
+      });
     }
   };
 
   const handleLoadFromDatabase = async (configId) => {
+    const t0 = performance.now();
     setLoading(true);
     setMessage(null);
     try {
-      console.log(`📂 Loading from database ID: ${configId}`);
+      console.log(`[DCS:perf] SaveLoad DB: start`, { configId });
       const response = await fetch(
         `${API_BASE_URL}/api/load/${configId}?source=database`,
       );
+      console.log(`[DCS:perf] SaveLoad DB: fetch done`, { ms: Math.round(performance.now() - t0), ok: response.ok });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || `HTTP ${response.status}`);
       }
       const loadedConfig = await response.json();
+      console.log(`[DCS:perf] SaveLoad DB: JSON parsed`, { ms: Math.round(performance.now() - t0), name: loadedConfig.name });
       console.log(`✅ Configuration loaded: ${loadedConfig.name}`);
-      setMessage({ type: 'success', text: `Configuration "${loadedConfig.name}" loaded!` });
       if (onLoad) onLoad(loadedConfig);
-      setTimeout(() => onClose(), 1000);
+      console.log(`[DCS:perf] SaveLoad DB: onClose() now`, { totalMs: Math.round(performance.now() - t0) });
+      onClose();
     } catch (error) {
       console.error('❌ Error loading configuration:', error);
       setMessage({ type: 'error', text: `Failed to load: ${error.message}` });
     } finally {
       setLoading(false);
+      console.log(`[DCS:perf] SaveLoad DB: finally`, { totalMs: Math.round(performance.now() - t0) });
     }
   };
 

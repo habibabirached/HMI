@@ -21,10 +21,84 @@
 .library-header h2 {
   font-size: 16px;
   color: #005E60;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 700;
+}
+
+.library-arsenal-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  user-select: none;
+}
+
+.library-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.library-filter-label.active {
+  color: #e0e0e0;
+}
+
+.library-filter-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.library-filter-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.library-filter-slider {
+  position: absolute;
+  inset: 0;
+  background: #0d0d0d;
+  border: 1px solid #005E60;
+  border-radius: 24px;
+  transition: background 0.25s, border-color 0.25s;
+}
+
+.library-filter-slider::before {
+  position: absolute;
+  content: '';
+  width: 18px;
+  height: 18px;
+  left: 2px;
+  bottom: 2px;
+  background: #e0e0e0;
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.library-filter-toggle input:checked + .library-filter-slider {
+  background: rgba(0, 94, 96, 0.35);
+  border-color: #1a8b8d;
+}
+
+.library-filter-toggle input:checked + .library-filter-slider::before {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+.library-filter-toggle input:disabled + .library-filter-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .library-search {

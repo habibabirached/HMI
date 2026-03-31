@@ -14,7 +14,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  /* Lighter scrim, no blur — canvas stays readable while dialog is open. */
+  background-color: rgba(0, 0, 0, 0.35);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -578,7 +581,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   display: flex;
   justify-content: center;
   align-items: center;

@@ -196,56 +196,37 @@
   }
 }
 
+/* Connection lines: stroke width set inline on the SVG line; animation optional per-connection */
 .connection-line {
-  transition: stroke 0.3s, stroke-width 0.2s;
+  transition: filter 0.22s ease;
 }
 
-.connection-line:hover {
-  stroke-width: 4px;
+.connection-line--selected {
+  outline: none;
 }
 
-/* ============================================================================
-   POWER FLOW ANIMATION - Flowing Electricity Effect
-   ============================================================================
-   This creates an animated "flowing" effect on energized power lines.
-   
-   HOW IT WORKS:
-   - We use a dashed line pattern (stroke-dasharray)
-   - We animate the stroke-dashoffset property
-   - This makes the dashes appear to move along the line
-   - The movement direction shows power flowing from source to load
-   
-   VISUAL EFFECT:
-   Green lines will have animated "pulses" moving along them, making it
-   look like electricity is flowing through the wires!
-============================================================================ */
+.connection-line--selection-frame {
+  pointer-events: none;
+}
 
-/* Keyframe animation - moves the dash pattern */
-@keyframes power-flow {
-  0% {
-    stroke-dashoffset: 0;
-  }
-  100% {
-    stroke-dashoffset: -20;  /* Negative value reverses direction */
+@keyframes conn-line-flow-fwd {
+  to {
+    stroke-dashoffset: -22;
   }
 }
 
-/* Apply animation to energized lines */
-.connection-line.energized {
-  /* Create a dash pattern: 10px line, 10px gap */
-  stroke-dasharray: 10, 10;
-  
-  /* Animate the dash offset to create flowing effect */
-  animation: power-flow 2s linear infinite;
-  
-  /* Make energized lines slightly thicker and brighter */
-  filter: drop-shadow(0 0 3px #4caf50);
+@keyframes conn-line-flow-rev {
+  to {
+    stroke-dashoffset: 22;
+  }
 }
 
-/* De-energized lines (no animation, just static dashes) */
-.connection-line.de-energized {
-  stroke-dasharray: 5, 5;
-  opacity: 0.5;
+.connection-line--flow-forward {
+  animation: conn-line-flow-fwd 1.1s linear infinite;
+}
+
+.connection-line--flow-reverse {
+  animation: conn-line-flow-rev 1.1s linear infinite;
 }
 
 .canvas-info {
