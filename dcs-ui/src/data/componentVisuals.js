@@ -278,14 +278,18 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 100,
     icon: '🔌',
     color: '#9c27b0',
-    shape: 'shape-rounded-rect'
+    shape: 'shape-rounded-rect',
+    backgroundTexture: '/component-textures/ups-line-art.png',
+    backgroundTextureOpacity: 0.95,
   },
   'ups-large': {
     width: 110,
     height: 80,
     icon: '🔌',
     color: '#9c27b0',
-    shape: 'shape-rounded-rect'
+    shape: 'shape-rounded-rect',
+    backgroundTexture: '/component-textures/ups-line-art.png',
+    backgroundTextureOpacity: 0.95,
   },
   'rectifier': {
     width: 80,
@@ -756,7 +760,9 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 100,
     icon: '⫾',
     color: '#2196f3',
-    shape: 'shape-rounded-rect'
+    shape: 'shape-rounded-rect',
+    backgroundTexture: '/component-textures/it-rack-line-art.png',
+    backgroundTextureOpacity: 0.95,
   },
   'cooling-plant': {
     width: 130,
@@ -777,17 +783,19 @@ export const COMPONENT_VISUAL_CONFIG = {
     height: 70,
     icon: '⚙️',
     color: '#9e9e9e',
-    shape: 'shape-rounded-rect'
+    shape: 'shape-rounded-rect',
+    backgroundTexture: '/component-textures/auxiliary-loads-line-art.png',
+    backgroundTextureOpacity: 0.95,
   },
-  // Same background treatment as bess-50mw; for large auxiliary / plant loads on one-line.
+  // Large auxiliary / plant loads on one-line (FullBlock Aux Loads tiles).
   'auxiliary-loads-bess': {
     width: 150,
     height: 100,
     icon: '⚙️',
     color: '#9e9e9e',
     shape: 'shape-rounded-rect',
-    backgroundTexture: '/component-textures/bess-line-art.png',
-    backgroundTextureOpacity: 0.88
+    backgroundTexture: '/component-textures/auxiliary-loads-line-art.png',
+    backgroundTextureOpacity: 0.95,
   },
   'critical-load': {
     width: 130,

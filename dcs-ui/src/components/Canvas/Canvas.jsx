@@ -6,6 +6,7 @@ import KeyboardShortcuts from './KeyboardShortcuts';
 import CanvasBlock from './CanvasBlock';
 import { getComponentVisualConfig } from '../../data/componentVisuals';
 import { resolveConnectionRenderParams } from '../../utils/connectionLineStyle';
+import { markSelectionInteractionStart } from '../../utils/perfDebug';
 import './Canvas.css';
 
 function sanitizeSvgGradientId(connId) {
@@ -185,6 +186,8 @@ const Canvas = forwardRef(({
   canAddCharts,
   simulationColumns = [],
   simulationCsvName = '',
+  ensembleColumnGroups = [],
+  onConfigureConnectionReadout,
   zoom,
   pan,
   onPan,
@@ -192,10 +195,17 @@ const Canvas = forwardRef(({
   viewMode,
   simulationRunning,
   simulationData = [],
+  ensembleMemberSimulationData = null,
   simulationTime = 0,
   systemState
 }, ref) => {
   const canvasRef = useRef(null);
+  /** Stable identities for React.memo(CanvasBlock) — latest implementation swapped in each render. */
+  const handleComponentMouseDownLatestRef = useRef(null);
+  const handleComponentContextMenuLatestRef = useRef(null);
+  const handleComponentMouseUpLatestRef = useRef(null);
+  const onOpenChartLatestRef = useRef(onOpenChart);
+  const onUpdateComponentLatestRef = useRef(onUpdateComponent);
 
   const connectionRenderList = useMemo(() => {
     return connections.map((conn) => {
@@ -377,7 +387,11 @@ const Canvas = forwardRef(({
     if (contextMenu) {
       return;
     }
-    
+
+    if (e.button === 0) {
+      markSelectionInteractionStart();
+    }
+
     // IN SIMULATION MODE: Only allow selection, nothing else
     if (mode === 'simulation') {
       console.log('🖱️ Clicked in simulation mode:', component.name);
@@ -708,6 +722,28 @@ const Canvas = forwardRef(({
     }
   };
 
+  handleComponentMouseDownLatestRef.current = handleComponentMouseDown;
+  handleComponentContextMenuLatestRef.current = handleComponentContextMenu;
+  handleComponentMouseUpLatestRef.current = handleComponentMouseUp;
+  onOpenChartLatestRef.current = onOpenChart;
+  onUpdateComponentLatestRef.current = onUpdateComponent;
+
+  const stableHandleComponentMouseDown = useCallback((e, component) => {
+    handleComponentMouseDownLatestRef.current?.(e, component);
+  }, []);
+  const stableHandleComponentContextMenu = useCallback((e, component) => {
+    handleComponentContextMenuLatestRef.current?.(e, component);
+  }, []);
+  const stableHandleComponentMouseUp = useCallback((e, component) => {
+    handleComponentMouseUpLatestRef.current?.(e, component);
+  }, []);
+  const stableOnOpenChart = useCallback((component, chart) => {
+    onOpenChartLatestRef.current?.(component, chart);
+  }, []);
+  const stableOnUpdateComponent = useCallback((componentId, updates) => {
+    onUpdateComponentLatestRef.current?.(componentId, updates);
+  }, []);
+
   const handleCanvasClick = (e) => {
     if (connecting) {
       // Cancel connection on empty canvas click
@@ -1027,12 +1063,15 @@ const Canvas = forwardRef(({
               mode={mode}
               simulationRunning={simulationRunning}
               simulationData={simulationData}
+              ensembleMemberSimulationData={ensembleMemberSimulationData}
               simulationTime={simulationTime}
-              onMouseDown={handleComponentMouseDown}
-              onMouseUp={handleComponentMouseUp}
-              onContextMenu={handleComponentContextMenu}
-              onOpenChart={onOpenChart}
-              onUpdateComponent={onUpdateComponent}
+              simulationColumns={simulationColumns}
+              ensembleColumnGroups={ensembleColumnGroups}
+              onMouseDown={stableHandleComponentMouseDown}
+              onMouseUp={stableHandleComponentMouseUp}
+              onContextMenu={stableHandleComponentContextMenu}
+              onOpenChart={stableOnOpenChart}
+              onUpdateComponent={stableOnUpdateComponent}
               onResizeStart={setResizingComponent}
             />
           ))}
@@ -1085,6 +1124,11 @@ const Canvas = forwardRef(({
         <ChartContextMenu
           position={contextMenu.position}
           componentName={contextMenu.component.name}
+          component={contextMenu.component}
+          canConfigureConnectionReadout={canAddCharts}
+          onConfigureConnectionReadout={() =>
+            onConfigureConnectionReadout?.(contextMenu.component)
+          }
           onClose={() => setContextMenu(null)}
           onSelectChartType={handleChartTypeSelected}
         />

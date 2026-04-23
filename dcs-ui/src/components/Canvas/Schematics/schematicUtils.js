@@ -25,6 +25,11 @@ export function formatVoltageRatioString(primaryKv, secondaryKv) {
  * Reads winding kV from properties (with legacy `primary` / `secondary`).
  * - If both missing: `properties.voltage` sets both sides (legacy rows).
  * - Else if still both missing: `state.voltage` as secondary only → `X kV : 34.5kV` (common in saved designs).
+ *
+ * For **GSU**, stored primary = generator (LV), secondary = bus (HV). The on-screen ratio reads
+ * left→right along the one-line. Set `properties.gsuBusOnComponentSide`:
+ * - **`left`** (default): 34.5 kV bus ties to the **left** side of the symbol → show **HV : LV** (`secondary` : `primary`).
+ * - **`right`**: 34.5 kV bus ties to the **right** side → show **LV : HV** (`primary` : `secondary`).
  */
 export function transformerVoltageRatioLabel(component) {
   let p = component.properties?.primaryVoltageKv ?? component.primary;
@@ -48,6 +53,13 @@ export function transformerVoltageRatioLabel(component) {
     if (st != null && String(st) !== '' && !Number.isNaN(Number(st))) {
       return formatVoltageRatioString(null, st);
     }
+  }
+  if (component?.type === 'gsu' && pValid && sValid) {
+    const busSide = component.properties?.gsuBusOnComponentSide ?? 'left';
+    if (busSide === 'right') {
+      return formatVoltageRatioString(p, s);
+    }
+    return formatVoltageRatioString(s, p);
   }
   return formatVoltageRatioString(p, s);
 }

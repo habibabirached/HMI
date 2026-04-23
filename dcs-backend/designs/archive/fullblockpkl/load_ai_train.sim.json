@@ -1,0 +1,41 @@
+{
+  "display_name": "Load Ai Train",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bus-left",
+      "chart_type": "2d",
+      "x_column": "t|Main",
+      "y_column": "R_LD|load_ai_train",
+      "title": "34.5kV Bus L - R_LD|load_ai_train"
+    }
+  ],
+  "event_markers": {},
+  "chart_stacks": [],
+  "chart_sample_default": 1,
+  "chart_panel_height": 433,
+  "chart_panel_opacity": 1.0,
+  "chart_card_width": 500,
+  "derived_variables": [],
+  "current_configuration": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bus-left",
+        "chart_type": "2d",
+        "x_column": "t|Main",
+        "y_column": "R_LD|load_ai_train",
+        "title": "34.5kV Bus L - R_LD|load_ai_train"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 1,
+    "chart_panel_height": 433,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 500,
+    "derived_variables": [],
+    "event_markers": {}
+  }
+}

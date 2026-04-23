@@ -76,3 +76,46 @@ function normalizeApiBaseUrl(raw) {
  * (localhost:5000) or use a full URL.
  */
 export const API_BASE_URL = normalizeApiBaseUrl(process.env.REACT_APP_API_BASE_URL);
+
+/**
+ * How the UI loads per-scenario CSV from the design directory (build-time env):
+ *
+ * - **lazy** (default): `GET …/metadata` then `GET …/data?columns=…` for only the columns
+ *   needed for saved charts, derived variables, and time axis. Does **not** write the
+ *   full simulation JSON (all rows × all columns) to IndexedDB unless you opt in
+ *   (see `SIMULATION_LAZY_ALSO_CACHE_FULL_PAYLOAD`).
+ * - **full**: Legacy — one `GET …/simulations/{id}` for the entire CSV; may cache the
+ *   full response in IndexedDB when `SIMULATION_CACHE_FULL_PAYLOAD` is true.
+ *
+ * Set `REACT_APP_SIMULATION_DATA_MODE=full` to restore the old network + cache behavior.
+ */
+export const SIMULATION_DATA_MODE = String(
+  process.env.REACT_APP_SIMULATION_DATA_MODE || 'lazy',
+).toLowerCase();
+
+export const useLazySimulationData = SIMULATION_DATA_MODE !== 'full';
+
+/**
+ * When `SIMULATION_DATA_MODE` is **full**, store the full API payload in IndexedDB after
+ * a successful load. Set `REACT_APP_SIMULATION_CACHE_FULL_PAYLOAD=false` to disable writes
+ * (reads of an existing cache still work).
+ */
+export const SIMULATION_CACHE_FULL_PAYLOAD =
+  process.env.REACT_APP_SIMULATION_CACHE_FULL_PAYLOAD !== 'false';
+
+/**
+ * When using **lazy** mode, also persist the full `GET …/simulations/{id}` payload to
+ * IndexedDB (same keys as legacy). Useful for debugging or offline parity with the old path;
+ * not needed for normal lazy operation.
+ */
+export const SIMULATION_LAZY_ALSO_CACHE_FULL_PAYLOAD =
+  process.env.REACT_APP_SIMULATION_LAZY_ALSO_CACHE_FULL_PAYLOAD === 'true';
+
+/**
+ * In lazy mode: first `GET …/data?columns=…&offset=0&limit=N` uses this N; each progressive load
+ * adds the same count. Set REACT_APP_SIMULATION_LAZY_PAGE_SIZE to change (1–50000).
+ */
+export const SIMULATION_LAZY_PAGE_SIZE = Math.max(
+  1,
+  Math.min(50000, Number(process.env.REACT_APP_SIMULATION_LAZY_PAGE_SIZE) || 5000),
+);

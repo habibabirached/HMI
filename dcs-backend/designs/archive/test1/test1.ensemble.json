@@ -1,0 +1,20 @@
+{
+  "_note": "Canvas in test1.conf.json is minimal (one LM2500 block); ensemble still lists all LM2500 scenarios for merged variables / multi-CSV playback.",
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "all_lm2500",
+      "display_name": "All LM2500 (ensemble)",
+      "member_simulations": [
+        "LM2500_1",
+        "LM2500_2",
+        "LM2500_3",
+        "LM2500_4",
+        "LM2500_5",
+        "LM2500_6",
+        "LM2500_7",
+        "LM2500_8"
+      ]
+    }
+  ]
+}

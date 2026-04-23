@@ -8,6 +8,14 @@ import {
   CHART_PANEL_OPACITY_DEFAULT,
 } from '../../utils/chartPanelLimits';
 import './ChartPanel.css';
+import {
+  buildCross2dTraces,
+  buildCrossMultiLineTraces,
+  buildCrossNdTraces,
+  buildCrossStackedNdTraces,
+  crossMemberDataReady,
+  layoutDataForEnsembleCrossChart,
+} from '../../utils/ensembleCrossMemberChart';
 
 // Store native selection listeners per chart so we can clean up on unmount
 const selectionListenersByChart = new Map();
@@ -47,6 +55,10 @@ const ChartPanel = ({
   simulationRunning, 
   selectedComponentId,
   simulationData,
+  /** Per-member row tables when simulationMetadata.isEnsemble; charts use chart.ensembleSimId to pick one. */
+  ensembleMemberSimulationData = null,
+  /** Lazy ensemble: fetch subset columns for this chart’s member via App (avoids full GET …/simulations). */
+  onEnsureEnsembleChartColumns,
   simulationMetadata,
   eventMarkers,
   globalSampleStep = 1,
@@ -59,7 +71,7 @@ const ChartPanel = ({
   selectedRowIndices = null,
   onSelectionChange,
   onFocus,
-  isFocused,
+  isFocused: _isFocused,
   /** Labels of saved UI presets in this scenario's .sim.json (Step 2: named snapshots). */
   namedSimulationConfigs = [],
   /** Which preset matches what is on screen after an explicit activate; cleared when the user edits charts. */
@@ -69,9 +81,37 @@ const ChartPanel = ({
   onActivateNamedSimulationConfig,
   /** Copy a shareable URL that opens this design + scenario + this named preset on another machine. */
   onCopyNamedPresetLink,
+  /** Paged scenario data: not all file rows are in memory yet. */
+  onRequestMoreRows,
+  /** Insets (px) so the fixed panel does not cover the left component library or right control rail. */
+  insetLeft = 0,
+  insetRight = 0,
 }) => {
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef({ y: 0, height: 0 });
+  /** Minimize to a thin bar; charts tray stays above the canvas (z-index) either way. */
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('dcsChartPanelCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleChartCollapse = () => {
+    setIsCollapsed((c) => {
+      const n = !c;
+      try {
+        window.localStorage.setItem('dcsChartPanelCollapsed', n ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
+  };
+  const CHART_COLLAPSED_MIN_PX = 60;
+  /** Always above canvas / side panel stacking (10–1100); below modals (10k+). */
+  const CHART_PANEL_Z_STACK = 5000;
 
   // Remember the browser width so “wider” can grow cards up to nearly the full screen and limits stay correct after resize.
   // During SSR we pick a neutral default; the first client paint and resize listener correct it.
@@ -84,8 +124,11 @@ const ChartPanel = ({
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // One chart column may use at most the content width inside the tray (full viewport minus 16px padding on each side).
-  const chartCardMaxWidthPx = Math.max(320, viewportInnerWidth - 32);
+  // One chart column: tray width is viewport minus horizontal insets and panel padding.
+  const chartCardMaxWidthPx = Math.max(
+    320,
+    viewportInnerWidth - insetLeft - insetRight - 32,
+  );
   // Card CSS uses max-width ≈ chartCardWidth + 150px; clamp range so drag-resize stays sane when the window is tiny.
   const chartWidthStateMin = 200;
   const chartWidthStateMax = Math.max(chartWidthStateMin, chartCardMaxWidthPx - 150);
@@ -176,10 +219,35 @@ const ChartPanel = ({
    * Get data for a chart: prefer simulationData (from design dir) when available
    */
   const getChartData = (chart) => {
+    if (chart.ensembleCrossMember) {
+      return null;
+    }
+    if (
+      chart.ensembleSimId &&
+      ensembleMemberSimulationData?.[chart.ensembleSimId]?.length
+    ) {
+      return ensembleMemberSimulationData[chart.ensembleSimId];
+    }
     if (simulationData && simulationData.length > 0) {
       return simulationData;
     }
     return chartData[chart.id];
+  };
+
+  const chartDataReadyToPlot = (chart) => {
+    if (chart.ensembleCrossMember) {
+      return crossMemberDataReady(chart, ensembleMemberSimulationData);
+    }
+    if (simulationData?.length) return getChartData(chart)?.length > 0;
+    const d = getChartData(chart);
+    return d && d.length > 0;
+  };
+
+  const dataForPlotlyLayout = (chart) => {
+    if (chart.ensembleCrossMember && ensembleMemberSimulationData) {
+      return layoutDataForEnsembleCrossChart(chart, ensembleMemberSimulationData);
+    }
+    return getChartData(chart);
   };
 
   /**
@@ -187,14 +255,34 @@ const ChartPanel = ({
    * Skip fetch when simulationData is provided (design dir flow)
    */
   useEffect(() => {
-    if (simulationData && simulationData.length > 0) return; // Use simulationData, no fetch
-    charts.forEach(chart => {
+    if (simulationData && simulationData.length > 0) return;
+    charts.forEach((chart) => {
+      if (simulationMetadata?.isEnsemble && chart.ensembleCrossMember) {
+        if (!crossMemberDataReady(chart, ensembleMemberSimulationData)) {
+          void onEnsureEnsembleChartColumns?.(chart);
+        }
+        return;
+      }
+      if (
+        chart.ensembleSimId &&
+        simulationMetadata?.isEnsemble &&
+        !ensembleMemberSimulationData?.[chart.ensembleSimId]?.length
+      ) {
+        void onEnsureEnsembleChartColumns?.(chart);
+        return;
+      }
+      if (
+        chart.ensembleSimId &&
+        ensembleMemberSimulationData?.[chart.ensembleSimId]?.length
+      ) {
+        return;
+      }
       if (!chartData[chart.id]) {
         fetchChartData(chart);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [charts]);
+  }, [charts, simulationData, ensembleMemberSimulationData, simulationMetadata?.isEnsemble, onEnsureEnsembleChartColumns]);
 
   // Clean up selection listeners when charts are removed
   useEffect(() => {
@@ -591,6 +679,47 @@ const ChartPanel = ({
    * Filters data based on simulation time if simulation is running
    */
   const generatePlotlyData = (chart, data) => {
+    if (chart.ensembleCrossMember && simulationMetadata?.isEnsemble && ensembleMemberSimulationData) {
+      const sampleStep = getSampleStep(chart.id);
+      const base = {
+        chart,
+        memberData: ensembleMemberSimulationData,
+        sampleStep,
+        simulationRunning,
+        simulationTime,
+        selectedRowIndices,
+      };
+      if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
+        return buildCrossMultiLineTraces(base);
+      }
+      if (chart.chartType === 'nd' && chart.yColumns?.length) {
+        return buildCrossNdTraces(base);
+      }
+      if (chart.chartType === 'stacked-nd' && chart.yColumns?.length) {
+        return buildCrossStackedNdTraces({ ...base, groupFn: groupColumnsBySplit });
+      }
+      if (chart.chartType === '2d') {
+        return buildCross2dTraces({ ...base, lineColor: '#005E60' });
+      }
+      if (chart.chartType === 'bar') {
+        const t = buildCross2dTraces({ ...base, lineColor: '#4caf50' });
+        if (!t?.[0]) return [];
+        return [
+          {
+            type: 'bar',
+            x: t[0].x?.slice(0, 50) || [],
+            y: t[0].y?.slice(0, 50) || [],
+            name: chart.componentName,
+            customdata: t[0].customdata,
+            marker: {
+              color: '#4caf50',
+              line: { color: '#000', width: 1 },
+            },
+          },
+        ];
+      }
+    }
+
     if (!data || data.length === 0) return [];
 
     // Handle multi-component bar charts
@@ -1338,6 +1467,7 @@ const ChartPanel = ({
    * Can be triggered from the resize handle or the header bar (except buttons/inputs).
    */
   const handleResizeStart = (e) => {
+    if (isCollapsed) return;
     if (e.target.closest('button, select, input, label')) return;
     e.preventDefault();
     resizeStartRef.current = { y: e.clientY, height };
@@ -1427,7 +1557,10 @@ const ChartPanel = ({
   };
 
   const handlePanelMouseDown = (e) => {
-    if (onFocus && !e.target.closest('button, select, input, a, [role="button"]')) {
+    if (
+      onFocus &&
+      !e.target.closest('button, select, input, a, [role="button"], .chart-panel-aot')
+    ) {
       onFocus(e);
     }
   };
@@ -1436,28 +1569,119 @@ const ChartPanel = ({
 
   return (
     <div
-      className={`chart-panel ${isResizing ? 'resizing' : ''}`}
+      className={`chart-panel ${isResizing ? 'resizing' : ''} chart-panel--on-top-canvas${
+        isCollapsed ? ' chart-panel--collapsed' : ''
+      }`}
       style={{
-        height: `${height}px`,
-        zIndex: isFocused ? 1100 : 1000,
+        left: typeof insetLeft === 'number' ? `${insetLeft}px` : undefined,
+        right: typeof insetRight === 'number' ? `${insetRight}px` : undefined,
+        height: isCollapsed ? 'auto' : `${height}px`,
+        minHeight: isCollapsed ? CHART_COLLAPSED_MIN_PX : undefined,
+        zIndex: CHART_PANEL_Z_STACK,
         '--chart-panel-shell-a': String(shellA),
         '--chart-panel-card-a': String(shellA),
+        '--chart-panel-inset-left': typeof insetLeft === 'number' ? `${insetLeft}px` : '0px',
+        '--chart-panel-inset-right': typeof insetRight === 'number' ? `${insetRight}px` : '0px',
       }}
       onMouseDown={handlePanelMouseDown}
     >
-      {/* Resize Handle */}
-      <div 
-        className="chart-panel-resize-handle"
-        onMouseDown={handleResizeStart}
-      >
-        <div className="chart-panel-resize-bar"></div>
-      </div>
+      {!isCollapsed && (
+        <div
+          className="chart-panel-resize-handle"
+          onMouseDown={handleResizeStart}
+        >
+          <div className="chart-panel-resize-bar"></div>
+        </div>
+      )}
 
+      {isCollapsed ? (
+        <div
+          className="chart-panel-collapsed-stack"
+          onMouseDown={(e) => {
+            if (e.target.closest('button:not(.chart-panel-close)')) return;
+            onFocus?.(e);
+          }}
+        >
+          <button
+            type="button"
+            className="chart-panel-hinge chart-panel-hinge--expand"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleChartCollapse();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Click to show chart tray"
+            aria-label="Expand chart tray"
+          >
+            <span className="chart-panel-hinge__glyph" aria-hidden>
+              ▲
+            </span>
+            <span className="chart-panel-hinge__label">Click or tap to expand charts</span>
+          </button>
+          <div className="chart-panel-header chart-panel-header--collapsed">
+            <div className="chart-panel-header-left">
+              <div className="chart-panel-title">📊 Charts ({charts.length})</div>
+            </div>
+            <div className="chart-panel-header-right">
+              <button
+                type="button"
+                className="chart-panel-close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose?.();
+                }}
+                title="Close chart panel"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+      {/* Full-width hinge (like the right rail): click anywhere on the bar to minimize the tray. */}
+      <button
+        type="button"
+        className="chart-panel-hinge chart-panel-hinge--collapse"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleChartCollapse();
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        title="Click to minimize chart tray"
+        aria-label="Minimize chart tray"
+      >
+        <span className="chart-panel-hinge__glyph" aria-hidden>
+          ▼
+        </span>
+        <span className="chart-panel-hinge__label">Click or tap to minimize</span>
+      </button>
       {/* Panel Header - also draggable for resize */}
       <div className="chart-panel-header" onMouseDown={handleResizeStart}>
         <div className="chart-panel-header-left">
           <div className="chart-panel-title">
             📊 Charts ({charts.length})
+            {typeof simulationMetadata?.loadedRowCount === 'number' &&
+              simulationMetadata.rowCount > simulationMetadata.loadedRowCount && (
+                <span
+                  className="chart-panel-paging-hint"
+                  title="Initial load is a small window; more rows load as the playhead moves or you expand the time range. Use Load more to fetch the next chunk."
+                >
+                  · Rows in memory: {simulationMetadata.loadedRowCount} / {simulationMetadata.rowCount}
+                  {onRequestMoreRows && (
+                    <button
+                      type="button"
+                      className="chart-panel-paging-load-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestMoreRows();
+                      }}
+                    >
+                      Load more
+                    </button>
+                  )}
+                </span>
+              )}
           </div>
           {/* One button per named preset; activating rewrites root + current_configuration on disk and reloads this scenario. */}
           {namedSimulationConfigs.length > 0 && onActivateNamedSimulationConfig && (
@@ -1701,10 +1925,11 @@ const ChartPanel = ({
               )}
 
               {/* Render Plotly Chart */}
-              {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length > 0 && (() => {
+              {!loadingCharts[chart.id] && chartDataReadyToPlot(chart) && (() => {
                 const data = getChartData(chart);
+                const dataLayout = dataForPlotlyLayout(chart);
                 const plotlyData = generatePlotlyData(chart, data);
-                const layout = generatePlotlyLayout(chart, data);
+                const layout = generatePlotlyLayout(chart, dataLayout);
                 const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'stacked-nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
                 return (
                   <Plot
@@ -1722,7 +1947,7 @@ const ChartPanel = ({
               })()}
 
               {/* Empty State */}
-              {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length === 0 && (
+              {!loadingCharts[chart.id] && !chartDataReadyToPlot(chart) && (
                 <div className="chart-panel-chart-empty">
                   <div className="chart-panel-empty-icon">📊</div>
                   <div>No data available</div>
@@ -1795,10 +2020,11 @@ const ChartPanel = ({
                     {!simulationData?.length && !loadingCharts[chart.id] && chartData[chart.id] === null && (
                       <div className="chart-panel-chart-error"><div className="chart-panel-error-icon">⚠️</div><div>Failed to load chart data</div></div>
                     )}
-                    {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length > 0 && (() => {
+                    {!loadingCharts[chart.id] && chartDataReadyToPlot(chart) && (() => {
                       const data = getChartData(chart);
+                      const dataLayout = dataForPlotlyLayout(chart);
                       const plotlyData = generatePlotlyData(chart, data);
-                      const layout = generatePlotlyLayout(chart, data);
+                      const layout = generatePlotlyLayout(chart, dataLayout);
                       const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'stacked-nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
                       return (
                         <Plot data={plotlyData} layout={layout} config={plotlyConfig} style={{ width: '100%', height: '100%' }} useResizeHandler={true}
@@ -1807,7 +2033,7 @@ const ChartPanel = ({
                         />
                       );
                     })()}
-                    {!loadingCharts[chart.id] && getChartData(chart) && getChartData(chart).length === 0 && (
+                    {!loadingCharts[chart.id] && !chartDataReadyToPlot(chart) && (
                       <div className="chart-panel-chart-empty"><div className="chart-panel-empty-icon">📊</div><div>No data available</div></div>
                     )}
                   </div>
@@ -1818,6 +2044,8 @@ const ChartPanel = ({
           )
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 };

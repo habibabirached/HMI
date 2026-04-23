@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "BothBessPlustLMM",
+      "display_name": "BothBessPlustLMM",
+      "member_simulations": [
+        "BESS_1",
+        "BESS_2",
+        "LM2500_1",
+        "LM2500_2"
+      ]
+    }
+  ]
+}

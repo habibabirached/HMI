@@ -51,14 +51,25 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   box-shadow: 0 2px 8px rgba(0, 94, 96, 0.3);
   z-index: 100;
+}
+
+/* Center: non-blocking simulation fetch indicator (metadata + /data) */
+.header-fetch-status {
+  flex: 1;
+  min-width: 0;
+  max-width: min(520px, 42vw);
+  display: flex;
+  align-items: center;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 20px;
+  flex-shrink: 0;
 }
 
 /* GE Vernova Logo */
@@ -321,6 +332,80 @@ body {
 .app-main > aside:last-child {
   display: flex;
   flex-direction: column;
+}
+
+/* Right rail: property (320) + simulation (320), one collapse for both. Chart panel inset uses measured width. */
+.app-right-rail {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  flex-shrink: 0;
+  background: #141414;
+  border-left: 2px solid var(--vernova-border);
+}
+
+.app-right-rail__hinge {
+  flex-shrink: 0;
+  width: 18px;
+  min-height: 0;
+  padding: 8px 0;
+  border: none;
+  cursor: pointer;
+  color: var(--vernova-accent);
+  background: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  transition: width 0.2s ease, background 0.15s ease;
+}
+
+.app-right-rail__hinge:hover {
+  background: #252525;
+  color: #fff;
+}
+
+.app-right-rail__hinge-chev {
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.app-right-rail__hinge-vlabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vernova-text-dim);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  user-select: none;
+}
+
+.app-right-rail__hinge--collapsed {
+  width: 30px;
+  justify-content: center;
+  gap: 6px;
+}
+
+.app-right-rail__panels {
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+  flex: 1 1 auto;
+  transition: max-width 0.22s ease, opacity 0.18s ease, flex-basis 0.22s ease;
+}
+
+.app-right-rail--collapsed .app-right-rail__panels {
+  max-width: 0;
+  flex: 0 0 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Right-side panels (PropertyPanel, SimulationControls) - ensure they fill height for scrolling */

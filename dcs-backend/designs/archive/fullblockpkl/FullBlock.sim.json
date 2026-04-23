@@ -9,8 +9,7 @@
       "chart_type": "2d",
       "x_column": "Time (s)",
       "y_column": " P_g1 (MW)",
-      "title": "BESS 50MW L -  P_g1 (MW)",
-      "chart_card_width": 1835
+      "title": "BESS 50MW L -  P_g1 (MW)"
     },
     {
       "type": "single",
@@ -18,8 +17,7 @@
       "chart_type": "histogram",
       "x_column": "Time (s)",
       "y_column": " P_g2 (MW)",
-      "title": "BESS 50MW L -  P_g2 (MW)",
-      "chart_card_width": 368
+      "title": "BESS 50MW L -  P_g2 (MW)"
     },
     {
       "type": "single",
@@ -30,8 +28,7 @@
         " P_g2 (MW)",
         " Q_g4 (MVar)"
       ],
-      "title": "BESS 50MW L - nD",
-      "chart_card_width": 1847
+      "title": "BESS 50MW L - nD"
     },
     {
       "type": "single",
@@ -55,13 +52,8 @@
   ],
   "event_markers": {},
   "chart_sample_default": 16,
-  "chart_panel_height": 644,
-  "chart_stacks": [
-    [
-      0,
-      2
-    ]
-  ],
+  "chart_panel_height": 591,
+  "chart_stacks": [],
   "chart_panel_opacity": 1.0,
   "current_configuration": {
     "view_mode": "customer",
@@ -72,8 +64,7 @@
         "chart_type": "2d",
         "x_column": "Time (s)",
         "y_column": " P_g1 (MW)",
-        "title": "BESS 50MW L -  P_g1 (MW)",
-        "chart_card_width": 1835
+        "title": "BESS 50MW L -  P_g1 (MW)"
       },
       {
         "type": "single",
@@ -81,8 +72,7 @@
         "chart_type": "histogram",
         "x_column": "Time (s)",
         "y_column": " P_g2 (MW)",
-        "title": "BESS 50MW L -  P_g2 (MW)",
-        "chart_card_width": 368
+        "title": "BESS 50MW L -  P_g2 (MW)"
       },
       {
         "type": "single",
@@ -93,8 +83,7 @@
           " P_g2 (MW)",
           " Q_g4 (MVar)"
         ],
-        "title": "BESS 50MW L - nD",
-        "chart_card_width": 1847
+        "title": "BESS 50MW L - nD"
       },
       {
         "type": "single",
@@ -116,14 +105,9 @@
         "title": "BESS 50MW L - Stacked nD"
       }
     ],
-    "chart_stacks": [
-      [
-        0,
-        2
-      ]
-    ],
+    "chart_stacks": [],
     "chart_sample_default": 16,
-    "chart_panel_height": 644,
+    "chart_panel_height": 591,
     "chart_panel_opacity": 1.0,
     "chart_card_width": 1400,
     "derived_variables": [],

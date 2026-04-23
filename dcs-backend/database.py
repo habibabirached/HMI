@@ -113,7 +113,11 @@ def init_db():
     
     # Import all models here to ensure they are registered with Base.metadata
     # This must happen BEFORE calling create_all()
-    from models import Configuration  # Import your models here
+    from models import (  # noqa: F401 — register ORM models with Base.metadata
+        Configuration,
+        SimulationCsvImport,
+        SimulationCsvRow,
+    )
     
     # Create all tables defined in models
     Base.metadata.create_all(bind=engine)

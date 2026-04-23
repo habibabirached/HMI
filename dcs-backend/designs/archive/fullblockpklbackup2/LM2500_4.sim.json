@@ -1,0 +1,69 @@
+{
+  "display_name": "Lm2500 4",
+  "description": "",
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bus-left",
+      "chart_type": "2d",
+      "x_column": "t|Main",
+      "y_column": "Q_g4|LM2500_4",
+      "title": "34.5kV Bus L - Q_g4|LM2500_4"
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bus-left",
+      "chart_type": "2d",
+      "x_column": "t|Main",
+      "y_column": "freq_gt_4|LM2500_4",
+      "title": "34.5kV Bus L - freq_gt_4|LM2500_4"
+    }
+  ],
+  "event_markers": {},
+  "data_row_count": 20000,
+  "data_column_count": 5,
+  "chart_stacks": [],
+  "chart_sample_default": 1,
+  "chart_panel_height": 814,
+  "chart_panel_opacity": 1.0,
+  "chart_card_width": 500,
+  "derived_variables": [
+    {
+      "name": "TotalPower",
+      "formula": "Q_g4|LM2500_4 + freq_gt_4|LM2500_4"
+    }
+  ],
+  "current_configuration": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bus-left",
+        "chart_type": "2d",
+        "x_column": "t|Main",
+        "y_column": "Q_g4|LM2500_4",
+        "title": "34.5kV Bus L - Q_g4|LM2500_4"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bus-left",
+        "chart_type": "2d",
+        "x_column": "t|Main",
+        "y_column": "freq_gt_4|LM2500_4",
+        "title": "34.5kV Bus L - freq_gt_4|LM2500_4"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 1,
+    "chart_panel_height": 814,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 500,
+    "derived_variables": [
+      {
+        "name": "TotalPower",
+        "formula": "Q_g4|LM2500_4 + freq_gt_4|LM2500_4"
+      }
+    ],
+    "event_markers": {}
+  }
+}

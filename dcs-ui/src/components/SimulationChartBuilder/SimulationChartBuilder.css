@@ -428,3 +428,51 @@
   color: #666;
   text-align: center;
 }
+
+/* Ensemble: grouped variables (same interaction as flat list; styling like variables reference pane) */
+.sim-chart-builder-list--ensemble {
+  content-visibility: auto;
+  contain-intrinsic-size: 280px 2400px;
+}
+
+.sim-chart-builder-ensemble-banner-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ce93d8;
+  margin: 0 0 6px 0;
+  flex-shrink: 0;
+}
+
+.sim-chart-builder-ensemble-hint {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.4;
+  margin: 0 0 12px 0;
+  flex-shrink: 0;
+}
+
+.sim-chart-builder-ensemble-group {
+  margin-bottom: 14px;
+}
+
+.sim-chart-builder-ensemble-group-label {
+  font-weight: 700;
+  color: #00d4a8;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.sim-chart-builder-ensemble-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sim-chart-builder-item--ensemble {
+  padding: 6px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+}

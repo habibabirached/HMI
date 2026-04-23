@@ -20,7 +20,16 @@ import React, { useState, useEffect } from 'react';
 import '../styles/SaveLoadDialog.css';
 import { API_BASE_URL } from '../apiConfig';
 
-function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, currentConfigName }) {
+function SaveLoadDialog({
+  mode,
+  onClose,
+  onSave,
+  onLoad,
+  currentConfiguration,
+  /** If set, called at save click (and for preview) so payload always matches latest canvas state. */
+  getCurrentConfiguration,
+  currentConfigName,
+}) {
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -99,6 +108,11 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
 
   const bumpDiskCatalog = () => setDiskListNonce((n) => n + 1);
 
+  const snapshot =
+    typeof getCurrentConfiguration === 'function'
+      ? getCurrentConfiguration()
+      : currentConfiguration;
+
   const handleSave = async () => {
     if (!saveName.trim()) {
       setMessage({ type: 'error', text: 'Please enter a configuration name' });
@@ -110,10 +124,14 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
 
     try {
       const newName = saveName.trim();
+      const dataPayload =
+        typeof getCurrentConfiguration === 'function'
+          ? getCurrentConfiguration()
+          : currentConfiguration;
       const configData = {
         name: newName,
         description: saveDescription.trim() || null,
-        data: currentConfiguration,
+        data: dataPayload,
       };
       if (currentConfigName && currentConfigName !== newName) {
         configData.source_name = currentConfigName;
@@ -460,13 +478,13 @@ function SaveLoadDialog({ mode, onClose, onSave, onLoad, currentConfiguration, c
               <div className="form-info">
                 <strong>What will be saved:</strong>
                 <ul>
-                  <li>{currentConfiguration.canvasComponents?.length || 0} component(s)</li>
-                  <li>{currentConfiguration.connections?.length || 0} connection(s)</li>
+                  <li>{snapshot?.canvasComponents?.length || 0} component(s)</li>
+                  <li>{snapshot?.connections?.length || 0} connection(s)</li>
                   <li>Current zoom and pan settings</li>
                   <li>Simulation state</li>
-                  {currentConfiguration.chartPanelState?.openCharts?.length > 0 && (
+                  {snapshot?.chartPanelState?.openCharts?.length > 0 && (
                     <li>
-                      {currentConfiguration.chartPanelState.openCharts.length} open chart(s) and panel
+                      {snapshot.chartPanelState.openCharts.length} open chart(s) and panel
                       size
                     </li>
                   )}

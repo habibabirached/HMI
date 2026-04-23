@@ -2,10 +2,12 @@
  * SimulationChartBuilder - Shows when a simulation is loaded.
  * Two columns: CSV titles | Plot types.
  * When user picks a plot type, dims everything except titles, cursor hint guides selection.
+ * Ensemble mode: left column shows variables grouped by member scenario (same click behavior as flat list).
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './SimulationChartBuilder.css';
 import FormulaCalculator from '../FormulaCalculator/FormulaCalculator';
+import { qualifyEnsembleColumn } from '../../utils/simulationLazyApi';
 
 /** Excel-style column letter: 0->a, 1->b, ..., 26->aa, 27->ab, ... */
 function getExcelColumnLetter(index) {
@@ -35,7 +37,16 @@ const SPLIT_BY_OPTIONS = [
   { id: 'manual', label: 'Manual grouping', desc: 'Click Next group after each group of Y columns' },
 ];
 
-function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDerivedVariable, displayName, onAddChart, onCancel }) {
+function SimulationChartBuilder({
+  columns = [],
+  isEnsemble = false,
+  ensembleColumnGroups = [],
+  derivedVariables = [],
+  onAddDerivedVariable,
+  displayName,
+  onAddChart,
+  onCancel,
+}) {
   const [selectedChartType, setSelectedChartType] = useState(null);
   const [selections, setSelections] = useState([]);
   const [splitBy, setSplitBy] = useState('phase');
@@ -131,14 +142,38 @@ function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDeri
 
   // Step 4: Merge CSV columns + derived variables. Derived vars: ƒ badge, formula in tooltip on hover.
   const allColumns = columns;
-  const formulaByColumn = Object.fromEntries(derivedVariables.map((d) => [d.name, d.formula]));
+  const primarySimForFormula = ensembleColumnGroups?.[0]?.simId;
+  const formulaByColumn = useMemo(() => {
+    const m = {};
+    for (const d of derivedVariables || []) {
+      m[d.name] = d.formula;
+      if (primarySimForFormula) {
+        m[qualifyEnsembleColumn(primarySimForFormula, d.name)] = d.formula;
+      }
+    }
+    return m;
+  }, [derivedVariables, primarySimForFormula]);
+
+  const useEnsembleColumnLayout = Boolean(isEnsemble && ensembleColumnGroups?.length > 0);
+
+  const ensembleColumnIndex = useMemo(() => {
+    const m = new Map();
+    let i = 0;
+    for (const g of ensembleColumnGroups || []) {
+      for (const rawCol of g.columns || []) {
+        m.set(`${g.simId}\0${rawCol}`, i);
+        i += 1;
+      }
+    }
+    return m;
+  }, [ensembleColumnGroups]);
 
   const handleFormulaDone = (formula, variableName) => {
     onAddDerivedVariable?.(formula, variableName);
     setFormulaCalculatorOpen(false);
   };
 
-  if (columns.length === 0) {
+  if (!useEnsembleColumnLayout && columns.length === 0) {
     return (
       <div className="sim-chart-builder">
         <div className="sim-chart-builder-header">
@@ -146,6 +181,19 @@ function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDeri
         </div>
         <div className="sim-chart-builder-empty">
           No columns available.
+        </div>
+      </div>
+    );
+  }
+
+  if (useEnsembleColumnLayout && ensembleColumnIndex.size === 0) {
+    return (
+      <div className="sim-chart-builder">
+        <div className="sim-chart-builder-header">
+          <h3>{`${String.fromCodePoint(0x1f4ca)} ${displayName || 'Simulation'}`}</h3>
+        </div>
+        <div className="sim-chart-builder-empty">
+          No columns available for this ensemble yet.
         </div>
       </div>
     );
@@ -245,8 +293,89 @@ function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDeri
               )}
             </div>
           )}
-          <div className="sim-chart-builder-list">
-            {allColumns.map((col, colIndex) => {
+          <div className={`sim-chart-builder-list${useEnsembleColumnLayout ? ' sim-chart-builder-list--ensemble' : ''}`}>
+            {useEnsembleColumnLayout ? (
+              <>
+                <div className="sim-chart-builder-ensemble-banner-title">Variables (ensemble)</div>
+                <p className="sim-chart-builder-ensemble-hint">
+                  Columns from all member scenarios. Choose a plot type, then click variables here — same
+                  behavior as a single scenario tab.
+                </p>
+                {ensembleColumnGroups.map((g) => (
+                  <div key={g.simId} className="sim-chart-builder-ensemble-group">
+                    <div className="sim-chart-builder-ensemble-group-label">{g.simId}</div>
+                    <div className="sim-chart-builder-ensemble-group-items">
+                      {(g.columns || []).map((rawCol) => {
+                        const qualified = qualifyEnsembleColumn(g.simId, rawCol);
+                        const colIndex = ensembleColumnIndex.get(`${g.simId}\0${rawCol}`) ?? 0;
+                        const idx = selections.indexOf(qualified);
+                        const isSelected = idx >= 0;
+                        const isDerived = formulaByColumn[qualified] != null;
+                        const label = isSelected ? `${rawCol} \u2713` : rawCol;
+                        const tooltip = isDerived ? formulaByColumn[qualified] : qualified;
+                        return (
+                          <div key={`${g.simId}-${rawCol}`} className="sim-chart-builder-item-row">
+                            {inSelectionMode && (
+                              <span
+                                className={`sim-chart-builder-item-letter ${isDerived ? 'sim-chart-builder-item-derived' : ''}`}
+                                title={isDerived ? 'Formula variable' : `Column ${getExcelColumnLetter(colIndex)}`}
+                              >
+                                {isDerived ? String.fromCharCode(402) : getExcelColumnLetter(colIndex)}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className={`sim-chart-builder-item sim-chart-builder-item--ensemble ${isSelected ? 'selected' : ''} ${isDerived ? 'sim-chart-builder-item-derived' : ''}`}
+                              onClick={() => handleTitleClick(qualified)}
+                              disabled={!inSelectionMode}
+                              title={tooltip}
+                            >
+                              {label}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {derivedVariables?.length > 0 && primarySimForFormula && (
+                  <div className="sim-chart-builder-ensemble-group sim-chart-builder-ensemble-group--formula">
+                    <div className="sim-chart-builder-ensemble-group-label">formula</div>
+                    <div className="sim-chart-builder-ensemble-group-items">
+                      {derivedVariables.map((d, di) => {
+                        const qualified = qualifyEnsembleColumn(primarySimForFormula, d.name);
+                        const colIndex = ensembleColumnIndex.size + di;
+                        const idx = selections.indexOf(qualified);
+                        const isSelected = idx >= 0;
+                        const label = isSelected ? `${d.name} \u2713` : d.name;
+                        return (
+                          <div key={`formula-${d.name}`} className="sim-chart-builder-item-row">
+                            {inSelectionMode && (
+                              <span
+                                className="sim-chart-builder-item-letter sim-chart-builder-item-derived"
+                                title={`Formula variable · ${d.formula}`}
+                              >
+                                {String.fromCharCode(402)}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className={`sim-chart-builder-item sim-chart-builder-item--ensemble ${isSelected ? 'selected' : ''} sim-chart-builder-item-derived`}
+                              onClick={() => handleTitleClick(qualified)}
+                              disabled={!inSelectionMode}
+                              title={d.formula}
+                            >
+                              {label}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              allColumns.map((col, colIndex) => {
               const idx = selections.indexOf(col);
               const isSelected = idx >= 0;
               const isDerived = formulaByColumn[col] != null;
@@ -273,7 +402,8 @@ function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDeri
                   </button>
                 </div>
               );
-            })}
+            })
+            )}
             {(isNdChart && inSelectionMode && selections.length >= 2) && (
               <div className="sim-chart-builder-done-footer">
                 <button
@@ -353,4 +483,4 @@ function SimulationChartBuilder({ columns = [], derivedVariables = [], onAddDeri
   );
 }
 
-export default SimulationChartBuilder;
+export default React.memo(SimulationChartBuilder);

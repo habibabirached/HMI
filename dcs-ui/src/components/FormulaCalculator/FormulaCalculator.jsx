@@ -1,27 +1,19 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './FormulaCalculator.css';
 
 /**
  * FormulaCalculator – Scientific calculator modal for building Y-axis formulas.
  *
- * Renders as a centered modal overlay. Scientific instrument aesthetic:
- * - LCD-style display
- * - Tactile button grid
- * - Professional typography
- *
- * Props:
- * - open, onClose: modal visibility
- * - variables: column names to insert as variables
- * - onDone: (formula: string, variableName: string) => void – called after user names the variable
+ * Variables are latched as chips; a draft field filters the list. Arrow keys move
+ * highlight; Enter latches (replaces draft). Clicking a variable latches it.
  */
-const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const OPERATORS = [
   { label: '+', insert: ' + ' },
   { label: '−', insert: ' - ' },
   { label: '×', insert: ' * ' },
   { label: '÷', insert: ' / ' },
-  { label: '^', insert: ' ^ ' }
+  { label: '^', insert: ' ^ ' },
 ];
 const FUNCTIONS = [
   { label: 'sqrt', insert: 'sqrt()' },
@@ -31,12 +23,18 @@ const FUNCTIONS = [
   { label: 'log', insert: 'log()' },
   { label: 'exp', insert: 'exp()' },
   { label: 'min', insert: 'min(,)' },
-  { label: 'max', insert: 'max(,)' }
+  { label: 'max', insert: 'max(,)' },
 ];
-const PARENS = [
-  { label: '(', insert: '(' },
-  { label: ')', insert: ')' }
-];
+
+/**
+ * @typedef {{ k: 'V', name: string } | { k: 'R', t: string }} FormulaPart
+ */
+
+function chipLabel(fullName) {
+  const s = String(fullName);
+  if (s.length <= 32) return s;
+  return `${s.slice(0, 14)}…${s.slice(-12)}`;
+}
 
 const FormulaCalculator = ({
   open = false,
@@ -45,54 +43,82 @@ const FormulaCalculator = ({
   value: controlledValue,
   onChange,
   onDone,
-  placeholder = 'Enter formula...'
+  placeholder = 'Type to filter, Enter to latch a variable',
 }) => {
-  const [internalValue, setInternalValue] = useState('');
+  /** @type {FormulaPart[]} */
+  const [chain, setChain] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [varNavIndex, setVarNavIndex] = useState(-1);
+  /** true = filter variables (teal draft); false = type freeform cos(, +, …) — toggled with Space. */
+  const [varFilterMode, setVarFilterMode] = useState(true);
   const [namingPhase, setNamingPhase] = useState(false);
   const [pendingFormula, setPendingFormula] = useState('');
   const [variableName, setVariableName] = useState('');
-  const inputRef = useRef(null);
+
+  const draftInputRef = useRef(null);
   const nameInputRef = useRef(null);
-
+  const draftRef = useRef('');
   const isControlled = controlledValue !== undefined;
-  const formula = isControlled ? controlledValue : internalValue;
 
-  const setFormula = useCallback(
-    (next) => {
-      if (!isControlled) setInternalValue(next);
-      onChange?.(next);
-    },
-    [isControlled, onChange]
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const getFormulaString = useCallback(
+    () => chain.map((p) => (p.k === 'V' ? p.name : p.t)).join('') + draft,
+    [chain, draft],
   );
 
-  const insertAtCursor = useCallback(
-    (text) => {
-      const input = inputRef.current;
-      if (!input) {
-        setFormula(formula + text);
-        return;
+  useEffect(() => {
+    if (isControlled) return;
+    onChange?.(getFormulaString());
+  }, [chain, draft, getFormulaString, isControlled, onChange]);
+
+  /** Commit current draft as raw text, then append `insert` (operators, parens, functions). */
+  const insertKeypad = useCallback((insert) => {
+    const chunk = (draftRef.current || '') + insert;
+    if (!chunk) return;
+    setChain((prev) => {
+      const o = prev.slice();
+      if (o.length > 0 && o[o.length - 1].k === 'R') {
+        o[o.length - 1] = { k: 'R', t: (o[o.length - 1].t || '') + chunk };
+      } else {
+        o.push({ k: 'R', t: chunk });
       }
-      const start = input.selectionStart ?? formula.length;
-      const end = input.selectionEnd ?? formula.length;
-      const before = formula.slice(0, start);
-      const after = formula.slice(end);
-      const next = before + text + after;
-      setFormula(next);
-      requestAnimationFrame(() => {
-        input.focus();
-        const newPos = start + text.length;
-        input.setSelectionRange(newPos, newPos);
-      });
-    },
-    [formula, setFormula]
-  );
+      return o;
+    });
+    setDraft('');
+  }, []);
 
-  // Step 2: Only allow Done when there's a real formula (no empty or whitespace-only).
-  // TODO: Validate formula by evaluating against sample CSV rows – if it throws or yields NaN, reject.
-  const trimmedFormula = formula.trim();
+  const latch = useCallback((fullName) => {
+    if (fullName == null || String(fullName) === '') return;
+    setChain((c) => [...c, { k: 'V', name: String(fullName) }]);
+    setDraft('');
+    setVarNavIndex(-1);
+    requestAnimationFrame(() => draftInputRef.current?.focus());
+  }, []);
+
+  const filteredVariables = useMemo(() => {
+    if (!variables.length) return [];
+    if (!varFilterMode) return variables;
+    const q = draft.toLowerCase().trim();
+    if (!q) return variables;
+    return variables.filter((v) => String(v).toLowerCase().includes(q));
+  }, [variables, draft, varFilterMode]);
+
+  useEffect(() => {
+    const n = filteredVariables.length;
+    setVarNavIndex((i) => {
+      if (n === 0) return -1;
+      if (i < 0) return -1;
+      return Math.min(i, n - 1);
+    });
+  }, [filteredVariables.length]);
+
+  const formulaStr = getFormulaString();
+  const trimmedFormula = formulaStr.trim();
   const canDone = trimmedFormula.length > 0;
 
-  // Step 2: Done moves to Step 3 naming phase (user must name the variable).
   const handleDone = useCallback(() => {
     if (!canDone) return;
     setPendingFormula(trimmedFormula);
@@ -101,7 +127,6 @@ const FormulaCalculator = ({
     requestAnimationFrame(() => nameInputRef.current?.focus());
   }, [canDone, trimmedFormula]);
 
-  // Step 3: Add variable – pass formula + name to parent (parent closes modal).
   const handleAddVariable = useCallback(() => {
     const trimmedName = variableName.trim();
     if (!trimmedName || !onDone) return;
@@ -115,35 +140,112 @@ const FormulaCalculator = ({
     setNamingPhase(false);
     setPendingFormula('');
     setVariableName('');
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => draftInputRef.current?.focus());
   }, []);
 
-  const handleKeyDown = useCallback(
+  const popLastPart = useCallback(() => {
+    setChain((prev) => (prev.length ? prev.slice(0, -1) : prev));
+  }, []);
+
+  const onDraftKeyDown = useCallback(
     (e) => {
+      if (e.key === ' ' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        // Expression → variable: anything still in the draft (e.g. "+", "cos(") is formula text, not
+        // a filter; merge it into a raw segment so the dashed "pick variable" box is empty.
+        if (!varFilterMode) {
+          const d = draftRef.current || '';
+          if (d) {
+            setChain((prev) => {
+              const o = prev.slice();
+              if (o.length > 0 && o[o.length - 1].k === 'R') {
+                o[o.length - 1] = { k: 'R', t: (o[o.length - 1].t || '') + d };
+              } else {
+                o.push({ k: 'R', t: d });
+              }
+              return o;
+            });
+            setDraft('');
+          }
+        }
+        setVarFilterMode((m) => !m);
+        setVarNavIndex(-1);
+        return;
+      }
+      if (e.key === 'ArrowRight' && varFilterMode && filteredVariables.length > 0) {
+        e.preventDefault();
+        setVarNavIndex((i) => (i < 0 ? 0 : Math.min(i + 1, filteredVariables.length - 1)));
+        return;
+      }
+      if (e.key === 'ArrowLeft' && varFilterMode && filteredVariables.length > 0) {
+        e.preventDefault();
+        setVarNavIndex((i) => (i <= 0 ? -1 : i - 1));
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.metaKey || e.ctrlKey) {
+          e.preventDefault();
+          if (canDone) handleDone();
+          return;
+        }
+        if (varFilterMode) {
+          e.preventDefault();
+          if (filteredVariables.length > 0) {
+            const idx = varNavIndex >= 0 ? varNavIndex : 0;
+            latch(filteredVariables[idx]);
+          }
+        } else {
+          e.preventDefault();
+        }
+        return;
+      }
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose?.();
-      } else if (e.key === 'Enter') {
+        return;
+      }
+      if (e.key === 'Backspace' && !draft) {
         e.preventDefault();
-        if (canDone) handleDone(); // Step 2: Enter submits only when formula is valid.
+        if (chain.length) popLastPart();
+        return;
       }
     },
-    [canDone, handleDone, onClose]
+    [
+      varFilterMode,
+      filteredVariables,
+      varNavIndex,
+      latch,
+      canDone,
+      handleDone,
+      onClose,
+      draft,
+      chain.length,
+      popLastPart,
+    ],
   );
 
   useEffect(() => {
-    if (open) {
-      setInternalValue('');
-      setNamingPhase(false);
-      setPendingFormula('');
-      setVariableName('');
-      requestAnimationFrame(() => inputRef.current?.focus());
+    if (!open) return;
+    if (!isControlled) {
+      setChain([]);
+      setDraft('');
+    } else {
+      setChain([{ k: 'R', t: controlledValue != null ? String(controlledValue) : '' }]);
+      setDraft('');
     }
-  }, [open]);
+    setVarNavIndex(-1);
+    setVarFilterMode(true);
+    setNamingPhase(false);
+    setPendingFormula('');
+    setVariableName('');
+    requestAnimationFrame(() => {
+      draftInputRef.current?.focus();
+    });
+  }, [open, isControlled, controlledValue]);
 
   if (!open) return null;
 
-  const content = (
+  return createPortal(
     <div
       className="formula-calculator-overlay"
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
@@ -157,19 +259,13 @@ const FormulaCalculator = ({
             <span className="formula-calculator-title-icon">ƒ</span>
             Formula Builder
           </h2>
-          <button
-            type="button"
-            className="formula-calculator-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <button type="button" className="formula-calculator-close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
 
         <div className="formula-calculator-body">
           {namingPhase ? (
-            /* Step 3: Naming phase – show formula (read-only) and ask for variable name */
             <div className="formula-calculator-naming">
               <div className="formula-calculator-display-wrap formula-calculator-display-readonly">
                 <div className="formula-calculator-display-label">Formula</div>
@@ -192,11 +288,7 @@ const FormulaCalculator = ({
                 />
               </div>
               <div className="formula-calculator-naming-actions">
-                <button
-                  type="button"
-                  className="formula-calculator-btn formula-calculator-btn-back"
-                  onClick={handleBackToFormula}
-                >
+                <button type="button" className="formula-calculator-btn formula-calculator-btn-back" onClick={handleBackToFormula}>
                   ← Back
                 </button>
                 <button
@@ -212,123 +304,197 @@ const FormulaCalculator = ({
             </div>
           ) : (
             <>
-          {/* LCD-style display */}
-          <div className="formula-calculator-display-wrap">
-            <div className="formula-calculator-display-label">Y =</div>
-            <textarea
-              ref={inputRef}
-              className="formula-calculator-display"
-              value={formula}
-              onChange={(e) => setFormula(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              rows={2}
-              spellCheck={false}
-              aria-label="Formula input"
-            />
-          </div>
+              <p className="formula-calculator-help">
+                <kbd>Space</kbd> toggles: <strong>variable</strong> (teal) = filter, <kbd>→</kbd> <kbd>←</kbd>,{' '}
+                <kbd>Enter</kbd> latch · <strong>expression</strong> = type <code>cos(</code>, <code>+</code>, etc. ·{' '}
+                <kbd>Shift+Space</kbd> inserts a space · <kbd>Ctrl+Enter</kbd> or Done to finish
+              </p>
+              <div className="formula-calculator-display-wrap">
+                <div className="formula-calculator-display-label-row">
+                  <span className="formula-calculator-display-label">Y =</span>
+                  <span
+                    className={`formula-calculator-mode-pill${
+                      varFilterMode ? ' formula-calculator-mode-pill--var' : ' formula-calculator-mode-pill--expr'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {varFilterMode ? 'Variable' : 'Expression'}
+                  </span>
+                </div>
+                <div
+                  className="formula-calculator-composer"
+                  onMouseDown={(e) => {
+                    if (
+                      e.target === e.currentTarget ||
+                      (e.target instanceof HTMLElement && e.target.closest('.formula-calculator-chips-wrap'))
+                    ) {
+                      e.preventDefault();
+                      draftInputRef.current?.focus();
+                    }
+                  }}
+                >
+                  <div className="formula-calculator-chips-wrap" aria-label="Formula">
+                    {chain.map((p, i) =>
+                      p.k === 'V' ? (
+                        <span key={`V-${i}-${p.name}`} className="formula-calculator-chip" title={p.name} tabIndex={-1}>
+                          {chipLabel(p.name)}
+                        </span>
+                      ) : (
+                        <span key={`R-${i}`} className="formula-calculator-raw" tabIndex={-1}>
+                          {p.t}
+                        </span>
+                      ),
+                    )}
+                    <input
+                      ref={draftInputRef}
+                      type="text"
+                      className={`formula-calculator-draft-input${
+                        varFilterMode
+                          ? ' formula-calculator-draft-input--var'
+                          : ' formula-calculator-draft-input--raw'
+                      }`}
+                      value={draft}
+                      onChange={(e) => {
+                        setDraft(e.target.value);
+                        setVarNavIndex(-1);
+                      }}
+                      onKeyDown={onDraftKeyDown}
+                      placeholder={
+                        varFilterMode
+                          ? chain.length || draft
+                            ? 'Filter or latch'
+                            : placeholder
+                          : 'Type operators, cos(, numbers…'
+                      }
+                      spellCheck={false}
+                      autoComplete="off"
+                      aria-label={
+                        varFilterMode
+                          ? 'Variable filter: type to filter, Enter to latch. Space for expression mode.'
+                          : 'Expression: type raw formula text. Space to return to variable filter mode.'
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
 
-          {/* Button grid – scientific layout */}
-          <div className="formula-calculator-grid">
-            {/* Row 1: Digits 7–9, operators */}
-            <div className="formula-calculator-row">
-              {['7', '8', '9'].map((d) => (
-                <button key={d} type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => insertAtCursor(d)}>
-                  {d}
-                </button>
-              ))}
-              {OPERATORS.slice(0, 2).map((op) => (
-                <button key={op.label} type="button" className="formula-calculator-btn formula-calculator-btn-op" onClick={() => insertAtCursor(op.insert)}>
-                  {op.label}
-                </button>
-              ))}
-            </div>
-            <div className="formula-calculator-row">
-              {['4', '5', '6'].map((d) => (
-                <button key={d} type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => insertAtCursor(d)}>
-                  {d}
-                </button>
-              ))}
-              {OPERATORS.slice(2, 4).map((op) => (
-                <button key={op.label} type="button" className="formula-calculator-btn formula-calculator-btn-op" onClick={() => insertAtCursor(op.insert)}>
-                  {op.label}
-                </button>
-              ))}
-            </div>
-            <div className="formula-calculator-row">
-              {['1', '2', '3'].map((d) => (
-                <button key={d} type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => insertAtCursor(d)}>
-                  {d}
-                </button>
-              ))}
-              {OPERATORS.slice(4, 5).map((op) => (
-                <button key={op.label} type="button" className="formula-calculator-btn formula-calculator-btn-op" onClick={() => insertAtCursor(op.insert)}>
-                  {op.label}
-                </button>
-              ))}
-              <button type="button" className="formula-calculator-btn formula-calculator-btn-paren" onClick={() => insertAtCursor('(')}>
-                (
-              </button>
-            </div>
-            <div className="formula-calculator-row">
-              <button type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => insertAtCursor('0')}>
-                0
-              </button>
-              <button type="button" className="formula-calculator-btn formula-calculator-btn-paren" onClick={() => insertAtCursor(')')}>
-                )
-              </button>
-              <button type="button" className="formula-calculator-btn formula-calculator-btn-clear" onClick={() => setFormula('')}>
-                C
-              </button>
-              {/* Step 2: Done is disabled until user types something; tooltip explains why. */}
-              <button
-                type="button"
-                className="formula-calculator-btn formula-calculator-btn-done"
-                onClick={handleDone}
-                disabled={!canDone}
-                title={canDone ? 'Finish and name your variable' : 'Enter a formula first'}
-              >
-                Done
-              </button>
-            </div>
-
-            {/* Functions row */}
-            <div className="formula-calculator-row formula-calculator-row-fn">
-              {FUNCTIONS.map((fn) => (
-                <button key={fn.label} type="button" className="formula-calculator-btn formula-calculator-btn-fn" onClick={() => insertAtCursor(fn.insert)}>
-                  {fn.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Variables */}
-            {variables.length > 0 && (
-              <div className="formula-calculator-vars">
-                <div className="formula-calculator-vars-label">Variables</div>
-                <div className="formula-calculator-vars-list">
-                  {variables.map((v) => (
+              <div className="formula-calculator-grid">
+                <div className="formula-calculator-row">
+                  {['7', '8', '9'].map((d) => (
                     <button
-                      key={v}
+                      key={d}
                       type="button"
-                      className="formula-calculator-btn formula-calculator-btn-var"
-                      onClick={() => insertAtCursor(v)}
-                      title={v}
+                      className="formula-calculator-btn formula-calculator-btn-digit"
+                      onClick={() => setDraft((d0) => d0 + d)}
                     >
-                      {v}
+                      {d}
+                    </button>
+                  ))}
+                  {OPERATORS.slice(0, 2).map((op) => (
+                    <button key={op.label} type="button" className="formula-calculator-btn formula-calculator-btn-op" onClick={() => insertKeypad(op.insert)}>
+                      {op.label}
                     </button>
                   ))}
                 </div>
+                <div className="formula-calculator-row">
+                  {['4', '5', '6'].map((d) => (
+                    <button key={d} type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => setDraft((d0) => d0 + d)}>
+                      {d}
+                    </button>
+                  ))}
+                  {OPERATORS.slice(2, 4).map((op) => (
+                    <button key={op.label} type="button" className="formula-calculator-btn formula-calculator-btn-op" onClick={() => insertKeypad(op.insert)}>
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="formula-calculator-row">
+                  {['1', '2', '3'].map((d) => (
+                    <button key={d} type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => setDraft((d0) => d0 + d)}>
+                      {d}
+                    </button>
+                  ))}
+                  {OPERATORS.slice(4, 5).map((op) => (
+                    <button key={op.label} type="button" className="formula-calculator-btn formula-calculator-btn-op" onClick={() => insertKeypad(op.insert)}>
+                      {op.label}
+                    </button>
+                  ))}
+                  <button type="button" className="formula-calculator-btn formula-calculator-btn-paren" onClick={() => insertKeypad('(')}>
+                    (
+                  </button>
+                </div>
+                <div className="formula-calculator-row">
+                  <button type="button" className="formula-calculator-btn formula-calculator-btn-digit" onClick={() => setDraft((d0) => d0 + '0')}>
+                    0
+                  </button>
+                  <button type="button" className="formula-calculator-btn formula-calculator-btn-paren" onClick={() => insertKeypad(')')}>
+                    )
+                  </button>
+                  <button
+                    type="button"
+                    className="formula-calculator-btn formula-calculator-btn-clear"
+                    onClick={() => {
+                      setChain([]);
+                      setDraft('');
+                    }}
+                  >
+                    C
+                  </button>
+                  <button
+                    type="button"
+                    className="formula-calculator-btn formula-calculator-btn-done"
+                    onClick={handleDone}
+                    disabled={!canDone}
+                    title={canDone ? 'Finish and name your variable' : 'Enter a formula first'}
+                  >
+                    Done
+                  </button>
+                </div>
+
+                <div className="formula-calculator-row formula-calculator-row-fn">
+                  {FUNCTIONS.map((fn) => (
+                    <button key={fn.label} type="button" className="formula-calculator-btn formula-calculator-btn-fn" onClick={() => insertKeypad(fn.insert)}>
+                      {fn.label}
+                    </button>
+                  ))}
+                </div>
+
+                {variables.length > 0 && (
+                  <div className="formula-calculator-vars">
+                    <div className="formula-calculator-vars-label">Variables</div>
+                    {draft && filteredVariables.length === 0 ? (
+                      <p className="formula-calculator-vars-hint" role="status">
+                        No variable names include this filter. Change what you are typing, or clear it, to see the
+                        full list.
+                      </p>
+                    ) : null}
+                    <div className="formula-calculator-vars-list" role="listbox" aria-label="Filtered variables">
+                      {filteredVariables.map((v, idx) => (
+                        <button
+                          key={v}
+                          type="button"
+                          role="option"
+                          aria-selected={varNavIndex === idx}
+                          className={`formula-calculator-btn formula-calculator-btn-var${
+                            varNavIndex === idx ? ' formula-calculator-btn-var--nav' : ''
+                          }`}
+                          onClick={() => latch(v)}
+                          title={v}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
             </>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
-
-  return createPortal(content, document.body);
 };
 
 export default FormulaCalculator;

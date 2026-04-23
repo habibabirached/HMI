@@ -1,9 +1,11 @@
+import { qualifyEnsembleColumn } from './simulationLazyApi';
+
 /**
  * Evaluate a formula against a row of data.
  * No external deps – uses safe string replacement + eval of numeric expression.
  * Column names in the formula must match the row keys (exact or trimmed).
  */
-function evaluateFormula(formula, row) {
+export function evaluateFormula(formula, row) {
   if (!formula || typeof formula !== 'string') return NaN;
   let expr = formula.trim();
   if (!expr) return NaN;
@@ -58,4 +60,44 @@ export function augmentRowsWithDerived(rows, derivedVariables) {
     }
     return out;
   });
+}
+
+/**
+ * One synthetic row for formula evaluation: keys are qualified (`SimId — col`) across all members at rowIndex.
+ */
+export function buildMergedEvaluationRow(rowIndex, memberSimulations, dataMap) {
+  const row = {};
+  for (const sid of memberSimulations || []) {
+    const r = dataMap?.[sid]?.[rowIndex];
+    if (!r) continue;
+    for (const [k, val] of Object.entries(r)) {
+      row[qualifyEnsembleColumn(sid, k)] = val;
+    }
+  }
+  return row;
+}
+
+/**
+ * Append ensemble-level formula columns onto the primary member’s rows (same row index across members).
+ */
+export function augmentEnsemblePrimaryWithCrossMemberDerived(
+  memberSimulations,
+  dataMap,
+  derivedVariables,
+  primarySimId,
+) {
+  if (!derivedVariables?.length || !dataMap || !primarySimId) return dataMap;
+  const primaryRows = dataMap[primarySimId];
+  if (!primaryRows?.length) return dataMap;
+
+  const newPrimary = primaryRows.map((row, rowIndex) => {
+    const evalRow = buildMergedEvaluationRow(rowIndex, memberSimulations, dataMap);
+    const out = { ...row };
+    for (const { name, formula } of derivedVariables) {
+      const val = evaluateFormula(formula, evalRow);
+      out[name] = Number.isNaN(val) ? '' : val;
+    }
+    return out;
+  });
+  return { ...dataMap, [primarySimId]: newPrimary };
 }

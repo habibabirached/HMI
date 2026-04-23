@@ -6,6 +6,7 @@
 .chart-panel {
   position: fixed;
   bottom: 0;
+  /* left / right set inline from App (insets for component library + right rail). */
   left: 0;
   right: 0;
   z-index: 1000;
@@ -168,6 +169,32 @@
   cursor: pointer;
 }
 
+.chart-panel-paging-hint {
+  font-size: 11px;
+  color: #888;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.chart-panel-paging-load-btn {
+  margin-left: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+  background: rgba(0, 94, 96, 0.35);
+  border: 1px solid #005e60;
+  color: #00d4a8;
+  border-radius: 4px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.chart-panel-paging-load-btn:hover {
+  background: rgba(0, 94, 96, 0.55);
+}
+
 .chart-panel-title {
   flex: 0 0 auto;
   color: #005e60;
@@ -202,6 +229,157 @@
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+}
+
+/* “On top” — keep fixed tray above canvas / property / simulation (z-index 6000 in JSX) */
+.chart-panel-aot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-left: 4px;
+  border-left: 1px solid rgba(0, 94, 96, 0.35);
+  margin-left: 2px;
+}
+
+.chart-panel-aot-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.chart-panel-aot-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.chart-panel-aot-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.chart-panel-aot-slider {
+  position: absolute;
+  inset: 0;
+  background: #333;
+  border-radius: 22px;
+  border: 2px solid #555;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.chart-panel-aot-slider::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 1px;
+  background: #e0e0e0;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.chart-panel-aot-switch input:checked + .chart-panel-aot-slider {
+  background: rgba(0, 94, 96, 0.55);
+  border-color: #005e60;
+}
+
+.chart-panel-aot-switch input:checked + .chart-panel-aot-slider::before {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.chart-panel-aot-switch:hover .chart-panel-aot-slider {
+  border-color: #00a896;
+}
+
+/* Tray always stacks above the canvas and side panel hit targets (z-index in JS = 5000). */
+.chart-panel--on-top-canvas {
+  border-top-color: #1a8b8d;
+  box-shadow:
+    0 -4px 16px rgba(0, 0, 0, 0.5),
+    0 -2px 12px rgba(0, 212, 168, 0.12);
+}
+
+.chart-panel--collapsed {
+  overflow: hidden;
+}
+
+.chart-panel-header--collapsed {
+  min-height: 32px;
+  flex-wrap: nowrap;
+  cursor: default;
+  flex-shrink: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* Full-width hinge bars (collapse / expand) — same idea as the vertical rail hinge. */
+.chart-panel-hinge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border: none;
+  padding: 7px 14px;
+  cursor: pointer;
+  background: linear-gradient(180deg, #1a2424 0%, #121616 100%);
+  border-bottom: 1px solid rgba(0, 94, 96, 0.85);
+  color: #00d4a8;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.chart-panel-hinge:hover {
+  background: linear-gradient(180deg, #234040 0%, #1a2222 100%);
+  color: #fff;
+}
+
+.chart-panel-hinge--collapse {
+  min-height: 30px;
+}
+
+.chart-panel-hinge--expand {
+  min-height: 28px;
+}
+
+.chart-panel-hinge__glyph {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.95;
+  flex-shrink: 0;
+}
+
+.chart-panel-hinge__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #8ec4b8;
+}
+
+.chart-panel-hinge:hover .chart-panel-hinge__label {
+  color: #e8fff7;
+}
+
+.chart-panel-collapsed-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex-shrink: 0;
 }
 
 .chart-panel-sample-label {

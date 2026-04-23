@@ -40,8 +40,8 @@ from urllib.parse import unquote
 
 # Import database components
 from database import init_db, get_db
-# Import database models (Configuration only; designs/ flow uses files, not DB for CSV/sim)
 from models import Configuration
+from simulation_data_store import fetch_row_page_from_db, get_effective_import
 # Import Pydantic schemas for request/response validation
 from schemas import (
     ConfigurationSaveRequest,
@@ -52,6 +52,8 @@ from schemas import (
     CreateSimulationRequest,
     UpdateSimulationConfigRequest,
     SaveNamedSimulationConfigRequest,
+    CreateEnsembleRequest,
+    UpdateEnsembleRequest,
 )
 # Additional imports for CSV handling
 from fastapi import File, UploadFile
@@ -78,6 +80,77 @@ def sanitize_design_name(name: str) -> str:
     s = re.sub(r'[\s-]+', '_', s)      # Spaces and hyphens -> underscore
     s = s.lower().strip('_')
     return s if s else "unnamed"
+
+
+def resolve_conf_json_path_in_dir(dir_path: str, leaf: str) -> Optional[str]:
+    """
+    Prefer {leaf}.conf.json; if missing, use the only *.conf.json in the folder (mixed-case names, etc.).
+    """
+    if not dir_path or not os.path.isdir(dir_path):
+        return None
+    exact = os.path.join(dir_path, f"{leaf}.conf.json")
+    if os.path.isfile(exact):
+        return exact
+    try:
+        names = [f for f in os.listdir(dir_path) if f.endswith(".conf.json")]
+    except OSError:
+        return None
+    paths = [os.path.join(dir_path, f) for f in names if os.path.isfile(os.path.join(dir_path, f))]
+    if len(paths) == 1:
+        return paths[0]
+    return None
+
+
+def resolve_conf_json_path_for_write(dir_path: str, leaf: str) -> str:
+    """Path to write design conf: reuse discovered file, or canonical {leaf}.conf.json."""
+    existing = resolve_conf_json_path_in_dir(dir_path, leaf)
+    if existing:
+        return existing
+    return os.path.join(dir_path, f"{leaf}.conf.json")
+
+
+def locate_design_by_conf_display_name(config_name: str) -> Optional[tuple[str, str]]:
+    """
+    Find (catalog_rel, absolute_dir_path) by reading JSON \"name\" in each design's .conf.json.
+    Used when folder/slug layout does not match sanitize(config_name) but the display name matches.
+    """
+    if not config_name or not isinstance(config_name, str):
+        return None
+    base = _designs_root_abs()
+    locations: list[tuple[str, str]] = []
+    if os.path.isdir(base):
+        for entry in os.listdir(base):
+            if entry in (".", "..", "archive") or entry.startswith("."):
+                continue
+            p = os.path.join(base, entry)
+            if os.path.isdir(p):
+                locations.append((entry, p))
+    archive_root = os.path.join(base, "archive")
+    if os.path.isdir(archive_root):
+        for entry in os.listdir(archive_root):
+            if entry.startswith("."):
+                continue
+            p = os.path.join(archive_root, entry)
+            if os.path.isdir(p):
+                locations.append((f"archive/{entry}", p))
+    for catalog_rel, sub in locations:
+        try:
+            for fn in os.listdir(sub):
+                if not fn.endswith(".conf.json"):
+                    continue
+                fp = os.path.join(sub, fn)
+                if not os.path.isfile(fp):
+                    continue
+                try:
+                    with open(fp, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                    if data.get("name") == config_name:
+                        return (catalog_rel.replace("\\", "/"), os.path.realpath(sub))
+                except Exception:
+                    continue
+        except OSError:
+            continue
+    return None
 
 
 def copy_design_dir(source_name: str, dest_name: str) -> bool:
@@ -154,14 +227,14 @@ def save_config_to_design_dir(
             design_dir = sanitize_design_name(config_name)
             leaf = design_dir
             dir_path = os.path.join(DESIGNS_ROOT, design_dir)
-        conf_path = os.path.join(dir_path, f"{leaf}.conf.json")
         dir_abs = os.path.abspath(dir_path)
-        conf_abs = os.path.abspath(conf_path)
         print(f"[DEBUG] save_config_to_design_dir: cwd={cwd}")
         print(f"[DEBUG] save_config_to_design_dir: DESIGNS_ROOT={DESIGNS_ROOT}")
         print(f"[DEBUG] save_config_to_design_dir: dir_path={dir_path} -> abs={dir_abs}")
-        print(f"[DEBUG] save_config_to_design_dir: conf_path={conf_path} -> abs={conf_abs}")
         os.makedirs(dir_path, exist_ok=True)
+        conf_path = resolve_conf_json_path_for_write(dir_path, leaf)
+        conf_abs = os.path.abspath(conf_path)
+        print(f"[DEBUG] save_config_to_design_dir: conf_path={conf_path} -> abs={conf_abs}")
         conf_data = {
             "name": config_name,
             "description": description or "",
@@ -227,8 +300,8 @@ def resolve_design_dir_rel(design_dir_param: str) -> Optional[tuple[str, str]]:
         return None
     if not os.path.isdir(candidate):
         return None
-    conf_path = os.path.join(candidate, f"{leaf}.conf.json")
-    if not os.path.isfile(conf_path):
+    conf_path = resolve_conf_json_path_in_dir(candidate, leaf)
+    if not conf_path:
         return None
     return (catalog_rel, leaf)
 
@@ -279,12 +352,16 @@ def locate_design_storage_for_config_name(config_name: str) -> Optional[tuple[st
         conf_top = os.path.join(top, f"{leaf}.conf.json")
         if os.path.isfile(conf_top):
             return (leaf, top)
+        if resolve_conf_json_path_in_dir(top, leaf):
+            return (leaf, top)
     arc = os.path.realpath(os.path.join(base, "archive", leaf))
     if arc.startswith(base + os.sep) and os.path.isdir(arc):
         conf_arc = os.path.join(arc, f"{leaf}.conf.json")
         if os.path.isfile(conf_arc):
             return (f"archive/{leaf}", arc)
-    return None
+        if resolve_conf_json_path_in_dir(arc, leaf):
+            return (f"archive/{leaf}", arc)
+    return locate_design_by_conf_display_name(config_name)
 
 
 def configuration_response_from_disk_name(
@@ -812,11 +889,11 @@ async def load_configuration(
             )
         catalog_rel, design_dir_path = located
         leaf = catalog_rel.split("/")[-1]
-        conf_path = os.path.join(design_dir_path, f"{leaf}.conf.json")
-        if not os.path.isfile(conf_path):
+        conf_path = resolve_conf_json_path_in_dir(design_dir_path, leaf)
+        if not conf_path:
             raise HTTPException(
                 status_code=404,
-                detail=f"Design file not on disk: {conf_path}",
+                detail=f"Design file not on disk under {design_dir_path}",
             )
         try:
             with open(conf_path, "r") as f:
@@ -1060,6 +1137,70 @@ async def delete_configuration(
 # GET /api/designs/{design_name}/simulations - List simulations from design dir
 # ============================================================================
 
+def _csv_data_shape(csv_path: str) -> tuple[int, int]:
+    """Return (n_data_rows, n_columns) from a CSV file; header is not counted as a data row."""
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if not header:
+            return 0, 0
+        ncols = len(header)
+        nrows = sum(1 for _ in reader)
+    return nrows, ncols
+
+
+def _pick_time_column_header(headers: list[str]) -> Optional[str]:
+    """Match UI pickTimeColumn: prefer known time headers, else first column."""
+    for c in ("Time (s)", "time_sec", "Time", "time"):
+        if c in headers:
+            return c
+    return headers[0] if headers else None
+
+
+def _csv_time_column_min_max(csv_path: str, time_col: str) -> tuple[Optional[float], Optional[float]]:
+    """One pass over the CSV: min/max of the time column (floats). Skips non-numeric cells."""
+    lo: Optional[float] = None
+    hi: Optional[float] = None
+    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            raw = row.get(time_col, "")
+            try:
+                x = float(str(raw).strip())
+            except (TypeError, ValueError):
+                continue
+            if lo is None or x < lo:
+                lo = x
+            if hi is None or x > hi:
+                hi = x
+    return lo, hi
+
+
+def _write_or_update_sim_data_shape(
+    sim_json_path: str,
+    n_rows: int,
+    n_cols: int,
+    *,
+    display_name_if_new: Optional[str] = None,
+) -> None:
+    """Create or merge data_row_count / data_column_count into a scenario .sim.json."""
+    if os.path.isfile(sim_json_path):
+        with open(sim_json_path, "r", encoding="utf-8") as fp:
+            cfg = json.load(fp)
+    else:
+        base = display_name_if_new or "simulation"
+        cfg = {
+            "display_name": base,
+            "description": "",
+            "charts_to_display": [],
+            "event_markers": {},
+        }
+    cfg["data_row_count"] = int(n_rows)
+    cfg["data_column_count"] = int(n_cols)
+    with open(sim_json_path, "w", encoding="utf-8") as fp:
+        json.dump(cfg, fp, indent=2)
+
+
 def _list_design_simulations(
     design_name: str,
     design_catalog_rel: Optional[str] = None,
@@ -1082,22 +1223,46 @@ def _list_design_simulations(
             sim_path = os.path.join(dir_path, f)
             csv_path = os.path.join(dir_path, f"{sim_name}.data.csv")
             has_data = os.path.isfile(csv_path)
+            sim_config: dict = {}
+            display_name = sim_name
+            description = ""
+            data_row_count = None
+            data_column_count = None
             try:
-                with open(sim_path, "r") as fp:
+                with open(sim_path, "r", encoding="utf-8") as fp:
                     sim_config = json.load(fp)
                 display_name = sim_config.get("display_name", sim_name)
+                description = sim_config.get("description", "") or ""
+                dr = sim_config.get("data_row_count")
+                dc = sim_config.get("data_column_count")
+                if dr is not None and dc is not None:
+                    data_row_count = int(dr)
+                    data_column_count = int(dc)
             except Exception:
-                display_name = sim_name
-            description = sim_config.get("description", "")
-            simulations.append({"id": sim_name, "display_name": display_name, "description": description, "has_data": has_data})
+                sim_config = {}
+            if has_data and (data_row_count is None or data_column_count is None):
+                try:
+                    data_row_count, data_column_count = _csv_data_shape(csv_path)
+                except Exception:
+                    data_row_count, data_column_count = None, None
+            simulations.append(
+                {
+                    "id": sim_name,
+                    "display_name": display_name,
+                    "description": description,
+                    "has_data": has_data,
+                    "data_row_count": data_row_count,
+                    "data_column_count": data_column_count,
+                }
+            )
     simulations.sort(key=lambda s: s["display_name"])
     return {"design_name": design_name, "design_dir": design_dir_key, "simulations": simulations}
 
 
 def _catalog_item_from_path(dir_path: str, design_dir_rel: str, db: Session) -> Optional[DesignCatalogItem]:
     leaf = os.path.basename(dir_path.rstrip(os.sep))
-    conf_path = os.path.join(dir_path, f"{leaf}.conf.json")
-    if not os.path.isfile(conf_path):
+    conf_path = resolve_conf_json_path_in_dir(dir_path, leaf)
+    if not conf_path:
         return None
     try:
         with open(conf_path, "r") as f:
@@ -1164,7 +1329,13 @@ async def load_design_from_catalog(design_dir: str, db: Session = Depends(get_db
             detail="Design not found or missing {dir}.conf.json under designs/",
         )
     catalog_rel, leaf = resolved
-    conf_path = os.path.join(DESIGNS_ROOT, *catalog_rel.split("/"), f"{leaf}.conf.json")
+    dir_path = os.path.join(DESIGNS_ROOT, *catalog_rel.split("/"))
+    conf_path = resolve_conf_json_path_in_dir(dir_path, leaf)
+    if not conf_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Design file not found in catalog folder",
+        )
     try:
         with open(conf_path, "r") as f:
             conf_file = json.load(f)
@@ -1190,14 +1361,15 @@ async def delete_design_from_catalog(design_dir: str, db: Session = Depends(get_
         )
     catalog_rel, leaf = resolved
     dir_abs = os.path.join(DESIGNS_ROOT, *catalog_rel.split("/"))
-    conf_path = os.path.join(dir_abs, f"{leaf}.conf.json")
+    conf_path = resolve_conf_json_path_in_dir(dir_abs, leaf)
     display_name = leaf
-    try:
-        with open(conf_path, "r") as f:
-            conf = json.load(f)
-        display_name = conf.get("name") or leaf
-    except Exception:
-        pass
+    if conf_path:
+        try:
+            with open(conf_path, "r") as f:
+                conf = json.load(f)
+            display_name = conf.get("name") or leaf
+        except Exception:
+            pass
     row = db.query(Configuration).filter(Configuration.name == display_name).first()
     shutil.rmtree(dir_abs, ignore_errors=False)
     if row:
@@ -1263,6 +1435,334 @@ async def list_design_simulations(design_name: str):
         )
 
 
+@app.get("/api/designs/{design_name:path}/ensembles")
+async def get_design_ensembles(design_name: str):
+    """
+    Read optional ensemble definitions for a design folder.
+
+    Normal scenarios are one .sim.json + one .data.csv each. An “ensemble” is a named group of
+    those scenario ids listed in a sidecar file named like fullblockpkl2/fullblockpkl2.ensemble.json.
+    The UI uses this list to show extra “ensemble” buttons, highlight which scenarios belong together,
+    and merge CSV column names from all members (metadata only in phase 1). This endpoint does not
+    load CSV rows; it only parses JSON and returns a clean list the front end can trust.
+    """
+    try:
+        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        leaf = os.path.basename(dir_path.rstrip(os.sep))
+        ens_path = os.path.join(dir_path, f"{leaf}.ensemble.json")
+        if not os.path.isfile(ens_path):
+            return {"version": 1, "ensembles": []}
+        with open(ens_path, "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+        if not isinstance(data, dict):
+            raise ValueError("ensemble file must be a JSON object")
+        raw_list = data.get("ensembles")
+        if raw_list is None:
+            raw_list = []
+        if not isinstance(raw_list, list):
+            raw_list = []
+        ensembles_out = []
+        # Each entry becomes one ensemble tab: stable id, human title, and which scenario ids are members.
+        for ent in raw_list:
+            if not isinstance(ent, dict):
+                continue
+            eid = ent.get("id") or ent.get("name")
+            if not eid:
+                continue
+            members = ent.get("member_simulations") or ent.get("members") or []
+            if not isinstance(members, list):
+                members = []
+            members_clean = [str(m).strip() for m in members if m and str(m).strip()]
+            row = {
+                "id": str(eid).strip(),
+                "display_name": ent.get("display_name")
+                or ent.get("displayName")
+                or str(eid).strip(),
+                "member_simulations": members_clean,
+            }
+            cp = ent.get("chart_panel")
+            if isinstance(cp, dict):
+                row["chart_panel"] = copy.deepcopy(cp)
+            ensembles_out.append(row)
+        return {
+            "version": data.get("version", 1),
+            "ensembles": ensembles_out,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error reading ensembles for {design_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to read ensembles: {str(e)}",
+        )
+
+
+def _ensemble_sidecar_path(dir_path: str) -> str:
+    leaf = os.path.basename(dir_path.rstrip(os.sep))
+    return os.path.join(dir_path, f"{leaf}.ensemble.json")
+
+
+def _load_ensemble_sidecar_dict(ens_path: str) -> dict:
+    """Return a dict with at least version and ensembles list; create empty structure if missing."""
+    if not os.path.isfile(ens_path):
+        return {"version": 1, "ensembles": []}
+    with open(ens_path, "r", encoding="utf-8") as fp:
+        data = json.load(fp)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="Invalid ensemble file")
+    raw_list = data.get("ensembles")
+    if not isinstance(raw_list, list):
+        data["ensembles"] = []
+    return data
+
+
+def _valid_simulation_ids_for_design(design_name: str, catalog_rel: Optional[str]) -> set:
+    listing = _list_design_simulations(design_name, design_catalog_rel=catalog_rel)
+    sims = listing.get("simulations") or []
+    return {str(s.get("id")).strip() for s in sims if s and s.get("id")}
+
+
+def _normalize_member_simulations(members: list, valid_ids: set) -> list:
+    """Deduplicate, validate each id exists in the design, preserve order."""
+    out: list = []
+    seen: set = set()
+    for m in members or []:
+        ms = str(m).strip()
+        if not ms or ms in seen:
+            continue
+        if ms not in valid_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown simulation id for this design: {ms}",
+            )
+        seen.add(ms)
+        out.append(ms)
+    return out
+
+
+@app.post("/api/designs/{design_name:path}/ensembles")
+async def create_design_ensemble(design_name: str, body: CreateEnsembleRequest):
+    """
+    Append one ensemble to {leaf}.ensemble.json. Creates the file if it does not exist.
+    Member ids must match existing *.sim.json base names in the design folder.
+    """
+    try:
+        dir_path, catalog_rel = resolve_design_storage_from_api(design_name)
+        ens_path = _ensemble_sidecar_path(dir_path)
+        eid = str(body.id).strip()
+        valid_ids = _valid_simulation_ids_for_design(design_name, catalog_rel)
+        members = _normalize_member_simulations(body.member_simulations, valid_ids)
+        data = _load_ensemble_sidecar_dict(ens_path)
+        raw_list = data.get("ensembles")
+        for ent in raw_list:
+            if not isinstance(ent, dict):
+                continue
+            existing = ent.get("id") or ent.get("name")
+            if existing and str(existing).strip() == eid:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Ensemble id already exists: {eid}",
+                )
+        display = (body.display_name or "").strip() or eid
+        new_ent = {
+            "id": eid,
+            "display_name": display,
+            "member_simulations": members,
+        }
+        raw_list.append(new_ent)
+        data["ensembles"] = raw_list
+        if "version" not in data:
+            data["version"] = 1
+        with open(ens_path, "w", encoding="utf-8") as fp:
+            json.dump(data, fp, indent=2, ensure_ascii=False)
+        print(f"Created ensemble {eid} in {os.path.basename(ens_path)} ({len(members)} members)")
+        return {
+            "design_name": design_name,
+            "ensemble": {
+                "id": eid,
+                "display_name": display,
+                "member_simulations": members,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error creating ensemble: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/designs/{design_name:path}/ensembles/{ensemble_id}")
+async def update_design_ensemble(
+    design_name: str,
+    ensemble_id: str,
+    body: UpdateEnsembleRequest,
+):
+    """
+    Update display_name and/or member_simulations for one ensemble entry.
+    """
+    try:
+        dir_path, catalog_rel = resolve_design_storage_from_api(design_name)
+        ens_path = _ensemble_sidecar_path(dir_path)
+        if not os.path.isfile(ens_path):
+            raise HTTPException(status_code=404, detail="Ensemble file not found")
+        want = str(ensemble_id).strip()
+        valid_ids = _valid_simulation_ids_for_design(design_name, catalog_rel)
+        data = _load_ensemble_sidecar_dict(ens_path)
+        raw_list = data.get("ensembles")
+        target: Optional[dict] = None
+        for ent in raw_list:
+            if not isinstance(ent, dict):
+                continue
+            eid = ent.get("id") or ent.get("name")
+            if eid and str(eid).strip() == want:
+                target = ent
+                break
+        if target is None:
+            raise HTTPException(status_code=404, detail=f"Ensemble not found: {ensemble_id}")
+
+        if body.display_name is not None:
+            dn = str(body.display_name).strip()
+            target["display_name"] = dn or want
+        if body.member_simulations is not None:
+            target["member_simulations"] = _normalize_member_simulations(
+                body.member_simulations,
+                valid_ids,
+            )
+        # Ensure stable keys for our writer
+        if "id" not in target and target.get("name"):
+            target["id"] = str(target.get("name")).strip()
+        with open(ens_path, "w", encoding="utf-8") as fp:
+            json.dump(data, fp, indent=2, ensure_ascii=False)
+        print(f"Updated ensemble {want} in {os.path.basename(ens_path)}")
+        return {"design_name": design_name, "ensemble_id": want, "updated": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating ensemble: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/designs/{design_name:path}/ensembles/{ensemble_id}")
+async def delete_design_ensemble(design_name: str, ensemble_id: str):
+    """
+    Remove one ensemble entry from {leaf}.ensemble.json. Does not delete member .sim.json / .data.csv files.
+    """
+    try:
+        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        leaf = os.path.basename(dir_path.rstrip(os.sep))
+        ens_path = os.path.join(dir_path, f"{leaf}.ensemble.json")
+        if not os.path.isfile(ens_path):
+            raise HTTPException(status_code=404, detail="Ensemble file not found")
+        with open(ens_path, "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=500, detail="Invalid ensemble file")
+        raw_list = data.get("ensembles")
+        if not isinstance(raw_list, list):
+            raw_list = []
+        want = str(ensemble_id).strip()
+        new_list = []
+        removed = False
+        for ent in raw_list:
+            if not isinstance(ent, dict):
+                continue
+            eid = ent.get("id") or ent.get("name")
+            if eid and str(eid).strip() == want:
+                removed = True
+                continue
+            new_list.append(ent)
+        if not removed:
+            raise HTTPException(status_code=404, detail=f"Ensemble not found: {ensemble_id}")
+        data["ensembles"] = new_list
+        with open(ens_path, "w", encoding="utf-8") as fp:
+            json.dump(data, fp, indent=2, ensure_ascii=False)
+        print(f"Removed ensemble {ensemble_id} from {leaf}.ensemble.json ({len(new_list)} remaining)")
+        return {
+            "design_name": design_name,
+            "ensemble_id": ensemble_id,
+            "removed": True,
+            "remaining_count": len(new_list),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error deleting ensemble: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/designs/{design_name:path}/ensembles/{ensemble_id}/chart-panel")
+async def update_ensemble_chart_panel(
+    design_name: str,
+    ensemble_id: str,
+    body: UpdateSimulationConfigRequest,
+):
+    """
+    Persist chart tray state for one ensemble into {leaf}.ensemble.json under that ensemble's chart_panel.
+    Same shape as the chart-related roots of a *.sim.json (charts_to_display, stacks, panel sizing, view_mode).
+    """
+    try:
+        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        leaf = os.path.basename(dir_path.rstrip(os.sep))
+        ens_path = os.path.join(dir_path, f"{leaf}.ensemble.json")
+        if not os.path.isfile(ens_path):
+            raise HTTPException(status_code=404, detail="Ensemble file not found")
+        with open(ens_path, "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=500, detail="Invalid ensemble file")
+        raw_list = data.get("ensembles")
+        if not isinstance(raw_list, list):
+            raw_list = []
+        target = None
+        want = str(ensemble_id).strip()
+        for ent in raw_list:
+            if not isinstance(ent, dict):
+                continue
+            eid = ent.get("id") or ent.get("name")
+            if eid and str(eid).strip() == want:
+                target = ent
+                break
+        if target is None:
+            raise HTTPException(status_code=404, detail=f"Ensemble not found: {ensemble_id}")
+
+        panel: dict = {"charts_to_display": list(body.charts_to_display or [])}
+        if body.chart_stacks is not None:
+            panel["chart_stacks"] = body.chart_stacks
+        if body.chart_sample_default is not None:
+            panel["chart_sample_default"] = body.chart_sample_default
+        if body.chart_panel_height is not None:
+            panel["chart_panel_height"] = body.chart_panel_height
+        if body.chart_panel_opacity is not None:
+            panel["chart_panel_opacity"] = body.chart_panel_opacity
+        if body.chart_card_width is not None:
+            panel["chart_card_width"] = int(body.chart_card_width)
+        if body.view_mode is not None:
+            panel["view_mode"] = body.view_mode
+        if body.derived_variables is not None:
+            panel["derived_variables"] = [
+                {"name": d["name"], "formula": d["formula"]} for d in (body.derived_variables or [])
+            ]
+
+        target["chart_panel"] = panel
+        with open(ens_path, "w", encoding="utf-8") as fp:
+            json.dump(data, fp, indent=2, ensure_ascii=False)
+        print(
+            f"Updated ensemble chart_panel for {ensemble_id} in {leaf}.ensemble.json "
+            f"({len(panel['charts_to_display'])} charts)"
+        )
+        return {
+            "design_name": design_name,
+            "ensemble_id": ensemble_id,
+            "chart_count": len(panel["charts_to_display"]),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating ensemble chart panel: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/designs/{design_name:path}/simulations/{sim_name}")
 async def load_design_simulation(design_name: str, sim_name: str):
     """
@@ -1314,6 +1814,226 @@ async def load_design_simulation(design_name: str, sim_name: str):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to load simulation: {str(e)}"
+        )
+
+
+@app.get("/api/designs/{design_name:path}/simulations/{sim_name}/metadata")
+async def load_simulation_metadata(design_name: str, sim_name: str):
+    """
+    Lightweight scenario load: .sim.json plus CSV header and row count only (no data rows).
+    Used by the UI lazy-load path so the main thread does not parse the full CSV up front.
+    """
+    try:
+        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        sim_json_path = os.path.join(dir_path, f"{sim_name}.sim.json")
+        sim_csv_path = os.path.join(dir_path, f"{sim_name}.data.csv")
+
+        if not os.path.isfile(sim_json_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Simulation config not found: {sim_name}",
+            )
+
+        with open(sim_json_path, "r", encoding="utf-8") as f:
+            sim_config = json.load(f)
+        _normalize_sim_config_current_configuration(sim_config)
+
+        columns: list[str] = []
+        row_count = 0
+        time_column_name: Optional[str] = None
+        time_column_min: Optional[float] = None
+        time_column_max: Optional[float] = None
+        if os.path.isfile(sim_csv_path):
+            row_count, _ncols = _csv_data_shape(sim_csv_path)
+            with open(sim_csv_path, "r", encoding="utf-8-sig", newline="") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if header:
+                    columns = [str(h) for h in header]
+            if row_count > 0 and columns:
+                time_column_name = _pick_time_column_header(columns)
+                if time_column_name:
+                    time_column_min, time_column_max = _csv_time_column_min_max(
+                        sim_csv_path, time_column_name
+                    )
+
+        return {
+            "design_name": design_name,
+            "sim_name": sim_name,
+            "sim_config": sim_config,
+            "columns": columns,
+            "row_count": row_count,
+            "time_column_name": time_column_name,
+            "time_column_min": time_column_min,
+            "time_column_max": time_column_max,
+            "named_configuration_keys": _list_named_configuration_keys(sim_config),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error loading simulation metadata {design_name}/{sim_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load simulation metadata: {str(e)}",
+        )
+
+
+@app.get("/api/designs/{design_name:path}/simulations/{sim_name}/data")
+async def load_simulation_data_columns(
+    design_name: str,
+    sim_name: str,
+    columns: str = Query(..., description="Comma-separated column names to load from the CSV"),
+    offset: int = Query(0, ge=0, description="Skip this many data rows before returning"),
+    limit: Optional[int] = Query(
+        None,
+        description="Return at most this many rows. Omit to return all remaining rows (legacy).",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Return a JSON row array containing only the requested CSV columns (projection).
+    Validates names against the file header; unknown columns yield 400.
+    Use offset+limit to page through rows without loading the full file on the client.
+    If a database mirror exists for this CSV (same file size + mtime as when imported), rows
+    are read from the database instead of scanning the file.
+    """
+    try:
+        dir_path, catalog_rel = resolve_design_storage_from_api(design_name)
+        sim_csv_path = os.path.join(dir_path, f"{sim_name}.data.csv")
+
+        if not os.path.isfile(sim_csv_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Simulation data CSV not found: {sim_name}",
+            )
+
+        if limit is not None and limit < 1:
+            raise HTTPException(status_code=400, detail="Query parameter 'limit' must be >= 1 when provided")
+
+        requested = [c.strip() for c in columns.split(",") if c.strip()]
+        if not requested:
+            raise HTTPException(
+                status_code=400,
+                detail="Query parameter 'columns' must list at least one column name",
+            )
+
+        def resolve_one_col(req: str, header: list[str]) -> Optional[str]:
+            if req in header:
+                return req
+            req_strip = req.strip()
+            for h in header:
+                if h.strip() == req_strip:
+                    return h
+            return None
+
+        def project_columns(header: list[str]) -> tuple[list[str], list[str]]:
+            resolved: list[str] = []
+            missing: list[str] = []
+            for req in requested:
+                hit = resolve_one_col(req, header)
+                if hit is None:
+                    missing.append(req)
+                elif hit not in resolved:
+                    resolved.append(hit)
+            if missing:
+                return [], missing
+            return resolved, []
+
+        imp = get_effective_import(db, catalog_rel, sim_name, sim_csv_path)
+        if imp is not None:
+            print(
+                f"GET …/data: {catalog_rel}/{sim_name} offset={offset} limit={limit} "
+                f"source=sqlite (id={imp.id}, rows_stored={imp.row_count})"
+            )
+            header: list[str] = json.loads(imp.header_json) if imp.header_json else []
+            if not header:
+                return {
+                    "design_name": design_name,
+                    "sim_name": sim_name,
+                    "data": [],
+                    "columns": [],
+                    "row_count": 0,
+                    "row_count_total": 0,
+                    "offset": offset,
+                    "has_more": False,
+                }
+            resolved, missing = project_columns([str(h) for h in header])
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown columns: {missing}",
+                )
+            rows, total_data_rows = fetch_row_page_from_db(db, imp, resolved, offset, limit)
+            end_offset = offset + len(rows)
+            return {
+                "design_name": design_name,
+                "sim_name": sim_name,
+                "data": rows,
+                "columns": resolved,
+                "row_count": len(rows),
+                "row_count_total": total_data_rows,
+                "offset": offset,
+                "has_more": end_offset < total_data_rows,
+            }
+
+        print(
+            f"GET …/data: {catalog_rel}/{sim_name} offset={offset} limit={limit} "
+            f"source=csv_file ({os.path.basename(sim_csv_path)})"
+        )
+        total_data_rows, _ncols = _csv_data_shape(sim_csv_path)
+
+        with open(sim_csv_path, "r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            if not reader.fieldnames:
+                return {
+                    "design_name": design_name,
+                    "sim_name": sim_name,
+                    "data": [],
+                    "columns": [],
+                    "row_count": 0,
+                    "row_count_total": 0,
+                    "offset": offset,
+                    "has_more": False,
+                }
+
+            header = [str(h) for h in reader.fieldnames]
+            resolved, missing = project_columns(header)
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown columns: {missing}",
+                )
+
+            rows: list[dict] = []
+            skipped = 0
+            for row in reader:
+                if skipped < offset:
+                    skipped += 1
+                    continue
+                rows.append({k: row.get(k, "") for k in resolved})
+                if limit is not None and len(rows) >= limit:
+                    break
+
+        end_offset = offset + len(rows)
+        return {
+            "design_name": design_name,
+            "sim_name": sim_name,
+            "data": rows,
+            "columns": resolved,
+            "row_count": len(rows),
+            "row_count_total": total_data_rows,
+            "offset": offset,
+            "has_more": end_offset < total_data_rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(
+            f"❌ Error loading simulation data subset {design_name}/{sim_name}: {e}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load simulation data: {str(e)}",
         )
 
 
@@ -1726,20 +2446,12 @@ async def upload_simulation_data(design_name: str, sim_name: str, file: UploadFi
         else:
             with open(csv_path, "w", newline="") as f:
                 f.write(decoded)
-        # Create minimal .sim.json if it doesn't exist (so sim appears in list)
         sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
-        if not os.path.isfile(sim_json_path):
-            sim_config = {
-                "display_name": sim_name.replace("_", " ").replace("-", " ").title(),
-                "description": "",
-                "charts_to_display": [],
-                "event_markers": {}
-            }
-            with open(sim_json_path, "w") as f:
-                json.dump(sim_config, f, indent=2)
-            print(f"   Created {safe_sim}.sim.json")
-        print(f"✅ Uploaded {len(rows)} rows to {csv_path}")
-        return {"design_name": design_name, "sim_name": safe_sim, "row_count": len(rows)}
+        nr, nc = _csv_data_shape(csv_path)
+        disp = sim_name.replace("_", " ").replace("-", " ").title()
+        _write_or_update_sim_data_shape(sim_json_path, nr, nc, display_name_if_new=disp)
+        print(f"✅ Uploaded {nr} rows ({nc} columns) to {csv_path}")
+        return {"design_name": design_name, "sim_name": safe_sim, "row_count": nr, "column_count": nc}
     except HTTPException:
         raise
     except UnicodeDecodeError as e:
@@ -1747,6 +2459,58 @@ async def upload_simulation_data(design_name: str, sim_name: str, file: UploadFi
     except Exception as e:
         print(f"❌ Error uploading sim data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _pkl_flatten_columns_for_csv(df: pd.DataFrame) -> pd.DataFrame:
+    """Unique string column names for CSV export (MultiIndex tuples and duplicate bases)."""
+    out = df.copy()
+    new_names: list[str] = []
+    used_counts: dict[str, int] = {}
+    for col in out.columns:
+        if isinstance(col, tuple):
+            base = "|".join(str(p) for p in col)
+        else:
+            base = str(col)
+        n = used_counts.get(base, 0)
+        used_counts[base] = n + 1
+        new_names.append(base if n == 0 else f"{base}_{n + 1}")
+    out.columns = new_names
+    return out
+
+
+def _pkl_time_column_keys(df: pd.DataFrame) -> list:
+    """Column labels (possibly tuple) to prepend to each tab for a shared time axis."""
+    keys = []
+    for c in df.columns:
+        if isinstance(c, tuple):
+            head = str(c[0]).lower()
+        else:
+            head = str(c).lower()
+        if head in ("t", "time", "timestamp"):
+            keys.append(c)
+    return keys
+
+
+def _pkl_dataframe_tab_pairs(df: pd.DataFrame, default_sheet_name: str) -> list[tuple[str, pd.DataFrame]]:
+    """
+    Split a DataFrame like an Excel workbook: MultiIndex level 1 → sheet/tab name.
+    If columns are not a MultiIndex (or only one level), one scenario is returned.
+    """
+    if not isinstance(df.columns, pd.MultiIndex) or df.columns.nlevels < 2:
+        return [(default_sheet_name, df)]
+    tabs_ordered = list(dict.fromkeys(df.columns.get_level_values(1).tolist()))
+    time_keys = _pkl_time_column_keys(df)
+    pairs: list[tuple[str, pd.DataFrame]] = []
+    for tab in tabs_ordered:
+        sub_cols = [c for c in df.columns if c[1] == tab]
+        if not sub_cols:
+            continue
+        for tk in time_keys:
+            if tk not in sub_cols:
+                sub_cols.insert(0, tk)
+        label = str(tab).strip() if str(tab).strip() else default_sheet_name
+        pairs.append((label, df.loc[:, sub_cols].copy()))
+    return pairs if pairs else [(default_sheet_name, df)]
 
 
 @app.post("/api/designs/{design_name:path}/simulations/from-xlsx")
@@ -1781,15 +2545,10 @@ async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File
             csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
             df.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
             sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
-            if not os.path.isfile(sim_json_path):
-                sim_config = {
-                    "display_name": sheet_name.replace("_", " ").replace("-", " ").title(),
-                    "description": "",
-                    "charts_to_display": [],
-                    "event_markers": {}
-                }
-                with open(sim_json_path, "w") as f:
-                    json.dump(sim_config, f, indent=2)
+            disp = sheet_name.replace("_", " ").replace("-", " ").title()
+            _write_or_update_sim_data_shape(
+                sim_json_path, len(df), len(df.columns), display_name_if_new=disp
+            )
             created.append({"name": sheet_name, "rows": len(df)})
             print(f"   Created {safe_sim}.data.csv ({len(df)} rows)")
         print(f"✅ Imported {len(created)} simulation(s) from xlsx")
@@ -1799,6 +2558,88 @@ async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File
     except Exception as e:
         print(f"❌ Error importing xlsx: {e}")
         import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/designs/{design_name:path}/simulations/from-pkl")
+async def create_simulations_from_pkl(design_name: str, file: UploadFile = File(...)):
+    """
+    Import simulation scenarios from a pandas pickle (.pkl).
+    - DataFrame with MultiIndex columns: level-1 names become scenario names (like xlsx sheets);
+      level-0 signal names are variables. A shared time column (t/time/timestamp) is included in each tab.
+    - dict[str, DataFrame]: each key is a scenario name (one CSV per entry).
+    - Plain DataFrame: one scenario named from the file stem.
+    """
+    try:
+        name_lower = (file.filename or "").lower()
+        if not name_lower.endswith((".pkl", ".pickle")):
+            raise HTTPException(
+                status_code=400,
+                detail="File must be a pandas pickle (.pkl or .pickle)",
+            )
+        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        if not os.path.isdir(dir_path):
+            raise HTTPException(status_code=404, detail=f"Design directory not found: {design_name}")
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(status_code=400, detail="Upload failed: File is empty.")
+
+        bio = io.BytesIO(raw)
+        try:
+            obj = pd.read_pickle(bio)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not read pickle as pandas object: {e}")
+
+        default_stem = re.sub(r"[^\w\-]", "", os.path.splitext(file.filename or "import")[0]) or "import"
+        pairs: list[tuple[str, pd.DataFrame]] = []
+
+        if isinstance(obj, pd.DataFrame):
+            pairs = _pkl_dataframe_tab_pairs(obj, default_stem)
+        elif isinstance(obj, dict):
+            for sheet_name, df in obj.items():
+                if not isinstance(df, pd.DataFrame):
+                    continue
+                if df.empty or len(df.columns) == 0:
+                    continue
+                label = str(sheet_name).strip() if str(sheet_name).strip() else default_stem
+                pairs.append((label, df))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Pickle must contain a pandas DataFrame or a dict of DataFrames.",
+            )
+
+        if not pairs:
+            raise HTTPException(status_code=400, detail="No scenarios could be built from the pickle file.")
+
+        created: list[dict] = []
+        for sheet_name, df in pairs:
+            if df.empty or len(df.columns) == 0:
+                continue
+            safe_sim = re.sub(r"[^\w\-]", "", sheet_name) or sheet_name or "simulation"
+            csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
+            flat = _pkl_flatten_columns_for_csv(df)
+            flat.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
+            sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
+            disp = sheet_name.replace("_", " ").replace("-", " ").title()
+            _write_or_update_sim_data_shape(
+                sim_json_path, len(flat), len(flat.columns), display_name_if_new=disp
+            )
+            created.append({"name": sheet_name, "rows": len(flat)})
+            print(f"   Created {safe_sim}.data.csv ({len(flat)} rows) from pkl tab {sheet_name!r}")
+
+        if not created:
+            raise HTTPException(status_code=400, detail="No non-empty scenarios found in the pickle file.")
+
+        print(f"✅ Imported {len(created)} simulation(s) from pkl")
+        return {"design_name": design_name, "created": created}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error importing pkl: {e}")
+        import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 

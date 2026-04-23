@@ -1,0 +1,23 @@
+{
+  "display_name": "Lm6000Pf1 Gen System 1",
+  "description": "",
+  "charts_to_display": [],
+  "event_markers": {},
+  "chart_stacks": [],
+  "chart_sample_default": 1,
+  "chart_panel_height": 300,
+  "chart_panel_opacity": 1.0,
+  "chart_card_width": 500,
+  "derived_variables": [],
+  "current_configuration": {
+    "view_mode": "customer",
+    "charts_to_display": [],
+    "chart_stacks": [],
+    "chart_sample_default": 1,
+    "chart_panel_height": 300,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 500,
+    "derived_variables": [],
+    "event_markers": {}
+  }
+}

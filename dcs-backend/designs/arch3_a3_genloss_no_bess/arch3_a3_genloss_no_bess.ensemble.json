@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "withBess",
+      "display_name": "withBess",
+      "member_simulations": [
+        "BESS_1",
+        "BESS_2",
+        "Frequency-FFT",
+        "LM2500_1",
+        "LM2500_2",
+        "LM2500_3",
+        "LM2500_4",
+        "LM2500_5",
+        "LM2500_6",
+        "LM2500_7",
+        "LM2500_8",
+        "Load_1",
+        "Load_2",
+        "Load_3",
+        "Load_4"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,498 @@
+{
+  "display_name": "Fullblock",
+  "description": "",
+  "derived_variables": [],
+  "charts_to_display": [
+    {
+      "type": "single",
+      "component_id": "comp-bess-left",
+      "chart_type": "2d",
+      "x_column": "Time (s)",
+      "y_column": " P_g1 (MW)",
+      "title": "BESS 50MW L -  P_g1 (MW)",
+      "chart_card_width": 1835
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-left",
+      "chart_type": "histogram",
+      "x_column": "Time (s)",
+      "y_column": " P_g2 (MW)",
+      "title": "BESS 50MW L -  P_g2 (MW)",
+      "chart_card_width": 368
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-left",
+      "chart_type": "nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " P_g2 (MW)",
+        " Q_g4 (MVar)"
+      ],
+      "title": "BESS 50MW L - nD",
+      "chart_card_width": 1847
+    },
+    {
+      "type": "single",
+      "component_id": "comp-bess-left",
+      "chart_type": "stacked-nd",
+      "x_column": "Time (s)",
+      "y_columns": [
+        " P_BESS (MW)",
+        " Qload_1 (MVar)",
+        " Qload_2 (MVar)",
+        " V_g1 (p.u.)",
+        " f_poi_meas (Hz)"
+      ],
+      "split_by": "manual",
+      "manual_group_breaks": [
+        4,
+        5
+      ],
+      "title": "BESS 50MW L - Stacked nD"
+    }
+  ],
+  "event_markers": {},
+  "chart_sample_default": 16,
+  "chart_panel_height": 644,
+  "chart_stacks": [
+    [
+      0,
+      2
+    ]
+  ],
+  "chart_panel_opacity": 1.0,
+  "current_configuration": {
+    "view_mode": "designer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)",
+        "chart_card_width": 1835
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "histogram",
+        "x_column": "Time (s)",
+        "y_column": " P_g2 (MW)",
+        "title": "BESS 50MW L -  P_g2 (MW)",
+        "chart_card_width": 368
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_g2 (MW)",
+          " Q_g4 (MVar)"
+        ],
+        "title": "BESS 50MW L - nD",
+        "chart_card_width": 1847
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "stacked-nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_BESS (MW)",
+          " Qload_1 (MVar)",
+          " Qload_2 (MVar)",
+          " V_g1 (p.u.)",
+          " f_poi_meas (Hz)"
+        ],
+        "split_by": "manual",
+        "manual_group_breaks": [
+          4,
+          5
+        ],
+        "title": "BESS 50MW L - Stacked nD"
+      }
+    ],
+    "chart_stacks": [
+      [
+        0,
+        2
+      ]
+    ],
+    "chart_sample_default": 16,
+    "chart_panel_height": 644,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 1400,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "conf01": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)",
+        "chart_card_width": 1835
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "histogram",
+        "x_column": "Time (s)",
+        "y_column": " P_g2 (MW)",
+        "title": "BESS 50MW L -  P_g2 (MW)",
+        "chart_card_width": 368
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_g2 (MW)",
+          " Q_g4 (MVar)"
+        ],
+        "title": "BESS 50MW L - nD",
+        "chart_card_width": 1847
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "stacked-nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_BESS (MW)",
+          " Qload_1 (MVar)",
+          " Qload_2 (MVar)",
+          " V_g1 (p.u.)",
+          " f_poi_meas (Hz)"
+        ],
+        "split_by": "manual",
+        "manual_group_breaks": [
+          4,
+          5
+        ],
+        "title": "BESS 50MW L - Stacked nD"
+      }
+    ],
+    "chart_stacks": [
+      [
+        0,
+        2
+      ]
+    ],
+    "chart_sample_default": 16,
+    "chart_panel_height": 644,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 1400,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "conf02": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": "Pload_P_Bess",
+        "title": "BESS 50MW L - Pload_P_Bess"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " Pload_1 (MW)",
+          "something"
+        ],
+        "title": "BESS 50MW L - nD"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "histogram",
+        "x_column": "Time (s)",
+        "y_column": " P_g2 (MW)",
+        "title": "BESS 50MW L -  P_g2 (MW)"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 16,
+    "chart_panel_height": 765,
+    "chart_panel_opacity": 1.0,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "conf03": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "histogram",
+        "x_column": "Time (s)",
+        "y_column": " P_g2 (MW)",
+        "title": "BESS 50MW L -  P_g2 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_g2 (MW)",
+          " Q_g4 (MVar)"
+        ],
+        "title": "BESS 50MW L - nD"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "stacked-nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_BESS (MW)",
+          " Qload_1 (MVar)",
+          " Qload_2 (MVar)",
+          " V_g1 (p.u.)",
+          " f_poi_meas (Hz)"
+        ],
+        "split_by": "manual",
+        "manual_group_breaks": [
+          4,
+          5
+        ],
+        "title": "BESS 50MW L - Stacked nD"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 16,
+    "chart_panel_height": 1033,
+    "chart_panel_opacity": 0.3,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "conf04": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": "Pload_P_Bess",
+        "title": "BESS 50MW L - Pload_P_Bess"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " Pload_1 (MW)",
+          "something"
+        ],
+        "title": "BESS 50MW L - nD"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)"
+      }
+    ],
+    "chart_stacks": [
+      [
+        0,
+        1
+      ]
+    ],
+    "chart_sample_default": 16,
+    "chart_panel_height": 925,
+    "chart_panel_opacity": 1.0,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "FullBlockBackup02": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "histogram",
+        "x_column": "Time (s)",
+        "y_column": " P_g2 (MW)",
+        "title": "BESS 50MW L -  P_g2 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_g2 (MW)",
+          " Q_g4 (MVar)"
+        ],
+        "title": "BESS 50MW L - nD"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "stacked-nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_BESS (MW)",
+          " Qload_1 (MVar)",
+          " Qload_2 (MVar)",
+          " V_g1 (p.u.)",
+          " f_poi_meas (Hz)"
+        ],
+        "split_by": "manual",
+        "manual_group_breaks": [
+          4,
+          5
+        ],
+        "title": "BESS 50MW L - Stacked nD"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 16,
+    "chart_panel_height": 1033,
+    "chart_panel_opacity": 0.3,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "fullBlock06": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "histogram",
+        "x_column": "Time (s)",
+        "y_column": " P_g2 (MW)",
+        "title": "BESS 50MW L -  P_g2 (MW)"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_g2 (MW)",
+          " Q_g4 (MVar)"
+        ],
+        "title": "BESS 50MW L - nD"
+      },
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "stacked-nd",
+        "x_column": "Time (s)",
+        "y_columns": [
+          " P_BESS (MW)",
+          " Qload_1 (MVar)",
+          " Qload_2 (MVar)",
+          " V_g1 (p.u.)",
+          " f_poi_meas (Hz)"
+        ],
+        "split_by": "manual",
+        "manual_group_breaks": [
+          4,
+          5
+        ],
+        "title": "BESS 50MW L - Stacked nD"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 16,
+    "chart_panel_height": 757,
+    "chart_panel_opacity": 1.0,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "Conf05": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": " P_g1 (MW)",
+        "title": "BESS 50MW L -  P_g1 (MW)"
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 128,
+    "chart_panel_height": 850,
+    "chart_panel_opacity": 1.0,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "Conf06": {
+    "view_mode": "customer",
+    "charts_to_display": [
+      {
+        "type": "single",
+        "component_id": "comp-bess-left",
+        "chart_type": "2d",
+        "x_column": "Time (s)",
+        "y_column": "Pload_P_Bess",
+        "title": "BESS 50MW L - Pload_P_Bess",
+        "sample_step": 256
+      }
+    ],
+    "chart_stacks": [],
+    "chart_sample_default": 16,
+    "chart_panel_height": 764,
+    "chart_panel_opacity": 1.0,
+    "derived_variables": [],
+    "event_markers": {}
+  },
+  "chart_card_width": 1400
+}

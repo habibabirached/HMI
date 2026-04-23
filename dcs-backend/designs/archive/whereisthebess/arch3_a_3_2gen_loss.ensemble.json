@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "LMs",
+      "display_name": "LMs",
+      "member_simulations": [
+        "LM2500_1",
+        "LM2500_2",
+        "LM2500_3",
+        "LM2500_4",
+        "LM2500_5",
+        "LM2500_6",
+        "LM2500_7",
+        "LM2500_8"
+      ],
+      "chart_panel": {
+        "charts_to_display": [],
+        "chart_stacks": [],
+        "chart_sample_default": 1,
+        "chart_panel_height": 300,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 500,
+        "view_mode": "customer"
+      }
+    },
+    {
+      "id": "LM_BESS_Load",
+      "display_name": "LM_BESS_Load",
+      "member_simulations": [
+        "BESS_1",
+        "BESS_2",
+        "LM2500_1",
+        "LM2500_2",
+        "LM2500_3",
+        "LM2500_4",
+        "LM2500_5",
+        "LM2500_6",
+        "LM2500_7",
+        "LM2500_8",
+        "Load_1",
+        "Load_2",
+        "Load_3",
+        "Load_4"
+      ],
+      "chart_panel": {
+        "charts_to_display": [
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "t|Main",
+            "y_column": "AllLMPower",
+            "title": "34.5kV Bus L - AllLMPower",
+            "ensemble_sim_id": "BESS_1"
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "t|Main",
+            "y_column": "BothBESS_Power",
+            "title": "34.5kV Bus L - BothBESS_Power",
+            "ensemble_sim_id": "BESS_1"
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "t|Main",
+            "y_column": "Pload_1|Load_1",
+            "title": "34.5kV Bus L - Pload_1|Load_1",
+            "ensemble_sim_id": "Load_1"
+          }
+        ],
+        "chart_stacks": [],
+        "chart_sample_default": 4,
+        "chart_panel_height": 746,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 725,
+        "view_mode": "customer",
+        "derived_variables": [
+          {
+            "name": "AllLMPower",
+            "formula": "LM2500_1 — P_g1|LM2500_1+LM2500_2 — P_g2|LM2500_2+LM2500_3 — P_g3|LM2500_3+LM2500_4 — P_g4|LM2500_4+LM2500_5 — P_g5|LM2500_5+LM2500_6 — P_g6|LM2500_6+LM2500_7 — P_g7|LM2500_7+LM2500_8 — P_g8|LM2500_8"
+          },
+          {
+            "name": "BothBESS_Power",
+            "formula": "BESS_1 — P_BESS1|BESS_1 + BESS_2 — P_BESS2|BESS_2"
+          },
+          {
+            "name": "AllLoadsPower",
+            "formula": "Load_1 — Pload_1|Load_1+Load_2 — Pload_2|Load_2+Load_3 — Pload_3|Load_3+Load_4 — Pload_4|Load_4"
+          },
+          {
+            "name": "time",
+            "formula": "Load_2 — t|Main"
+          },
+          {
+            "name": "Loads_Power_all",
+            "formula": "Load_1 — Vload_1|Load_1+Load_2 — Pload_2|Load_2+Load_3 — Pload_3|Load_3+Load_4 — Pload_4|Load_4"
+          },
+          {
+            "name": "Load1_and_2",
+            "formula": "Load_1 — Pload_1|Load_1+Load_2 — Pload_2|Load_2"
+          }
+        ]
+      }
+    }
+  ]
+}

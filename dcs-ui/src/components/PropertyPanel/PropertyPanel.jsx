@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import './PropertyPanel.css';
+import { isPerfDebugEnabled, logPerfLayout, logPerfAfterPaint } from '../../utils/perfDebug';
 import SimulationChartBuilder from '../SimulationChartBuilder/SimulationChartBuilder';
-import { formatVoltageRatioString } from '../Canvas/Schematics/schematicUtils';
+import {
+  formatVoltageRatioString,
+  transformerVoltageRatioLabel,
+} from '../Canvas/Schematics/schematicUtils';
 import {
   CONNECTION_COLOR_PALETTE,
   DEFAULT_CONNECTION_SHADOW,
@@ -13,6 +17,7 @@ const PropertyPanel = ({
   selectedConnection,
   simulationMetadata,
   simulationColumns = [],
+  ensembleColumnGroups = [],
   derivedVariables = [],
   onAddDerivedVariable,
   canvasComponents = [],
@@ -39,16 +44,33 @@ const PropertyPanel = ({
           props.primaryVoltageKv ?? selectedComponent.primary ?? '',
         secondaryVoltageKv:
           props.secondaryVoltageKv ?? selectedComponent.secondary ?? '',
+        gsuBusOnComponentSide: props.gsuBusOnComponentSide ?? 'left',
       });
     }
   }, [selectedComponent]);
 
+  useLayoutEffect(() => {
+    if (!isPerfDebugEnabled()) return;
+    logPerfLayout('PropertyPanel', {
+      selectedComponentId: selectedComponent?.id ?? null,
+      selectedConnectionId: selectedConnection?.id ?? null,
+      simulationColumns: simulationColumns?.length ?? 0,
+    });
+    logPerfAfterPaint('PropertyPanel');
+  }, [selectedComponent?.id, selectedConnection?.id, simulationColumns.length, ensembleColumnGroups?.length]);
+
   if (!selectedComponent && !selectedConnection) {
-    if (simulationMetadata && simulationColumns.length > 0) {
+    const showChartBuilder =
+      simulationMetadata &&
+      (simulationColumns.length > 0 ||
+        (simulationMetadata.isEnsemble && ensembleColumnGroups?.length > 0));
+    if (showChartBuilder) {
       return (
         <div className="property-panel">
           <SimulationChartBuilder
             columns={simulationColumns}
+            isEnsemble={!!simulationMetadata?.isEnsemble}
+            ensembleColumnGroups={ensembleColumnGroups}
             derivedVariables={derivedVariables}
             onAddDerivedVariable={onAddDerivedVariable}
             displayName={simulationMetadata.displayName}
@@ -90,6 +112,11 @@ const PropertyPanel = ({
         const sk = parseFloat(editedProps.secondaryVoltageKv);
         if (Number.isFinite(pk)) updates.properties.primaryVoltageKv = pk;
         if (Number.isFinite(sk)) updates.properties.secondaryVoltageKv = sk;
+      }
+      if (selectedComponent.type === 'gsu') {
+        const side = editedProps.gsuBusOnComponentSide;
+        updates.properties.gsuBusOnComponentSide =
+          side === 'right' || side === 'left' ? side : 'left';
       }
       onUpdateComponent(selectedComponent.id, updates);
     }
@@ -515,13 +542,41 @@ const PropertyPanel = ({
                   step="0.01"
                 />
               </div>
+              {selectedComponent.type === 'gsu' && (
+                <div className="prop-group">
+                  <label>34.5 kV bus on symbol side</label>
+                  <select
+                    value={editedProps.gsuBusOnComponentSide ?? 'left'}
+                    onChange={(e) =>
+                      handleChange('gsuBusOnComponentSide', e.target.value)
+                    }
+                    disabled={disabled}
+                  >
+                    <option value="left">Left (ratio HV : LV, bus left of block)</option>
+                    <option value="right">
+                      Right (ratio LV : HV, bus right of block)
+                    </option>
+                  </select>
+                </div>
+              )}
               <div className="prop-group">
                 <label>Voltage ratio</label>
                 <div className="prop-value readonly">
-                  {formatVoltageRatioString(
-                    editedProps.primaryVoltageKv,
-                    editedProps.secondaryVoltageKv
-                  ) || '—'}
+                  {selectedComponent.type === 'gsu'
+                    ? transformerVoltageRatioLabel({
+                        type: 'gsu',
+                        properties: {
+                          primaryVoltageKv: editedProps.primaryVoltageKv,
+                          secondaryVoltageKv: editedProps.secondaryVoltageKv,
+                          gsuBusOnComponentSide:
+                            editedProps.gsuBusOnComponentSide ??
+                            selectedComponent.properties?.gsuBusOnComponentSide,
+                        },
+                      }) || '—'
+                    : formatVoltageRatioString(
+                        editedProps.primaryVoltageKv,
+                        editedProps.secondaryVoltageKv
+                      ) || '—'}
                 </div>
               </div>
             </>

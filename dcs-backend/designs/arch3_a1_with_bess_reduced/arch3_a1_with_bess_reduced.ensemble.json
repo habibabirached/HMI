@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "test",
+      "display_name": "test",
+      "member_simulations": [
+        "LM2500_2",
+        "LM2500_3",
+        "LM2500_4"
+      ]
+    }
+  ]
+}

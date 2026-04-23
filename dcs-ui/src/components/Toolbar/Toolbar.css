@@ -3,6 +3,7 @@
   align-items: center;
   gap: 24px;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .toolbar-section {

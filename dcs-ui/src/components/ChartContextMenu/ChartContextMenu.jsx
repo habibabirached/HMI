@@ -1,5 +1,6 @@
 import React from 'react';
 import './ChartContextMenu.css';
+import { componentSupportsConnectionReadout } from '../../utils/connectionReadoutSampling';
 
 /**
  * Chart Context Menu Component
@@ -12,8 +13,19 @@ import './ChartContextMenu.css';
  * - onClose: Function to close the menu
  * - onSelectChartType: Function called with chart type (e.g., '2d', 'histogram')
  * - componentName: Name of the component (for display)
+ * - component: Full component (for connection readout gate)
+ * - canConfigureConnectionReadout: simulation loaded, etc.
+ * - onConfigureConnectionReadout: opens sparkle / connection readout dialog
  */
-const ChartContextMenu = ({ position, onClose, onSelectChartType, componentName }) => {
+const ChartContextMenu = ({
+  position,
+  onClose,
+  onSelectChartType,
+  componentName,
+  component = null,
+  canConfigureConnectionReadout = false,
+  onConfigureConnectionReadout,
+}) => {
   
   /**
    * Chart types available in Plotly
@@ -65,6 +77,23 @@ const ChartContextMenu = ({ position, onClose, onSelectChartType, componentName 
         </div>
 
         <div className="chart-context-items">
+          {canConfigureConnectionReadout && componentSupportsConnectionReadout(component) && (
+            <div
+              className="chart-context-item chart-context-item--readout"
+              onClick={() => {
+                onConfigureConnectionReadout?.();
+                onClose();
+              }}
+            >
+              <div className="chart-context-icon">{'\u2726'}</div>
+              <div className="chart-context-info">
+                <div className="chart-context-label">Connection readout (4 values)</div>
+                <div className="chart-context-desc">
+                  Sparkle #1–#4 beside the block: scenario tab, variable, and unit suffix (e.g. MVAR).
+                </div>
+              </div>
+            </div>
+          )}
           {chartTypes.map((chart) => (
             <div
               key={chart.id}

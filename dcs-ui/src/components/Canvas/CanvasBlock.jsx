@@ -1,5 +1,6 @@
 import React from 'react';
 import ComponentEmbeddedSparklines from './ComponentEmbeddedSparklines';
+import ComponentConnectionReadout from './ComponentConnectionReadout';
 import { getComponentVisualConfig } from '../../data/componentVisuals';
 import { strokeForStatus } from './shapes/canvasBlockUtils';
 import CanvasComponentBody from './shapes/CanvasComponentBody';
@@ -9,8 +10,9 @@ const STRETCHABLE_HORIZONTAL = ['bus-hv'];
 
 /**
  * One schematic block on the canvas: body, labels, status, chart shortcuts, resize handles.
+ * Memoized so a200+ block diagram does not reconcile every block when only selection changes.
  */
-export default function CanvasBlock({
+function CanvasBlock({
   component,
   isSelected,
   isMultiSelected,
@@ -18,7 +20,10 @@ export default function CanvasBlock({
   mode,
   simulationRunning,
   simulationData = [],
+  ensembleMemberSimulationData = null,
   simulationTime = 0,
+  simulationColumns = [],
+  ensembleColumnGroups = [],
   onMouseDown,
   onMouseUp,
   onContextMenu,
@@ -77,10 +82,18 @@ export default function CanvasBlock({
           strokeWidthVal={strokeWidthVal}
         />
 
-        {component.embeddedSparklines?.length > 0 && simulationData?.length > 0 && (
+        {component.embeddedSparklines?.length > 0 &&
+          (simulationData?.length > 0 ||
+            (component.embeddedSparklines || []).some(
+              (s) =>
+                (s.ensembleSimId &&
+                  ensembleMemberSimulationData?.[s.ensembleSimId]?.length) ||
+                (s.ensembleCrossMember && ensembleMemberSimulationData),
+            )) && (
           <ComponentEmbeddedSparklines
             embeddedSparklines={component.embeddedSparklines}
             simulationData={simulationData}
+            ensembleMemberSimulationData={ensembleMemberSimulationData}
             simulationTime={simulationTime}
             simulationRunning={simulationRunning}
             width={width}
@@ -257,6 +270,19 @@ export default function CanvasBlock({
           </>
         )}
       </g>
+
+      <ComponentConnectionReadout
+        connectionReadout={component.connectionReadout}
+        simulationData={simulationData}
+        ensembleMemberSimulationData={ensembleMemberSimulationData}
+        ensembleColumnGroups={ensembleColumnGroups}
+        singleSimColumns={simulationColumns}
+        simulationTime={simulationTime}
+        width={width}
+        height={height}
+      />
     </g>
   );
 }
+
+export default React.memo(CanvasBlock);

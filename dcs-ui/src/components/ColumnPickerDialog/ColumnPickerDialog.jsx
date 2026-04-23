@@ -45,19 +45,26 @@ const ColumnPickerDialog = ({
     box: 'Box Plot'
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     setError(null);
     if (!xColumn || !yColumn) {
       setError('Please select both X and Y columns.');
       return;
     }
-    onConfirm({
-      xColumn,
-      yColumn,
-      title: title.trim() || undefined,
-      ...(chartType === '2d' ? { alsoOpenInPanel } : {}),
-    });
-    onClose();
+    try {
+      const out = onConfirm({
+        xColumn,
+        yColumn,
+        title: title.trim() || undefined,
+        ...(chartType === '2d' ? { alsoOpenInPanel } : {}),
+      });
+      if (out != null && typeof out.then === 'function') {
+        await out;
+      }
+      onClose();
+    } catch (e) {
+      setError(e?.message ? String(e.message) : 'Could not add chart.');
+    }
   };
 
   const handleOverlayClick = (e) => {

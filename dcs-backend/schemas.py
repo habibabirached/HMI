@@ -414,6 +414,32 @@ class ErrorResponse(BaseModel):
         description="When the error occurred"
     )
 
+
+# ------------------------------------------------------------------------------------------------------
+# ENSEMBLE (design sidecar {leaf}.ensemble.json)
+# ------------------------------------------------------------------------------------------------------
+
+
+class CreateEnsembleRequest(BaseModel):
+    """Body for POST …/ensembles — append one ensemble entry."""
+
+    id: str = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Stable id (letters, digits, underscore, hyphen)",
+    )
+    display_name: str = Field(default="", max_length=400)
+    member_simulations: list[str] = Field(default_factory=list)
+
+
+class UpdateEnsembleRequest(BaseModel):
+    """Body for PUT …/ensembles/{id} — patch display name and/or member scenario ids."""
+
+    display_name: Optional[str] = Field(None, max_length=400)
+    member_simulations: Optional[list[str]] = None
+
 # ------------------------------------------------------------------------------------------------------
 # NOTES ON PYDANTIC
 # ------------------------------------------------------------------------------------------------------

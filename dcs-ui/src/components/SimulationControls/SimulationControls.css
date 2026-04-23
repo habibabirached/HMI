@@ -322,6 +322,210 @@
    SIMULATION SCENARIOS SECTION
    ============================================================================ */
 
+/*
+ * Ensemble UI (SimulationControls): the next several rules style the purple “ensemble” buttons, the
+ * horizontal split between scenario rows and the read-only variables pane, and the purple outline on
+ * scenario rows that belong to the currently selected ensemble. Wider panel width is applied only while
+ * the variables pane is visible so the default320px column stays compact for designs without ensemble.json.
+ */
+.simulation-ensembles-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #2a3a3a;
+}
+
+.btn-add-ensemble {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: rgba(74, 20, 140, 0.25);
+  border: 1px dashed #9c27b0;
+  color: #e1bee7;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-add-ensemble:hover:not(:disabled) {
+  background: rgba(123, 31, 162, 0.35);
+  border-color: #ce93d8;
+}
+
+.btn-add-ensemble:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.control-btn-ensemble {
+  background: linear-gradient(135deg, #4a148c, #7b1fa2);
+  border: 2px solid #9c27b0;
+  color: #fff;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.control-btn-ensemble:hover {
+  background: linear-gradient(135deg, #6a1b9a, #ab47bc);
+  border-color: #e1bee7;
+  box-shadow: 0 4px 16px rgba(156, 39, 176, 0.45);
+}
+
+.control-btn-ensemble-active {
+  background: linear-gradient(135deg, #ce93d8, #e1bee7) !important;
+  border-color: #f3e5f5 !important;
+  color: #1a1a1a !important;
+  box-shadow: 0 0 14px rgba(206, 147, 216, 0.8);
+}
+
+.ensemble-button-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.ensemble-button-row .control-btn-ensemble {
+  flex: 1;
+  min-width: 0;
+}
+
+.control-btn-ensemble-edit {
+  flex: 0 0 44px;
+  padding: 8px 4px;
+  background: linear-gradient(135deg, #311b4a, #4a235f);
+  border: 2px solid #7e57c2 !important;
+  color: #e8d5ff;
+  font-size: 16px;
+  line-height: 1;
+  text-transform: none;
+}
+
+.control-btn-ensemble-edit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4a235f, #6a3d82);
+  border-color: #b39ddb !important;
+  box-shadow: 0 4px 12px rgba(126, 87, 194, 0.4);
+}
+
+.control-btn-ensemble-edit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.control-btn-ensemble-delete {
+  flex: 0 0 44px;
+  padding: 8px 4px;
+  background: linear-gradient(135deg, #3d1414, #5c1e1e);
+  border: 2px solid #c62828 !important;
+  color: #ffcdd2;
+  font-size: 18px;
+  line-height: 1;
+  text-transform: none;
+}
+
+.control-btn-ensemble-delete:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5c1e1e, #7a2828);
+  border-color: #ef5350 !important;
+  box-shadow: 0 4px 12px rgba(198, 40, 40, 0.45);
+}
+
+.control-btn-ensemble-delete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.scenarios-split {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scenarios-split--with-vars {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.scenarios-split-main {
+  flex: 1 1 48%;
+  min-width: 0;
+}
+
+.simulation-controls--ensemble-vars {
+  width: min(520px, 92vw);
+}
+
+.ensemble-variables-pane {
+  flex: 1 1 48%;
+  min-width: 0;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.ensemble-variables-pane-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ce93d8;
+  margin-bottom: 6px;
+}
+
+.ensemble-variables-hint {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.4;
+  margin: 0 0 8px 0;
+}
+
+.ensemble-variables-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  font-size: 11px;
+  /* Skip layout/paint for off-screen rows so huge member×column lists stay responsive. */
+  content-visibility: auto;
+  contain-intrinsic-size: 280px 3200px;
+}
+
+.ensemble-variables-group {
+  margin-bottom: 12px;
+}
+
+.ensemble-variables-group-label {
+  font-weight: 700;
+  color: #00d4a8;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.ensemble-variables-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ensemble-variables-list li {
+  padding: 3px 6px;
+  margin-bottom: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scenario-button-row-ensemble-member {
+  outline: 1px solid rgba(156, 39, 176, 0.65);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 .simulation-scenarios-section {
   margin-bottom: 24px;
   padding-bottom: 24px;
@@ -398,12 +602,35 @@
 /* Scenario row: play button + optional upload */
 .scenario-button-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .scenario-button-row .control-btn-scenario {
   flex: 1;
+}
+
+/* Stacked title + (columns, rows) under scenario name */
+.scenario-btn-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  position: relative;
+  z-index: 1;
+}
+
+.scenario-btn-title {
+  line-height: 1.25;
+}
+
+.scenario-btn-shape {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.88;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* During an active scenario load, play buttons are disabled. This look signals “busy” without a spinner. */

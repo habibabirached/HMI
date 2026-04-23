@@ -1,5 +1,7 @@
 import React from 'react';
 import './SimulationControls.css';
+import EnsembleEditorDialog from '../EnsembleEditorDialog/EnsembleEditorDialog';
+import { isPerfDebugEnabled, logPerfLayout, logPerfAfterPaint } from '../../utils/perfDebug';
 
 /**
  * SIMULATION CONTROLS COMPONENT
@@ -50,6 +52,20 @@ const SimulationControls = ({
   availableSimulations,
   simConfig,
   onRunSimulation,
+  /*
+   * Ensemble support (phase 1): designEnsembles is the list returned from the server’s /ensembles route,
+   * which reads {design_folder}.ensemble.json next to your .conf.json. activeEnsembleId tells us which
+   * purple ensemble button is selected so we can outline its member scenarios. onSelectEnsemble is called
+   * instead of onRunSimulation when you click an ensemble. Variable lists for charts live in the property
+   * panel chart builder.
+   */
+  designEnsembles = [],
+  activeEnsembleId = null,
+  onSelectEnsemble,
+  onDeleteEnsemble,
+  /** When set, “Add / Edit ensemble” can persist to {leaf}.ensemble.json via the API. */
+  designApiPath = null,
+  onRefreshDesignEnsembles,
   useDesignDir,
   currentConfigName,
   onUploadSimData,
@@ -59,13 +75,27 @@ const SimulationControls = ({
   onViewSimData,
   onAddSimulation,
   onAddSimulationsFromXlsx,
+  onAddSimulationsFromPkl,
   // Set by App while a scenario CSV is downloading or being processed. Used to render the linear meter,
   // show the current phase in plain language, and prevent double-clicks on another scenario mid-load.
   simulationLoadProgress = null,
 }) => {
   const [showAddSimForm, setShowAddSimForm] = React.useState(false);
   const [newSimName, setNewSimName] = React.useState('');
+  const [ensembleEditor, setEnsembleEditor] = React.useState(null);
   const xlsxInputRef = React.useRef(null);
+  const pklInputRef = React.useRef(null);
+
+  React.useLayoutEffect(() => {
+    if (mode !== 'simulation' && viewMode !== 'customer') return;
+    if (!isPerfDebugEnabled()) return;
+    logPerfLayout('SimulationControls', {
+      selectedId: selectedComponent?.id ?? null,
+      activeEnsembleId: activeEnsembleId ?? null,
+    });
+    logPerfAfterPaint('SimulationControls');
+  }, [mode, viewMode, selectedComponent?.id, activeEnsembleId]);
+
   // ========================================================================
   // VISIBILITY CHECK
   // ========================================================================
@@ -414,6 +444,29 @@ const SimulationControls = ({
                     </button>
                   </>
                 )}
+                {onAddSimulationsFromPkl && (
+                  <>
+                    <input
+                      ref={pklInputRef}
+                      type="file"
+                      accept=".pkl,.pickle,application/octet-stream"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) onAddSimulationsFromPkl(f);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-add-sim btn-add-sim-xlsx"
+                      onClick={() => pklInputRef.current?.click()}
+                      title="Import each MultiIndex tab group as a simulation scenario (pandas pickle)"
+                    >
+                      Add simulation scenarios from pkl
+                    </button>
+                  </>
+                )}
               </>
             ) : (
               <div className="add-sim-form">
@@ -456,6 +509,96 @@ const SimulationControls = ({
           </div>
         )}
 
+        {/*
+          Ensembles are optional groups defined on disk (not extra .sim.json files). Each button calls
+          onSelectEnsemble so App can load metadata for all listed member scenarios and drive the purple
+          member outlines plus the variables pane. They are visually distinct from green scenario buttons.
+        */}
+        {useDesignDir && designApiPath && (
+          <div className="simulation-ensembles-section">
+            <h4 className="scenarios-title">Ensembles</h4>
+            <div className="scenarios-info">
+              {(designEnsembles?.length ?? 0) === 0
+                ? 'Group scenarios for comparison — create an ensemble below'
+                : `${designEnsembles.length} group(s) — member scenarios highlight when selected`}
+            </div>
+            {onRefreshDesignEnsembles && (
+              <button
+                type="button"
+                className="btn-add-ensemble"
+                disabled={!!simulationLoadProgress}
+                onClick={() => setEnsembleEditor({ mode: 'create', ensemble: null })}
+                title="Create a new ensemble in this design’s .ensemble.json file"
+              >
+                + Add ensemble
+              </button>
+            )}
+            <div className="control-buttons">
+              {(designEnsembles || []).map((ens) => {
+                const isEnsActive = activeEnsembleId != null && ens.id === activeEnsembleId;
+                return (
+                  <div key={ens.id} className="ensemble-button-row">
+                    <button
+                      type="button"
+                      className={`control-btn control-btn-ensemble${isEnsActive ? ' control-btn-ensemble-active' : ''}`}
+                      disabled={!!simulationLoadProgress}
+                      onClick={() => onSelectEnsemble && onSelectEnsemble(ens)}
+                      title={`Members: ${(ens.member_simulations || []).join(', ')}`}
+                    >
+                      <span className="scenario-btn-stack">
+                        <span className="scenario-btn-title">🔗 {ens.display_name || ens.id}</span>
+                        <span className="scenario-btn-shape">
+                          {(ens.member_simulations || []).length} scenario(s)
+                        </span>
+                      </span>
+                    </button>
+                    {onRefreshDesignEnsembles && (
+                      <button
+                        type="button"
+                        className="control-btn control-btn-ensemble-edit"
+                        disabled={!!simulationLoadProgress}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEnsembleEditor({ mode: 'edit', ensemble: ens });
+                        }}
+                        title="Edit name and member scenarios"
+                        aria-label={`Edit ensemble ${ens.display_name || ens.id}`}
+                      >
+                        ✎
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="control-btn control-btn-ensemble-delete"
+                      disabled={!!simulationLoadProgress}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteEnsemble?.(ens);
+                      }}
+                      title="Remove this ensemble from the design (.ensemble.json only)"
+                      aria-label={`Delete ensemble ${ens.display_name || ens.id}`}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {ensembleEditor && onRefreshDesignEnsembles && (
+              <EnsembleEditorDialog
+                open
+                mode={ensembleEditor.mode}
+                ensemble={ensembleEditor.ensemble}
+                designApiPath={designApiPath}
+                availableSimulations={availableSimulations}
+                simConfig={simConfig}
+                onClose={() => setEnsembleEditor(null)}
+                onSaved={onRefreshDesignEnsembles}
+              />
+            )}
+          </div>
+        )}
+
         {/* ================================================================
             SIMULATION SCENARIOS SECTION (at top)
             ================================================================ */}
@@ -465,7 +608,9 @@ const SimulationControls = ({
             <div className="scenarios-info">
               {availableSimulations.length} scenario(s) detected
             </div>
-            
+
+            <div className="scenarios-split">
+            <div className="scenarios-split-main">
             <div className="control-buttons">
               {availableSimulations.map((simId) => {
                 let displayName = simId;
@@ -475,13 +620,29 @@ const SimulationControls = ({
                 /* STEP 2: Compare this button's simId to the loaded simulation; if they match,
                    we add the 'active' class so it stands out with a brighter, glowing style. */
                 const isActive = activeSimulationId != null && simId === activeSimulationId;
+                /*
+                 * If an ensemble is selected, look up its member id list and draw a purple frame around
+                 * every matching scenario row so you can see “these tabs belong to this ensemble” at a glance.
+                 */
+                const ensDef = designEnsembles.find((e) => e.id === activeEnsembleId);
+                const memberSet = ensDef?.member_simulations
+                  ? new Set(ensDef.member_simulations)
+                  : null;
+                const isEnsembleMember = memberSet && memberSet.has(simId);
                 // Subtle outline on the row that matches the scenario currently being fetched.
                 const isLoadingThis =
                   simulationLoadProgress && simulationLoadProgress.simulationId === simId;
+                const simEntry = simConfig?.simulations?.[simId];
+                const colCount = simEntry?.data_column_count;
+                const lineCount = simEntry?.data_row_count;
+                const shapeLabel =
+                  colCount != null && lineCount != null
+                    ? `(${colCount}, ${lineCount})`
+                    : null;
                 return (
                   <div
                     key={simId}
-                    className={`scenario-button-row${isLoadingThis ? ' scenario-button-row-loading' : ''}`}
+                    className={`scenario-button-row${isLoadingThis ? ' scenario-button-row-loading' : ''}${isEnsembleMember ? ' scenario-button-row-ensemble-member' : ''}`}
                   >
                     {/* Disable all scenario play buttons during a load so we do not stack parallel fetches. */}
                     <button
@@ -493,9 +654,16 @@ const SimulationControls = ({
                           onRunSimulation(simId);
                         }
                       }}
-                      title={simConfig?.simulations?.[simId]?.description || `Run ${simId} simulation scenario`}
+                      title={simEntry?.description || `Run ${simId} simulation scenario`}
                     >
-                      ▶️ {displayName}
+                      <span className="scenario-btn-stack">
+                        <span className="scenario-btn-title">▶️ {displayName}</span>
+                        {shapeLabel && (
+                          <span className="scenario-btn-shape" aria-label={`${colCount} columns, ${lineCount} rows`}>
+                            {shapeLabel}
+                          </span>
+                        )}
+                      </span>
                     </button>
                     {useDesignDir && currentConfigName && (
                       simConfig?.simulations?.[simId]?.has_data ? (
@@ -560,6 +728,8 @@ const SimulationControls = ({
                   </div>
                 );
               })}
+            </div>
+            </div>
             </div>
 
             {/* Linear progress + labels: fed from App.handleRunSimulation. aria-live keeps screen readers

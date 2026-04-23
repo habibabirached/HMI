@@ -5,6 +5,12 @@
  * Keys:
  * - `design::simId` — last default load for that scenario (current_configuration on disk at fetch time).
  * - `design::simId#presetName` — full snapshot after activating that named preset (same data[], that preset’s sim_config).
+ *
+ * **Load mode** (see `apiConfig.js` / `REACT_APP_SIMULATION_DATA_MODE`):
+ * - **lazy** — the app does not write these full payloads after a normal scenario load (optional
+ *   background full fetch via `REACT_APP_SIMULATION_LAZY_ALSO_CACHE_FULL_PAYLOAD=true`). Preset-slot
+ *   writes after “save preset” are also skipped unless you use **full** mode with cache enabled.
+ * - **full** — legacy: writes default (and optional preset) keys when `SIMULATION_CACHE_FULL_PAYLOAD` is true.
  */
 
 const DB_NAME = 'dcs-simulation-api-payload';

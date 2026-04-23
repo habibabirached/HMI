@@ -88,6 +88,14 @@
   padding-left: 13px;
 }
 
+.chart-context-item--readout {
+  background: rgba(156, 39, 176, 0.06);
+}
+
+.chart-context-item--readout:hover {
+  border-left-color: #ce93d8;
+}
+
 .chart-context-icon {
   font-size: 24px;
   flex-shrink: 0;

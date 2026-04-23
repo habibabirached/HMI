@@ -6,10 +6,21 @@ Each class represents a table, and each class attribute represents a column.
 
 Current Models:
 1. Configuration: Stores saved power system configurations
-   (CSV data and chart configs live in design dir files: .sim.json, .data.csv)
+2. SimulationCsvImport / SimulationCsvRow: Optional DB mirror of per-design *.data.csv for fast paging
+   (source files also remain under designs/; see simulation_data_store + transferCSVtoDatabase script)
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.sql import func
 from database import Base
 
@@ -198,6 +209,45 @@ class Configuration(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+
+class SimulationCsvImport(Base):
+    """
+    One row per (design catalog path, scenario name) for a loaded *.data.csv.
+    The API key is catalog_rel (e.g. design folder name under designs/) + sim_name.
+    """
+
+    __tablename__ = "simulation_csv_imports"
+    __table_args__ = (
+        UniqueConstraint("catalog_rel", "sim_name", name="uq_sim_csv_import_catalog_sim"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    catalog_rel = Column(String(1024), nullable=False, index=True)
+    sim_name = Column(String(512), nullable=False, index=True)
+    file_size = Column(BigInteger, nullable=False)
+    file_mtime_ns = Column(BigInteger, nullable=False)
+    row_count = Column(Integer, nullable=False)
+    header_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class SimulationCsvRow(Base):
+    """Batched full-row JSON for a simulation CSV (indexed by 0-based row index)."""
+
+    __tablename__ = "simulation_csv_rows"
+    __table_args__ = (
+        UniqueConstraint("import_id", "row_index", name="uq_sim_csv_row_idx"),
+        Index("ix_sim_csv_row_import_id_row_index", "import_id", "row_index"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    import_id = Column(
+        Integer, ForeignKey("simulation_csv_imports.id", ondelete="CASCADE"), nullable=False
+    )
+    row_index = Column(Integer, nullable=False)
+    row_json = Column(Text, nullable=False)
+
+
 # ------------------------------------------------------------------------------------------------------
 # NOTES ON SQLALCHEMY ORM
 # ------------------------------------------------------------------------------------------------------
@@ -238,4 +288,4 @@ than writing raw SQL strings.
 """
 
 # Legacy models (CSVDataset, ChartAssociation, SimulationConfig) removed.
-# CSV and sim config data now live in designs/{dir}/*.sim.json and *.data.csv
+# Sim config: designs/{dir}/*.sim.json. CSV data: *.data.csv on disk, optionally mirrored in SimulationCsv* tables.

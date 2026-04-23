@@ -1,0 +1,25 @@
+{
+  "display_name": "LM2500 merged wide (1–8)",
+  "description": "Single-tab perf baseline: one CSV with all LM2500_1…LM2500_8 columns joined by row (same t|Main). 34 columns = time + 33 signals; not qualified names like the ensemble UI.",
+  "charts_to_display": [],
+  "event_markers": {},
+  "data_row_count": 20000,
+  "data_column_count": 34,
+  "chart_stacks": [],
+  "chart_sample_default": 1,
+  "chart_panel_height": 300,
+  "chart_panel_opacity": 1.0,
+  "chart_card_width": 500,
+  "derived_variables": [],
+  "current_configuration": {
+    "view_mode": "designer",
+    "charts_to_display": [],
+    "chart_stacks": [],
+    "chart_sample_default": 1,
+    "chart_panel_height": 300,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 500,
+    "derived_variables": [],
+    "event_markers": {}
+  }
+}

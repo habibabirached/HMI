@@ -1,31 +1,12 @@
 import React, { useMemo } from 'react';
+import { findColumnKey, cellFloat } from '../../utils/csvRowAccess';
+import { parseEnsembleQualifiedColumn } from '../../utils/simulationLazyApi';
 
 /** Match ChartPanel / large CSV: cap polyline points after decimation (Plotly uses sample step). */
 const SPARK_MAX_POINTS = 800;
 const GREEN = '#66bb6a';
 const TEXT_FILL = '#c8e6c9';
 const PAD = 3;
-
-/** Match ChartPanel: tolerate BOM/CR/header spacing mismatches from CSV parsers. */
-function findColumnKey(row, col) {
-  if (col == null || row == null) return null;
-  if (Object.prototype.hasOwnProperty.call(row, col)) {
-    return col;
-  }
-  const target = String(col).trim();
-  if (Object.prototype.hasOwnProperty.call(row, target)) return target;
-  for (const k of Object.keys(row)) {
-    const kNorm = k.replace(/\r$/, '').trim();
-    if (kNorm === target) return k;
-  }
-  return null;
-}
-
-function cellFloat(row, col) {
-  const k = findColumnKey(row, col);
-  if (k == null) return NaN;
-  return parseFloat(row[k]);
-}
 
 function formatYValue(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -54,6 +35,25 @@ function pointsFromRows(rows, xColumn, yColumn) {
   for (let i = 0; i < rows.length; i++) {
     const x = cellFloat(rows[i], xColumn);
     const y = cellFloat(rows[i], yColumn);
+    if (Number.isNaN(x) || Number.isNaN(y)) continue;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+/** X from member A row i, Y from member B row i (same index). */
+function pointsEnsembleCross(memberData, xQual, yQual) {
+  const xp = parseEnsembleQualifiedColumn(xQual);
+  const yp = parseEnsembleQualifiedColumn(yQual);
+  if (!xp || !yp) return [];
+  const rx = memberData?.[xp.simId];
+  const ry = memberData?.[yp.simId];
+  if (!rx?.length || !ry?.length) return [];
+  const n = Math.min(rx.length, ry.length);
+  const pts = [];
+  for (let i = 0; i < n; i += 1) {
+    const x = cellFloat(rx[i], xp.column);
+    const y = cellFloat(ry[i], yp.column);
     if (Number.isNaN(x) || Number.isNaN(y)) continue;
     pts.push({ x, y });
   }
@@ -99,6 +99,29 @@ function computeFullRunDomain(rows, xColumn, yColumn) {
   };
 }
 
+function computeFullRunDomainFromPts(pts) {
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (const p of pts) {
+    if (Number.isNaN(p.x) || Number.isNaN(p.y)) continue;
+    xMin = Math.min(xMin, p.x);
+    xMax = Math.max(xMax, p.x);
+    yMin = Math.min(yMin, p.y);
+    yMax = Math.max(yMax, p.y);
+  }
+  if (xMin === Infinity) {
+    return { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+  }
+  return {
+    xMin,
+    xMax: xMax === xMin ? xMin + 1 : xMax,
+    yMin,
+    yMax: yMax === yMin ? yMin + 1 : yMax,
+  };
+}
+
 function pathDForPoints(pts, w, h, domain) {
   if (pts.length === 0) return '';
   const { xMin, xMax, yMin, yMax } = domain;
@@ -129,17 +152,56 @@ function SparkBand({
   bandW,
   bandH,
   simulationData,
+  ensembleMemberSimulationData,
   simulationTime,
   simulationRunning,
 }) {
-  const domain = useMemo(
-    () => computeFullRunDomain(simulationData, spark.xColumn, spark.yColumn),
-    [simulationData, spark.xColumn, spark.yColumn]
-  );
+  const rowsForSpark = useMemo(() => {
+    if (spark.ensembleCrossMember) {
+      return [];
+    }
+    if (
+      spark.ensembleSimId &&
+      ensembleMemberSimulationData?.[spark.ensembleSimId]?.length
+    ) {
+      return ensembleMemberSimulationData[spark.ensembleSimId];
+    }
+    return simulationData;
+  }, [spark.ensembleCrossMember, spark.ensembleSimId, ensembleMemberSimulationData, simulationData]);
+
+  const fullCrossPts = useMemo(() => {
+    if (!spark.ensembleCrossMember || !ensembleMemberSimulationData) return null;
+    return pointsEnsembleCross(
+      ensembleMemberSimulationData,
+      spark.xColumn,
+      spark.yColumn
+    );
+  }, [spark.ensembleCrossMember, ensembleMemberSimulationData, spark.xColumn, spark.yColumn]);
+
+  const domain = useMemo(() => {
+    if (fullCrossPts?.length) {
+      return computeFullRunDomainFromPts(fullCrossPts);
+    }
+    return computeFullRunDomain(rowsForSpark, spark.xColumn, spark.yColumn);
+  }, [fullCrossPts, rowsForSpark, spark.xColumn, spark.yColumn]);
 
   const { pathD, labelPos, lastY } = useMemo(() => {
+    if (fullCrossPts) {
+      let rawPts = fullCrossPts;
+      if (simulationRunning && simulationTime !== undefined) {
+        rawPts = fullCrossPts.filter((p) => !Number.isNaN(p.x) && p.x <= simulationTime);
+      }
+      const pts = decimatePts(rawPts, SPARK_MAX_POINTS);
+      const d = pathDForPoints(pts, bandW, bandH, domain);
+      const pix = lastPixel(pts, bandW, bandH, domain);
+      return {
+        pathD: d,
+        labelPos: pix,
+        lastY: pts.length ? pts[pts.length - 1].y : null,
+      };
+    }
     const rows = rowsForSparkline(
-      simulationData,
+      rowsForSpark,
       spark.xColumn,
       simulationTime,
       simulationRunning
@@ -154,7 +216,8 @@ function SparkBand({
       lastY: pts.length ? pts[pts.length - 1].y : null,
     };
   }, [
-    simulationData,
+    fullCrossPts,
+    rowsForSpark,
     spark.xColumn,
     spark.yColumn,
     simulationTime,
@@ -205,6 +268,7 @@ function SparkBand({
 export default function ComponentEmbeddedSparklines({
   embeddedSparklines = [],
   simulationData = [],
+  ensembleMemberSimulationData = null,
   simulationTime,
   simulationRunning,
   width,
@@ -229,6 +293,7 @@ export default function ComponentEmbeddedSparklines({
             bandW={bandW}
             bandH={bandH}
             simulationData={simulationData}
+            ensembleMemberSimulationData={ensembleMemberSimulationData}
             simulationTime={simulationTime}
             simulationRunning={simulationRunning}
           />
