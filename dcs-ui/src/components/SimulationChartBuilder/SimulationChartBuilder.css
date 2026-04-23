@@ -476,3 +476,30 @@
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
 }
+
+.sim-chart-builder-item--ensemble-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.sim-chart-builder-ensemble-item-main {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sim-chart-builder-ensemble-sim-hint {
+  display: block;
+  font-size: 9px;
+  color: #6a8a7e;
+  line-height: 1.2;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.sim-chart-builder-item-row:has(.sim-chart-builder-item--ensemble-stacked) {
+  align-items: flex-start;
+}

@@ -18,12 +18,18 @@ export function getCrossMemberBindingsForChart(chart) {
 }
 
 export function crossMemberDataReady(chart, ensembleMemberSimulationData) {
-  if (!chart?.ensembleCrossMember || !ensembleMemberSimulationData) return false;
+  if (!chart?.ensembleCrossMember || !ensembleMemberSimulationData) {
+    return false;
+  }
   const items = getCrossMemberBindingsForChart(chart);
-  if (!items?.length) return false;
+  if (!items?.length) {
+    return false;
+  }
   for (const { simId } of items) {
     const rows = ensembleMemberSimulationData[simId];
-    if (!rows?.length) return false;
+    if (!rows?.length) {
+      return false;
+    }
   }
   return true;
 }
@@ -90,9 +96,14 @@ export function buildCross2dTraces({
   lineColor = '#005E60',
 }) {
   const items = getCrossMemberBindingsForChart(chart);
-  if (!items || items.length < 2) return [];
-  const nMin = Math.min(...items.map(({ simId }) => memberData[simId]?.length ?? 0));
-  if (nMin <= 0) return [];
+  if (!items || items.length < 2) {
+    return [];
+  }
+  const lens = items.map(({ simId }) => memberData[simId]?.length ?? 0);
+  const nMin = Math.min(...lens);
+  if (nMin <= 0) {
+    return [];
+  }
   const rowIdx = buildSteppedRowIndices(nMin, items, memberData, simulationRunning, simulationTime, sampleStep);
   const [xb, yb] = [items[0], items[1]];
   const xValues = mapXForIndices(rowIdx, xb.simId, xb.column, memberData);
@@ -143,7 +154,8 @@ export function buildCrossNdTraces({
   return yItems.map((yb, index) => {
     const lineColor = CHART_COLORS[index % CHART_COLORS.length];
     const yValues = mapYForIndices(rowIdx, yb.simId, yb.column, memberData);
-    const yLabel = chart.yColumns?.[index] ?? yb.column;
+    const yKey = chart.yColumns?.[index] ?? yb.column;
+    const yLabel = chart.legendLabels?.[yKey] ?? yKey;
     return {
       x: xValues,
       y: yValues,
@@ -195,18 +207,19 @@ export function buildCrossStackedNdTraces({
   const traces = [];
   groups.forEach((grp, gIdx) => {
     const yAxis = gIdx === 0 ? 'y' : `y${gIdx + 1}`;
-    grp.cols.forEach((yLabel, colIdx) => {
-      const yb = yLabelToItem.get(yLabel);
+    grp.cols.forEach((yColKey, colIdx) => {
+      const yb = yLabelToItem.get(yColKey);
       if (!yb) return;
       const lineColor = CHART_COLORS[colIdx % CHART_COLORS.length];
       const yValues = mapYForIndices(rowIdx, yb.simId, yb.column, memberData);
+      const traceName = chart.legendLabels?.[yColKey] ?? yColKey;
       traces.push({
         x: xValues,
         y: yValues,
         customdata: rowIdx,
         type: 'scatter',
         mode: 'lines+markers',
-        name: yLabel,
+        name: traceName,
         xaxis: 'x',
         yaxis: yAxis,
         line: { color: lineColor, width: 2 },

@@ -311,7 +311,7 @@ function SimulationChartBuilder({
                         const idx = selections.indexOf(qualified);
                         const isSelected = idx >= 0;
                         const isDerived = formulaByColumn[qualified] != null;
-                        const label = isSelected ? `${rawCol} \u2713` : rawCol;
+                        const mainLabel = isSelected ? `${rawCol} \u2713` : rawCol;
                         const tooltip = isDerived ? formulaByColumn[qualified] : qualified;
                         return (
                           <div key={`${g.simId}-${rawCol}`} className="sim-chart-builder-item-row">
@@ -330,7 +330,7 @@ function SimulationChartBuilder({
                               disabled={!inSelectionMode}
                               title={tooltip}
                             >
-                              {label}
+                              <span className="sim-chart-builder-ensemble-item-main">{mainLabel}</span>
                             </button>
                           </div>
                         );
@@ -340,7 +340,9 @@ function SimulationChartBuilder({
                 ))}
                 {derivedVariables?.length > 0 && primarySimForFormula && (
                   <div className="sim-chart-builder-ensemble-group sim-chart-builder-ensemble-group--formula">
-                    <div className="sim-chart-builder-ensemble-group-label">formula</div>
+                    <div className="sim-chart-builder-ensemble-group-label" title="Evaluated in the browser from member columns (not the Formula scenario CSV)">
+                      ƒ (live)
+                    </div>
                     <div className="sim-chart-builder-ensemble-group-items">
                       {derivedVariables.map((d, di) => {
                         const qualified = qualifyEnsembleColumn(primarySimForFormula, d.name);
@@ -476,7 +478,6 @@ function SimulationChartBuilder({
         open={formulaCalculatorOpen}
         onClose={() => setFormulaCalculatorOpen(false)}
         variables={allColumns}
-        onChange={(formula) => console.log('Formula:', formula)}
         onDone={handleFormulaDone}
       />
     </div>

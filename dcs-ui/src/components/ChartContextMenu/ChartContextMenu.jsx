@@ -3,6 +3,12 @@ import './ChartContextMenu.css';
 import { componentSupportsConnectionReadout } from '../../utils/connectionReadoutSampling';
 
 /**
+ * Component types that represent circuit breakers / switches.
+ * Used only to choose label wording (OPEN vs OFF).
+ */
+import { BREAKER_TYPES } from '../../data/componentVisuals';
+
+/**
  * Chart Context Menu Component
  * 
  * Shows when user right-clicks a component on the canvas.
@@ -16,6 +22,7 @@ import { componentSupportsConnectionReadout } from '../../utils/connectionReadou
  * - component: Full component (for connection readout gate)
  * - canConfigureConnectionReadout: simulation loaded, etc.
  * - onConfigureConnectionReadout: opens sparkle / connection readout dialog
+ * - onToggleInitialOpen: toggles initialSimStatus between 'open' and null (for breakers, design mode only)
  */
 const ChartContextMenu = ({
   position,
@@ -25,6 +32,7 @@ const ChartContextMenu = ({
   component = null,
   canConfigureConnectionReadout = false,
   onConfigureConnectionReadout,
+  onToggleInitialOpen,
 }) => {
   
   /**
@@ -77,6 +85,31 @@ const ChartContextMenu = ({
         </div>
 
         <div className="chart-context-items">
+          {onToggleInitialOpen && (
+            <div
+              className={`chart-context-item chart-context-item--init-state ${component?.initialSimStatus === 'open' ? 'chart-context-item--init-open' : ''}`}
+              onClick={() => {
+                onToggleInitialOpen();
+                onClose();
+              }}
+            >
+              <div className="chart-context-icon">
+                {component?.initialSimStatus === 'open' ? '🟢' : '🔴'}
+              </div>
+              <div className="chart-context-info">
+                <div className="chart-context-label">
+                  {component?.initialSimStatus === 'open'
+                    ? `On Simulate: start ON${BREAKER_TYPES.has(component?.type) ? ' (closed)' : ''}`
+                    : `On Simulate: start OFF${BREAKER_TYPES.has(component?.type) ? ' (open)' : ''}`}
+                </div>
+                <div className="chart-context-desc">
+                  {component?.initialSimStatus === 'open'
+                    ? 'Currently starts OFF. Click to reset to default ON.'
+                    : 'This component will start disabled when Simulate is pressed.'}
+                </div>
+              </div>
+            </div>
+          )}
           {canConfigureConnectionReadout && componentSupportsConnectionReadout(component) && (
             <div
               className="chart-context-item chart-context-item--readout"

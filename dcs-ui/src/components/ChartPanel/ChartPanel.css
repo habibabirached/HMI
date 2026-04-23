@@ -708,6 +708,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.chart-panel-chart-title:hover .chart-label-edit-btn {
+  opacity: 1;
 }
 
 .chart-panel-chart-icon {
@@ -956,4 +963,124 @@
   font-family: "Courier New", monospace;
   font-size: 11px;
   text-align: center;
+}
+
+/* ── Chart label edit button ── */
+.chart-label-edit-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.chart-label-edit-btn:hover {
+  color: #00d4a8;
+  opacity: 1 !important;
+}
+
+/* ── Inline label editor form ── */
+.chart-label-editor {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 120;
+  background: #1e1e1e;
+  border: 1px solid #005E60;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-label-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-label-editor-row span {
+  font-size: 11px;
+  color: #999;
+  width: 46px;
+  flex-shrink: 0;
+}
+
+.chart-label-editor-input {
+  flex: 1;
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 12px;
+  padding: 4px 8px;
+  outline: none;
+}
+
+.chart-label-editor-input:focus {
+  border-color: #00d4a8;
+}
+
+.chart-label-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.chart-label-editor-btn {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-size: 11px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chart-label-editor-btn:hover {
+  border-color: #666;
+  color: #e0e0e0;
+}
+
+.chart-label-editor-section-title {
+  font-size: 10px;
+  color: #005E60;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid #2a2a2a;
+}
+
+.chart-label-editor-row--legend .chart-label-editor-legend-key {
+  width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #777;
+  cursor: default;
+}
+
+.chart-label-editor-btn--save {
+  background: rgba(0, 94, 96, 0.4);
+  border-color: #00d4a8;
+  color: #00d4a8;
+}
+
+.chart-label-editor-btn--save:hover {
+  background: rgba(0, 94, 96, 0.65);
 }

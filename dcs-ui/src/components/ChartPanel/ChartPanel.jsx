@@ -16,6 +16,7 @@ import {
   crossMemberDataReady,
   layoutDataForEnsembleCrossChart,
 } from '../../utils/ensembleCrossMemberChart';
+import { cellFloat } from '../../utils/csvRowAccess';
 
 // Store native selection listeners per chart so we can clean up on unmount
 const selectionListenersByChart = new Map();
@@ -43,7 +44,8 @@ const ChartPanel = ({
   onStackCharts,
   onUnstackCharts,
   onClose, 
-  onRemoveChart, 
+  onRemoveChart,
+  onUpdateChart,
   height, 
   onHeightChange,
   panelOpacity = CHART_PANEL_OPACITY_DEFAULT,
@@ -110,6 +112,97 @@ const ChartPanel = ({
     });
   };
   const CHART_COLLAPSED_MIN_PX = 60;
+  /** Inline label editor: { chartId, title, xLabel, yLabel } | null */
+  const [editingLabels, setEditingLabels] = useState(null);
+
+  const openLabelEditor = (chart, e) => {
+    e.stopPropagation();
+    const yKeys = chart.yColumns || (chart.yColumn ? [chart.yColumn] : []);
+    setEditingLabels({
+      chartId: chart.id,
+      title: chart.title || chart.componentName || '',
+      xLabel: chart.xLabel ?? chart.xColumn ?? '',
+      yLabel: chart.yLabel ?? (chart.chartType === 'nd' ? 'Value' : (chart.yColumn ?? '')),
+      legendLabels: yKeys.length > 1
+        ? Object.fromEntries(yKeys.map((k) => [k, chart.legendLabels?.[k] ?? '']))
+        : null,
+    });
+  };
+
+  const commitLabelEdit = () => {
+    if (!editingLabels) return;
+    const legendLabels = editingLabels.legendLabels
+      ? Object.fromEntries(
+          Object.entries(editingLabels.legendLabels).filter(([, v]) => v.trim())
+        )
+      : undefined;
+    onUpdateChart?.(editingLabels.chartId, {
+      title: editingLabels.title,
+      xLabel: editingLabels.xLabel || undefined,
+      yLabel: editingLabels.yLabel || undefined,
+      ...(legendLabels && Object.keys(legendLabels).length ? { legendLabels } : { legendLabels: undefined }),
+    });
+    setEditingLabels(null);
+  };
+
+  const renderLabelEditorForm = () => (
+    <div className="chart-label-editor" onClick={(e) => e.stopPropagation()}>
+      <label className="chart-label-editor-row">
+        <span>Title</span>
+        <input
+          className="chart-label-editor-input"
+          value={editingLabels.title}
+          onChange={(e) => setEditingLabels((p) => ({ ...p, title: e.target.value }))}
+          onKeyDown={(e) => { if (e.key === 'Enter') commitLabelEdit(); if (e.key === 'Escape') setEditingLabels(null); }}
+          autoFocus
+        />
+      </label>
+      <label className="chart-label-editor-row">
+        <span>X label</span>
+        <input
+          className="chart-label-editor-input"
+          value={editingLabels.xLabel}
+          onChange={(e) => setEditingLabels((p) => ({ ...p, xLabel: e.target.value }))}
+          onKeyDown={(e) => { if (e.key === 'Enter') commitLabelEdit(); if (e.key === 'Escape') setEditingLabels(null); }}
+          placeholder="default (column name)"
+        />
+      </label>
+      <label className="chart-label-editor-row">
+        <span>Y label</span>
+        <input
+          className="chart-label-editor-input"
+          value={editingLabels.yLabel}
+          onChange={(e) => setEditingLabels((p) => ({ ...p, yLabel: e.target.value }))}
+          onKeyDown={(e) => { if (e.key === 'Enter') commitLabelEdit(); if (e.key === 'Escape') setEditingLabels(null); }}
+          placeholder="default (column name)"
+        />
+      </label>
+      {editingLabels.legendLabels && (
+        <>
+          <div className="chart-label-editor-section-title">Legend labels</div>
+          {Object.keys(editingLabels.legendLabels).map((colKey) => (
+            <label key={colKey} className="chart-label-editor-row chart-label-editor-row--legend">
+              <span className="chart-label-editor-legend-key" title={colKey}>{colKey.split(' \u2014 ').pop()}</span>
+              <input
+                className="chart-label-editor-input"
+                value={editingLabels.legendLabels[colKey]}
+                onChange={(e) => setEditingLabels((p) => ({
+                  ...p,
+                  legendLabels: { ...p.legendLabels, [colKey]: e.target.value },
+                }))}
+                onKeyDown={(e) => { if (e.key === 'Escape') setEditingLabels(null); }}
+                placeholder={colKey.split(' \u2014 ').pop()}
+              />
+            </label>
+          ))}
+        </>
+      )}
+      <div className="chart-label-editor-actions">
+        <button className="chart-label-editor-btn chart-label-editor-btn--save" onClick={commitLabelEdit}>Save</button>
+        <button className="chart-label-editor-btn" onClick={() => setEditingLabels(null)}>Cancel</button>
+      </div>
+    </div>
+  );
   /** Always above canvas / side panel stacking (10–1100); below modals (10k+). */
   const CHART_PANEL_Z_STACK = 5000;
 
@@ -226,7 +319,8 @@ const ChartPanel = ({
       chart.ensembleSimId &&
       ensembleMemberSimulationData?.[chart.ensembleSimId]?.length
     ) {
-      return ensembleMemberSimulationData[chart.ensembleSimId];
+      const rows = ensembleMemberSimulationData[chart.ensembleSimId];
+      return rows;
     }
     if (simulationData && simulationData.length > 0) {
       return simulationData;
@@ -521,9 +615,7 @@ const ChartPanel = ({
           customdata: sampledRowIndices,
           type: 'scatter',
           mode: 'lines+markers',
-          name: yCol,
-          xaxis: 'x',
-          yaxis: yAxis,
+          name: chart.legendLabels?.[yCol] ?? yCol,
           line: { color: lineColor, width: 2 },
           marker: hasSelection
             ? {
@@ -568,7 +660,7 @@ const ChartPanel = ({
         customdata: sampledRowIndices,
         type: 'scatter',
         mode: 'lines+markers',
-        name: yCol,
+        name: chart.legendLabels?.[yCol] ?? yCol,
         line: { color: lineColor, width: 2 },
         marker: hasSelection
           ? {
@@ -744,7 +836,7 @@ const ChartPanel = ({
     let filtered = indexed;
     if (simulationRunning && simulationTime !== undefined) {
       filtered = indexed.filter(({ row }) => {
-        const xValue = parseFloat(row[chart.xColumn]);
+        const xValue = cellFloat(row, chart.xColumn);
         return !isNaN(xValue) && xValue <= simulationTime;
       });
     }
@@ -753,8 +845,8 @@ const ChartPanel = ({
     const sampledData = sampled.map(({ row }) => row);
     const sampledRowIndices = sampled.map(({ i }) => i);
 
-    const xValues = sampledData.map(row => row[chart.xColumn]);
-    const yValues = sampledData.map(row => row[chart.yColumn]);
+    const xValues = sampledData.map((row) => cellFloat(row, chart.xColumn));
+    const yValues = sampledData.map((row) => cellFloat(row, chart.yColumn));
 
     const hasSelection = selectedRowIndices && selectedRowIndices.size > 0;
     const selectedSet = selectedRowIndices instanceof Set ? selectedRowIndices : new Set(selectedRowIndices || []);
@@ -1096,7 +1188,7 @@ const ChartPanel = ({
         margin: { l: 50, r: 200, t: 50, b: 50 },
         shapes: [...(baseLayout.shapes || []), ...shapes],
         xaxis: {
-          title: { text: chart.xColumn, font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 } },
+          title: { text: chart.xLabel ?? chart.xColumn, font: { family: 'Arial, sans-serif', size: 13, color: '#999', weight: 600 } },
           domain: [0, 1],
           anchor: n === 1 ? 'y' : `y${n}`,
           ...axisStyle
@@ -1271,7 +1363,7 @@ const ChartPanel = ({
         ...baseLayout,
         xaxis: {
           title: {
-            text: chart.xColumn,
+            text: chart.xLabel ?? chart.xColumn,
             font: {
               family: 'Arial, sans-serif',
               size: 13,
@@ -1295,7 +1387,7 @@ const ChartPanel = ({
         },
         yaxis: {
           title: {
-            text: chart.chartType === 'nd' ? 'Value' : chart.yColumn,
+            text: chart.yLabel ?? (chart.chartType === 'nd' ? 'Value' : chart.yColumn),
             font: {
               family: 'Arial, sans-serif',
               size: 13,
@@ -1877,7 +1969,15 @@ const ChartPanel = ({
                 <span className="chart-panel-chart-name">
                   {chart.isMultiComponent ? chart.title : (chart.title || chart.componentName)}
                 </span>
+                {onUpdateChart && (
+                  <button
+                    className="chart-label-edit-btn"
+                    onClick={(e) => openLabelEditor(chart, e)}
+                    title="Edit title and axis labels"
+                  >✎</button>
+                )}
               </div>
+              {editingLabels?.chartId === chart.id && renderLabelEditorForm()}
               <select
                 className="chart-panel-chart-sample"
                 value={getSampleStep(chart.id)}
@@ -1995,7 +2095,15 @@ const ChartPanel = ({
                       <span className="chart-panel-chart-name">
                         {chart.isMultiComponent ? chart.title : (chart.title || chart.componentName)}
                       </span>
+                      {onUpdateChart && (
+                        <button
+                          className="chart-label-edit-btn"
+                          onClick={(e) => openLabelEditor(chart, e)}
+                          title="Edit title and axis labels"
+                        >✎</button>
+                      )}
                     </div>
+                    {editingLabels?.chartId === chart.id && renderLabelEditorForm()}
                     <select
                       className="chart-panel-chart-sample"
                       value={getSampleStep(chart.id)}

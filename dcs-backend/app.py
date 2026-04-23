@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 import copy
 import json
 import os
+import pickle
 import re
 import shutil
 from typing import Optional
@@ -41,7 +42,13 @@ from urllib.parse import unquote
 # Import database components
 from database import init_db, get_db
 from models import Configuration
-from simulation_data_store import fetch_row_page_from_db, get_effective_import
+from ensemble_formula_materialize import materialize_formula_scenario_for_ensemble
+from simulation_data_store import (
+    clear_simulation_csv_mirror,
+    fetch_row_page_from_db,
+    get_effective_import,
+    import_simulation_csv,
+)
 # Import Pydantic schemas for request/response validation
 from schemas import (
     ConfigurationSaveRequest,
@@ -56,7 +63,7 @@ from schemas import (
     UpdateEnsembleRequest,
 )
 # Additional imports for CSV handling
-from fastapi import File, UploadFile
+from fastapi import File, UploadFile, Form
 from fastapi.responses import FileResponse
 import csv
 import io
@@ -157,6 +164,8 @@ def copy_design_dir(source_name: str, dest_name: str) -> bool:
     """
     Copy design dir from source to dest (for Save As).
     Copies all .sim.json and .data.csv files; renames .conf.json to new design name.
+    Renames {src_leaf}.ensemble.json → {dst_dir}.ensemble.json so the new design
+    finds its ensemble definitions under the correct filename.
     Source may be under designs/archive/. Destination is always designs/{sanitize(dest)}/.
     Returns True if copied, False if source doesn't exist or copy failed.
     """
@@ -186,9 +195,18 @@ def copy_design_dir(source_name: str, dest_name: str) -> bool:
             shutil.rmtree(dst_path)
         os.makedirs(dst_path, exist_ok=True)
         src_conf = os.path.join(src_path, f"{src_leaf}.conf.json")
+        src_ensemble = os.path.join(src_path, f"{src_leaf}.ensemble.json")
         for f in os.listdir(src_path):
             src_f = os.path.join(src_path, f)
-            if os.path.isfile(src_f) and not f.endswith(".conf.json"):
+            if not os.path.isfile(src_f):
+                continue
+            if f.endswith(".conf.json"):
+                continue
+            # Rename {src_leaf}.ensemble.json → {dst_dir}.ensemble.json in the destination
+            if f == f"{src_leaf}.ensemble.json":
+                shutil.copy2(src_f, os.path.join(dst_path, f"{dst_dir}.ensemble.json"))
+                print(f"[DEBUG] copy_design_dir: renamed ensemble {f} -> {dst_dir}.ensemble.json")
+            else:
                 shutil.copy2(src_f, os.path.join(dst_path, f))
         if os.path.isfile(src_conf):
             with open(src_conf, "r") as f:
@@ -1517,6 +1535,65 @@ def _load_ensemble_sidecar_dict(ens_path: str) -> dict:
     return data
 
 
+def _prune_simulation_id_from_ensemble_sidecar(dir_path: str, deleted_id: str) -> None:
+    """
+    When a .sim.json is removed, drop that id from every ensemble's member list and remove
+    ensembles that end up with no members, so the sidecar never references missing scenarios.
+    """
+    did = str(deleted_id).strip()
+    if not did:
+        return
+    ens_path = _ensemble_sidecar_path(dir_path)
+    if not os.path.isfile(ens_path):
+        return
+    try:
+        with open(ens_path, "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Warning: could not read ensemble sidecar for prune: {e}")
+        return
+    if not isinstance(data, dict):
+        return
+    raw_list = data.get("ensembles")
+    if not isinstance(raw_list, list) or not raw_list:
+        return
+    new_list = []
+    changed = False
+    for ent in raw_list:
+        if not isinstance(ent, dict):
+            continue
+        members = ent.get("member_simulations")
+        if members is None:
+            members = ent.get("members") or []
+        if not isinstance(members, list):
+            new_list.append(ent)
+            continue
+        filtered = [m for m in members if str(m).strip() != did]
+        if len(filtered) == len(members):
+            new_list.append(ent)
+            continue
+        changed = True
+        if not filtered:
+            continue
+        ent = dict(ent)
+        ent["member_simulations"] = filtered
+        ent.pop("members", None)
+        new_list.append(ent)
+    if not changed:
+        return
+    data["ensembles"] = new_list
+    try:
+        with open(ens_path, "w", encoding="utf-8") as fp:
+            json.dump(data, fp, indent=2, ensure_ascii=False)
+    except OSError as e:
+        print(f"Warning: could not write ensemble sidecar after prune: {e}")
+        return
+    print(
+        f"Pruned deleted scenario {did} from {os.path.basename(ens_path)} "
+        f"({len(new_list)} ensemble(s) left)"
+    )
+
+
 def _valid_simulation_ids_for_design(design_name: str, catalog_rel: Optional[str]) -> set:
     listing = _list_design_simulations(design_name, design_catalog_rel=catalog_rel)
     sims = listing.get("simulations") or []
@@ -1640,6 +1717,50 @@ async def update_design_ensemble(
         raise
     except Exception as e:
         print(f"Error updating ensemble: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/designs/{design_name:path}/ensembles/{ensemble_id}/materialize-formula-csv")
+async def materialize_ensemble_formula_csv_endpoint(
+    design_name: str, ensemble_id: str, db: Session = Depends(get_db)
+):
+    """
+    Precompute ensemble chart_panel.derived_variables into a normal scenario
+    `formula` (formula.data.csv + formula.sim.json) for speed and DB mirroring.
+    Formulas stay in the ensemble JSON; this adds a first-class tab like other *.data.csv.
+    """
+    try:
+        dir_path, catalog_rel = resolve_design_storage_from_api(design_name)
+        ens_path = _ensemble_sidecar_path(dir_path)
+        if not os.path.isfile(ens_path):
+            raise HTTPException(
+                status_code=404, detail="No ensemble file for this design"
+            )
+        result = materialize_formula_scenario_for_ensemble(
+            dir_path, catalog_rel, ensemble_id, ens_path, formula_sim_id="formula"
+        )
+        if result.get("skipped"):
+            return result
+        csv_path = result.get("csv_path")
+        if csv_path and os.path.isfile(csv_path):
+            try:
+                import_simulation_csv(
+                    db, catalog_rel, str(result.get("formula_sim_id", "formula")), csv_path, force=True
+                )
+            except Exception as e:
+                print(f"Warning: materialize OK but DB import failed: {e}")
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error materialize formula csv: {e}")
+        import traceback
+
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2069,12 +2190,16 @@ async def create_simulation(design_name: str, body: CreateSimulationRequest):
 
 
 @app.delete("/api/designs/{design_name:path}/simulations/{sim_name}")
-async def delete_simulation(design_name: str, sim_name: str):
+async def delete_simulation(
+    design_name: str, sim_name: str, db: Session = Depends(get_db)
+):
     """
-    Delete a simulation: removes .sim.json and .data.csv from the design dir.
+    Delete a simulation: removes .sim.json and .data.csv from the design directory, prunes the ensemble
+    sidecar, and deletes any optional SQLite mirror (SimulationCsvImport / SimulationCsvRow) for this scenario.
+    The main design catalog (Configuration) is unchanged; only per-scenario files and CSV mirror rows.
     """
     try:
-        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        dir_path, catalog_rel = resolve_design_storage_from_api(design_name)
         if not os.path.isdir(dir_path):
             raise HTTPException(status_code=404, detail=f"Design directory not found: {design_name}")
         safe_sim = re.sub(r'[^\w\-]', '', sim_name) or sim_name or "simulation"
@@ -2089,6 +2214,15 @@ async def delete_simulation(design_name: str, sim_name: str):
         if os.path.isfile(sim_csv_path):
             os.remove(sim_csv_path)
             removed.append(f"{safe_sim}.data.csv")
+        _prune_simulation_id_from_ensemble_sidecar(dir_path, safe_sim)
+        try:
+            if clear_simulation_csv_mirror(db, catalog_rel, safe_sim):
+                print(
+                    f"   Cleared SQLite mirror for {catalog_rel}/{safe_sim} "
+                    "(SimulationCsvImport / SimulationCsvRow)"
+                )
+        except Exception as e:
+            print(f"Warning: could not clear simulation DB mirror for {safe_sim}: {e}")
         print(f"✅ Deleted simulation: {removed}")
         return {"design_name": design_name, "sim_name": safe_sim, "removed": removed}
     except HTTPException:
@@ -2514,7 +2648,11 @@ def _pkl_dataframe_tab_pairs(df: pd.DataFrame, default_sheet_name: str) -> list[
 
 
 @app.post("/api/designs/{design_name:path}/simulations/from-xlsx")
-async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File(...)):
+async def create_simulations_from_xlsx(
+    design_name: str,
+    file: UploadFile = File(...),
+    sample_step: int = Form(1),
+):
     """
     Import simulation scenarios from an xlsx file. Each sheet becomes a simulation:
     - Sheet name → simulation name and {SheetName}.data.csv
@@ -2537,10 +2675,13 @@ async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File
         if not sheet_names:
             raise HTTPException(status_code=400, detail="No sheets found in the xlsx file.")
         created = []
+        step = max(1, int(sample_step))
         for sheet_name in sheet_names:
             df = pd.read_excel(xl, sheet_name=sheet_name, engine="openpyxl")
             if df.empty or len(df.columns) == 0:
                 continue
+            if step > 1:
+                df = df.iloc[::step].reset_index(drop=True)
             safe_sim = re.sub(r"[^\w\-]", "", sheet_name) or sheet_name or "simulation"
             csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
             df.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
@@ -2550,7 +2691,7 @@ async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File
                 sim_json_path, len(df), len(df.columns), display_name_if_new=disp
             )
             created.append({"name": sheet_name, "rows": len(df)})
-            print(f"   Created {safe_sim}.data.csv ({len(df)} rows)")
+            print(f"   Created {safe_sim}.data.csv ({len(df)} rows, step={step})")
         print(f"✅ Imported {len(created)} simulation(s) from xlsx")
         return {"design_name": design_name, "created": created}
     except HTTPException:
@@ -2563,13 +2704,19 @@ async def create_simulations_from_xlsx(design_name: str, file: UploadFile = File
 
 
 @app.post("/api/designs/{design_name:path}/simulations/from-pkl")
-async def create_simulations_from_pkl(design_name: str, file: UploadFile = File(...)):
+async def create_simulations_from_pkl(
+    design_name: str,
+    file: UploadFile = File(...),
+    prefix: str = Form(""),
+    sample_step: int = Form(1),
+):
     """
     Import simulation scenarios from a pandas pickle (.pkl).
     - DataFrame with MultiIndex columns: level-1 names become scenario names (like xlsx sheets);
       level-0 signal names are variables. A shared time column (t/time/timestamp) is included in each tab.
     - dict[str, DataFrame]: each key is a scenario name (one CSV per entry).
     - Plain DataFrame: one scenario named from the file stem.
+    - prefix: optional string prepended to every scenario name (e.g. "run1_" → run1_LM2500_1).
     """
     try:
         name_lower = (file.filename or "").lower()
@@ -2614,20 +2761,26 @@ async def create_simulations_from_pkl(design_name: str, file: UploadFile = File(
             raise HTTPException(status_code=400, detail="No scenarios could be built from the pickle file.")
 
         created: list[dict] = []
+        safe_prefix = re.sub(r"[^\w\-]", "", prefix) if prefix else ""
+        step = max(1, int(sample_step))
         for sheet_name, df in pairs:
             if df.empty or len(df.columns) == 0:
                 continue
             safe_sim = re.sub(r"[^\w\-]", "", sheet_name) or sheet_name or "simulation"
+            if safe_prefix:
+                safe_sim = f"{safe_prefix}{safe_sim}"
             csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
             flat = _pkl_flatten_columns_for_csv(df)
+            if step > 1:
+                flat = flat.iloc[::step].reset_index(drop=True)
             flat.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
             sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
-            disp = sheet_name.replace("_", " ").replace("-", " ").title()
+            disp = (prefix + sheet_name).replace("_", " ").replace("-", " ").title() if prefix else sheet_name.replace("_", " ").replace("-", " ").title()
             _write_or_update_sim_data_shape(
                 sim_json_path, len(flat), len(flat.columns), display_name_if_new=disp
             )
-            created.append({"name": sheet_name, "rows": len(flat)})
-            print(f"   Created {safe_sim}.data.csv ({len(flat)} rows) from pkl tab {sheet_name!r}")
+            created.append({"name": safe_sim, "rows": len(flat)})
+            print(f"   Created {safe_sim}.data.csv ({len(flat)} rows, step={step}) from pkl tab {sheet_name!r}")
 
         if not created:
             raise HTTPException(status_code=400, detail="No non-empty scenarios found in the pickle file.")
@@ -2640,6 +2793,92 @@ async def create_simulations_from_pkl(design_name: str, file: UploadFile = File(
         print(f"❌ Error importing pkl: {e}")
         import traceback
 
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/designs/{design_name:path}/simulations/from-pkl2")
+async def create_simulation_from_pkl2(
+    design_name: str,
+    file: UploadFile = File(...),
+    sim_name: str = Form(""),
+    sample_step: int = Form(1),
+):
+    """
+    Import a single simulation from a "PKL2" pickle — a dict whose keys are column names
+    and whose values are pandas Series (all the same length).  The whole file becomes one
+    CSV / one simulation scenario.
+
+    sim_name: desired scenario id (file-stem used as fallback if blank).
+    """
+    try:
+        name_lower = (file.filename or "").lower()
+        if not name_lower.endswith((".pkl", ".pickle")):
+            raise HTTPException(
+                status_code=400,
+                detail="File must be a pandas pickle (.pkl or .pickle)",
+            )
+        dir_path, _catalog_rel = resolve_design_storage_from_api(design_name)
+        if not os.path.isdir(dir_path):
+            raise HTTPException(status_code=404, detail=f"Design directory not found: {design_name}")
+
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(status_code=400, detail="Upload failed: File is empty.")
+
+        bio = io.BytesIO(raw)
+        try:
+            obj = pickle.load(bio)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not unpickle file: {e}")
+
+        # Accept dict[str, Series] or dict[str, array-like]
+        if not isinstance(obj, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"PKL2 format expects a dict of {{column_name: Series}}, "
+                    f"but got {type(obj).__name__}. Use the regular 'from-pkl' button for DataFrames."
+                ),
+            )
+
+        # Build a DataFrame from the dict of Series / arrays
+        try:
+            df = pd.DataFrame({k: pd.Series(v) for k, v in obj.items()})
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Could not build DataFrame from dict: {e}")
+
+        if df.empty or len(df.columns) == 0:
+            raise HTTPException(status_code=400, detail="The pickle file produced an empty table.")
+
+        default_stem = re.sub(r"[^\w\-]", "", os.path.splitext(file.filename or "import")[0]) or "import"
+        safe_sim = re.sub(r"[^\w\-]", "", sim_name.strip()) if sim_name.strip() else default_stem
+        if not safe_sim:
+            safe_sim = default_stem
+
+        csv_path = os.path.join(dir_path, f"{safe_sim}.data.csv")
+        flat = _pkl_flatten_columns_for_csv(df)
+        step = max(1, int(sample_step))
+        if step > 1:
+            flat = flat.iloc[::step].reset_index(drop=True)
+        flat.to_csv(csv_path, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
+
+        sim_json_path = os.path.join(dir_path, f"{safe_sim}.sim.json")
+        disp = (sim_name.strip() or safe_sim).replace("_", " ").replace("-", " ").title()
+        _write_or_update_sim_data_shape(
+            sim_json_path, len(flat), len(flat.columns), display_name_if_new=disp
+        )
+
+        print(f"✅ PKL2 import: created {safe_sim}.data.csv ({len(flat)} rows, {len(flat.columns)} cols)")
+        return {
+            "design_name": design_name,
+            "created": [{"name": safe_sim, "rows": len(flat), "columns": list(flat.columns)}],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error importing pkl2: {e}")
+        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 

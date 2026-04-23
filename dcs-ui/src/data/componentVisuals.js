@@ -892,6 +892,26 @@ export const COMPONENT_VISUAL_CONFIG = {
 };
 
 /**
+ * Component types that represent circuit breakers / switches / disconnects.
+ * Used to determine open-vs-offline initial simulation state and to
+ * filter context-menu options.
+ */
+export const BREAKER_TYPES = new Set([
+  'breaker-hv',
+  'breaker-hv-boxed',
+  'breaker-mv',
+  'breaker-lv',
+  'breaker-dc',
+  'breaker-bess',
+  'breaker-gen-13.8',
+  'breaker-gen',
+  'disconnect-switch',
+  'manual-line-switch',
+  'bus-tie-breaker',
+  'tie-breaker-network',
+]);
+
+/**
  * Get visual configuration for a component type
  * Returns default if type not found
  */

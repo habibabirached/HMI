@@ -12,6 +12,7 @@ import ConnectionReadoutDialog from './components/ConnectionReadoutDialog/Connec
 import ViewDataModal from './components/ViewDataModal/ViewDataModal';
 import SaveSimulationConfigDialog from './components/SaveSimulationConfigDialog/SaveSimulationConfigDialog';
 import * as Scenarios from './scenarios/quickScenarios';
+import { BREAKER_TYPES } from './data/componentVisuals';
 import {
   API_BASE_URL,
   useLazySimulationData,
@@ -128,6 +129,9 @@ function buildOpenChartsFromChartsToDisplay(chartsToDisplay, canvasComponents, r
           : isStackedNd
             ? `${component.name} - Stacked nD`
             : `${component.name} - ${chartDef.y_column}`),
+      ...(chartDef.x_label != null && { xLabel: chartDef.x_label }),
+      ...(chartDef.y_label != null && { yLabel: chartDef.y_label }),
+      ...(chartDef.legend_labels != null && typeof chartDef.legend_labels === 'object' && { legendLabels: chartDef.legend_labels }),
       ...(chartDef.ensemble_sim_id && !chartDef.ensemble_cross_member && { ensembleSimId: chartDef.ensemble_sim_id }),
       ...(chartDef.ensemble_cross_member && { ensembleCrossMember: true }),
     };
@@ -257,6 +261,13 @@ function App() {
   /** sim_config.derived_variables per member, filled when an ensemble tab is selected (metadata pass). */
   const ensembleMemberDerivedBySimIdRef = useRef({});
 
+  /**
+   * Full metadata response keyed by simId, cached when an ensemble is loaded (Promise.all metadata
+   * pass). Re-used by handleRunSimulation to skip the redundant first network round-trip when the
+   * user clicks a scenario that was just an ensemble member.
+   */
+  const ensembleMemberMetaCacheRef = useRef({});
+
   const ensembleMemberSimulationDataRef = useRef(null);
   useLayoutEffect(() => {
     ensembleMemberSimulationDataRef.current = ensembleMemberSimulationData;
@@ -305,7 +316,7 @@ function App() {
   const [chartCardWidth, setChartCardWidth] = useState(500);
   const persistChartCardWidthRef = useRef(null);
   const persistPerChartCardWidthRef = useRef(null);
-  const [globalSampleStep, setGlobalSampleStep] = useState(1); // Chart sampling: 1=every row, 2=every 2nd, etc.
+  const [globalSampleStep, setGlobalSampleStep] = useState(128); // Chart sampling: 1=every row, 2=every 2nd, etc.
   const [perChartSampleStep, setPerChartSampleStep] = useState({}); // Per-chart override: { chartId: step }
   const [selectedRowIndices, setSelectedRowIndices] = useState(null); // Set<number> for cross-chart selection, null = none
 
@@ -596,18 +607,28 @@ function App() {
       setSimulationTime(0); // Reset simulation time to 0
 
       setCanvasComponents((prev) =>
-        prev.map((comp) => ({
-          ...comp,
-          status: 'online',
-          isTripped: false,
-        })),
+        prev.map((comp) => {
+          let startStatus = 'online';
+          if (comp.initialSimStatus === 'open') {
+            startStatus = BREAKER_TYPES.has(comp.type) ? 'open' : 'offline';
+          }
+          return {
+            ...comp,
+            status: startStatus,
+            isTripped: false,
+          };
+        }),
       );
 
       const initialState = {};
       canvasComponents.forEach((comp) => {
+        let startStatus = 'online';
+        if (comp.initialSimStatus === 'open') {
+          startStatus = BREAKER_TYPES.has(comp.type) ? 'open' : 'offline';
+        }
         initialState[comp.id] = {
           ...comp.state,
-          status: 'online',
+          status: startStatus,
         };
       });
       setSystemState(initialState);
@@ -704,6 +725,12 @@ function App() {
           members.map((sid, i) => [sid, metas[i]?.sim_config?.derived_variables || []]),
         );
 
+        // Cache each member's full metadata so handleRunSimulation can skip the redundant
+        // re-fetch when the user clicks a scenario that was just an ensemble member.
+        ensembleMemberMetaCacheRef.current = Object.fromEntries(
+          members.map((sid, i) => [sid, metas[i]]),
+        );
+
         const ensDerived = Array.isArray(ensemble.chart_panel?.derived_variables)
           ? ensemble.chart_panel.derived_variables
           : [];
@@ -723,6 +750,22 @@ function App() {
           simId,
           columns: metas[i]?.columns || [],
         }));
+        let formulaMeta = null;
+        if (!members.includes('formula')) {
+          try {
+            formulaMeta = await fetchSimulationMetadata(designApiPath, 'formula');
+            if (isStale()) return;
+            if (formulaMeta?.columns?.length) {
+              groups.push({ simId: 'formula', columns: formulaMeta.columns });
+              for (const c of formulaMeta.columns) {
+                const q = qualifyEnsembleColumn('formula', c);
+                if (!columnsOrdered.includes(q)) columnsOrdered.push(q);
+              }
+            }
+          } catch (e) {
+            /* optional formula.data.csv; ignore */
+          }
+        }
         setEnsembleColumnGroups(groups);
 
         let maxRows = 0;
@@ -751,7 +794,7 @@ function App() {
         const primary = members[0];
         if (cp && typeof cp === 'object') {
           setChartStacks(Array.isArray(cp.chart_stacks) ? cp.chart_stacks : []);
-          setGlobalSampleStep(cp.chart_sample_default ?? 1);
+          setGlobalSampleStep(cp.chart_sample_default > 1 ? cp.chart_sample_default : 128);
           const panelMax = getChartPanelMaxHeightPx();
           if (
             cp.chart_panel_height != null &&
@@ -804,6 +847,7 @@ function App() {
       } catch (e) {
         console.warn('handleSelectEnsemble failed', e);
         ensembleMemberDerivedBySimIdRef.current = {};
+        ensembleMemberMetaCacheRef.current = {};
         setEnsembleColumnGroups([]);
         setEnsembleMemberSimulationData(null);
         setSimulationData([]);
@@ -859,6 +903,7 @@ function App() {
           setSimulationData([]);
           setEnsembleColumnGroups([]);
           ensembleMemberDerivedBySimIdRef.current = {};
+          ensembleMemberMetaCacheRef.current = {};
           ensembleMemberSimulationDataRef.current = {};
           setEnsembleMemberSimulationData(null);
           setSimulationLoadProgress(null);
@@ -1385,24 +1430,41 @@ function App() {
         dcsSimDbg('handleRunSimulation ◆ data source = LAZY (metadata + column subset)', {
           simulationId,
         });
-        setLoad({
-          percent: 8,
-          status: 'Loading simulation metadata…',
-          loadSource: 'server',
-        });
-        simulationLoadFakeIntervalRef.current = setInterval(() => {
-          setSimulationLoadProgress((prev) => {
-            if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
-            if (prev.loadSource !== 'server') return prev;
-            if (prev.percent >= 78) return prev;
-            return { ...prev, percent: Math.min(78, prev.percent + 1.4) };
-          });
-        }, 90);
 
-        const meta = await fetchSimulationMetadata(designApiPath, simulationId);
+        // Check if we have a fresh metadata response cached from the ensemble load.
+        // This avoids a redundant round-trip when the user clicks an ensemble member scenario.
+        const cachedMeta = ensembleMemberMetaCacheRef.current?.[simulationId];
+        if (!cachedMeta) {
+          setLoad({
+            percent: 8,
+            status: 'Loading simulation metadata…',
+            loadSource: 'server',
+          });
+          simulationLoadFakeIntervalRef.current = setInterval(() => {
+            setSimulationLoadProgress((prev) => {
+              if (!prev || prev.simulationId !== simulationId || isStale()) return prev;
+              if (prev.loadSource !== 'server') return prev;
+              if (prev.percent >= 78) return prev;
+              return { ...prev, percent: Math.min(78, prev.percent + 1.4) };
+            });
+          }, 90);
+        } else {
+          setLoad({
+            percent: 40,
+            status: 'Loading column data…',
+            loadSource: 'server',
+          });
+        }
+
+        const meta = cachedMeta ?? await fetchSimulationMetadata(designApiPath, simulationId);
+        // Once we consume the cached metadata, evict it so a forced reload gets a fresh copy.
+        if (cachedMeta) {
+          delete ensembleMemberMetaCacheRef.current[simulationId];
+        }
         perfMark('lazy metadata received', {
           columns: meta?.columns?.length,
           rows: meta?.row_count,
+          fromCache: !!cachedMeta,
         });
         if (isStale()) {
           stopFakeProgress();
@@ -1683,7 +1745,7 @@ function App() {
         });
 
         setChartStacks(scenarioConfig.chart_stacks || []);
-        setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
+        setGlobalSampleStep(scenarioConfig.chart_sample_default > 1 ? scenarioConfig.chart_sample_default : 128);
         const panelMax = getChartPanelMaxHeightPx();
         if (
           scenarioConfig.chart_panel_height != null &&
@@ -1929,7 +1991,7 @@ function App() {
       const chartsToDisplay = scenarioConfig.charts_to_display || [];
       const csvNameForCharts = `${simulationId}.data.csv`;
       setChartStacks(scenarioConfig.chart_stacks || []);
-      setGlobalSampleStep(scenarioConfig.chart_sample_default ?? 1);
+      setGlobalSampleStep(scenarioConfig.chart_sample_default > 1 ? scenarioConfig.chart_sample_default : 128);
       const panelMax = getChartPanelMaxHeightPx();
       if (
         scenarioConfig.chart_panel_height != null &&
@@ -2156,7 +2218,7 @@ function App() {
   /**
    * Refresh simulations list from backend (after add or upload)
    */
-  const refreshSimulationsList = async () => {
+  const refreshSimulationsList = useCallback(async () => {
     if (!currentConfigName || !designApiPath) return;
     try {
       const listRes = await fetch(`${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations`);
@@ -2180,7 +2242,7 @@ function App() {
     } catch (e) {
       console.error('Failed to refresh simulations:', e);
     }
-  };
+  }, [currentConfigName, designApiPath]);
 
   /**
    * Add a new simulation scenario (creates .sim.json, then user can upload CSV)
@@ -2256,12 +2318,13 @@ function App() {
    * - Sheet name → button name and {SheetName}.data.csv
    * - Sheet data → CSV content saved to design dir (handled by backend)
    */
-  const handleAddSimulationsFromXlsx = async (file) => {
+  const handleAddSimulationsFromXlsx = async (file, sampleStep = 1) => {
     if (!currentConfigName || !designApiPath || !file) return;
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (sampleStep > 1) formData.append('sample_step', String(sampleStep));
       const response = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/from-xlsx`,
         { method: 'POST', body: formData }
@@ -2285,12 +2348,14 @@ function App() {
    * Add simulation scenarios from a pandas pickle (.pkl). MultiIndex level-1 groups become
    * separate scenarios (same idea as xlsx sheets); backend writes .data.csv + .sim.json.
    */
-  const handleAddSimulationsFromPkl = async (file) => {
+  const handleAddSimulationsFromPkl = async (file, prefix = '', sampleStep = 1) => {
     if (!currentConfigName || !designApiPath || !file) return;
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (prefix) formData.append('prefix', prefix);
+      if (sampleStep > 1) formData.append('sample_step', String(sampleStep));
       const response = await fetch(
         `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/from-pkl`,
         { method: 'POST', body: formData }
@@ -2305,6 +2370,37 @@ function App() {
       alert(`✅ Created ${count} simulation scenario(s) from pkl.`);
     } catch (e) {
       alert(`❌ Failed to load pkl: ${e.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  /**
+   * Import a single simulation from a PKL2 file (dict-of-Series format).
+   * Prompts for a simulation name, then posts to the from-pkl2 endpoint.
+   */
+  const handleAddSimulationFromPkl2 = async (file, simName = '', sampleStep = 1) => {
+    if (!currentConfigName || !designApiPath || !file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (simName) formData.append('sim_name', simName);
+      if (sampleStep > 1) formData.append('sample_step', String(sampleStep));
+      const response = await fetch(
+        `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/from-pkl2`,
+        { method: 'POST', body: formData }
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      await refreshSimulationsList();
+      const created = result.created?.[0];
+      alert(`✅ Created simulation "${created?.name}" (${created?.rows} rows, ${created?.columns?.length} columns) from pkl2.`);
+    } catch (e) {
+      alert(`❌ Failed to load pkl2: ${e.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -2326,6 +2422,7 @@ function App() {
         throw new Error(errData.detail || response.statusText || `HTTP ${response.status}`);
       }
       await refreshSimulationsList();
+      if (csvStatus?.use_design_dir) await refreshDesignEnsembles();
       await deleteCachedSimulationPayload(designApiPath, simId);
       if (simulationMetadata?.id === simId) {
         simulationRawRowsRef.current = null;
@@ -2337,6 +2434,56 @@ function App() {
       }
     } catch (e) {
       alert(`❌ Delete failed: ${e.message}`);
+    }
+  };
+
+  /**
+   * Remove every scenario in the current design in one pass (each DELETE like single-scenario).
+   */
+  const handleDeleteAllSimulations = async () => {
+    if (!currentConfigName || !designApiPath) return;
+    const ids = [...availableSimulations];
+    if (ids.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete all ${ids.length} simulation scenario(s) and their data? This cannot be undone.`,
+      )
+    )
+      return;
+    try {
+      for (const simId of ids) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(simId)}`,
+          { method: 'DELETE' },
+        );
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(
+            errData.detail || response.statusText || `HTTP ${response.status} (${simId})`,
+          );
+        }
+      }
+      for (const simId of ids) {
+        await deleteCachedSimulationPayload(designApiPath, simId);
+      }
+      await refreshSimulationsList();
+      if (csvStatus?.use_design_dir) await refreshDesignEnsembles();
+      const meta = simulationMetadata;
+      if (
+        meta &&
+        (meta.isEnsemble || (meta.id && ids.includes(meta.id)))
+      ) {
+        simulationRawRowsRef.current = null;
+        simulationRawRowsSimIdRef.current = null;
+        setLastNamedPresetForUi(null);
+        setSimulationMetadata(null);
+        setSimulationData([]);
+        setOpenCharts([]);
+      }
+    } catch (e) {
+      alert(`❌ Delete all failed: ${e.message}`);
+      await refreshSimulationsList();
+      if (csvStatus?.use_design_dir) await refreshDesignEnsembles();
     }
   };
 
@@ -2551,6 +2698,11 @@ function App() {
         if (c.chartCardWidth != null && Number.isFinite(Number(c.chartCardWidth))) {
           base.chart_card_width = Math.min(4000, Math.max(200, Math.round(Number(c.chartCardWidth))));
         }
+        if (c.xLabel != null) base.x_label = c.xLabel;
+        if (c.yLabel != null) base.y_label = c.yLabel;
+        if (c.legendLabels != null && typeof c.legendLabels === 'object' && Object.keys(c.legendLabels).length) {
+          base.legend_labels = c.legendLabels;
+        }
         return base;
       });
       const body = {
@@ -2596,6 +2748,7 @@ function App() {
                 : ent,
             ),
           );
+          /* materialize is triggered explicitly by handleAddDerivedVariable */
         }
       }
     } catch (e) {
@@ -2614,6 +2767,7 @@ function App() {
     chartCardWidth,
     chartStacks,
     viewMode,
+    refreshSimulationsList,
   ]);
 
   const handleChartCardWidthChange = useCallback(
@@ -2816,26 +2970,44 @@ function App() {
    * Serialized per `memberSimId` so parallel chart loads cannot clobber merges.
    */
   const ensureEnsembleMemberColumnsLoaded = useCallback(async (memberSimId, columnNames) => {
-    if (!designApiPath || !memberSimId || !columnNames?.length) return;
-    if (!simulationMetadataRef.current?.isEnsemble) return;
+    if (!designApiPath || !memberSimId || !columnNames?.length) {
+      return;
+    }
+    if (!simulationMetadataRef.current?.isEnsemble) {
+      return;
+    }
 
     const run = async () => {
       const g = ensembleColumnGroupsRef.current.find((x) => x.simId === memberSimId);
       const csvCols = g?.columns || [];
+      if (!g) {
+        console.warn('[DCS:ensemble-plot] ensureEnsembleMemberColumnsLoaded: no group for', memberSimId, {
+          knownIds: (ensembleColumnGroupsRef.current || []).map((x) => x.simId),
+        });
+      }
       const derived = ensembleMemberDerivedBySimIdRef.current[memberSimId] || [];
       const needCsv = new Set(columnsNeededForDerived(derived, csvCols));
       for (const r of columnNames.filter(Boolean)) {
         if (csvCols.includes(r)) needCsv.add(r);
       }
       const need = [...needCsv];
-      if (!need.length) return;
+      if (!need.length) {
+        return;
+      }
 
       const existingRows = ensembleMemberSimulationDataRef.current?.[memberSimId];
       const existingKeys = existingRows?.length ? new Set(Object.keys(existingRows[0])) : new Set();
       const missing = need.filter((c) => !existingKeys.has(c));
-      if (!missing.length) return;
-
-      const dataPayload = await fetchSimulationDataSubset(designApiPath, memberSimId, missing);
+      if (!missing.length) {
+        return;
+      }
+      let dataPayload;
+      try {
+        dataPayload = await fetchSimulationDataSubset(designApiPath, memberSimId, missing);
+      } catch (e) {
+        console.error('[DCS:ensemble-plot] fetchSimulationDataSubset failed', { memberSimId, missing, err: e });
+        throw e;
+      }
       const incoming = dataPayload.data || [];
       const { augmentRowsWithDerived, augmentEnsemblePrimaryWithCrossMemberDerived } = await import(
         './utils/formulaEvaluator',
@@ -2887,7 +3059,9 @@ function App() {
 
     const prev = ensembleLoadChainsRef.current[memberSimId] || Promise.resolve();
     const next = prev.then(run, run);
-    ensembleLoadChainsRef.current[memberSimId] = next.catch(() => {});
+    ensembleLoadChainsRef.current[memberSimId] = next.catch((err) => {
+      console.error('[DCS:ensemble-plot] ensureEnsembleMemberColumnsLoaded chain rejected', memberSimId, err);
+    });
     return next;
   }, [designApiPath]);
 
@@ -2993,13 +3167,20 @@ function App() {
         const byM = groupColumnsByEnsembleMember(parsed.items);
         const out = {};
         for (const [sid, cols] of Object.entries(byM)) {
-          out[sid] = cols.filter((c) => c && !ensSet.has(c));
+          out[sid] = cols.filter(
+            (c) => c && (sid === 'formula' || !ensSet.has(c)),
+          );
         }
         return out;
       }
       if (chart.ensembleSimId) {
         const raw = collectEnsembleChartRawColumns(chart);
-        return { [chart.ensembleSimId]: raw.filter((c) => c && !ensSet.has(c)) };
+        const out = {
+          [chart.ensembleSimId]: raw.filter(
+            (c) => c && (chart.ensembleSimId === 'formula' || !ensSet.has(c)),
+          ),
+        };
+        return out;
       }
       return {};
     },
@@ -3015,8 +3196,8 @@ function App() {
         if (!memberSimId || !toLoad?.length) continue;
         try {
           await ensureEnsembleMemberColumnsLoaded(memberSimId, toLoad);
-        } catch {
-          /* ensureEnsembleMemberColumnsLoaded already alerted */
+        } catch (e) {
+          console.error('[DCS:ensemble-plot] onEnsureEnsembleChartColumns error', memberSimId, e);
         }
       }
     },
@@ -3271,7 +3452,9 @@ function App() {
         (simulationMetadata.derivedVariables || []).map((d) => d.name),
       );
       for (const [memberSimId, rawCols] of Object.entries(byMem)) {
-        const toLoad = rawCols.filter((c) => c && !ensSet.has(c));
+        const toLoad = rawCols.filter(
+          (c) => c && (memberSimId === 'formula' || !ensSet.has(c)),
+        );
         if (!toLoad.length) continue;
         try {
           await ensureEnsembleMemberColumnsLoaded(memberSimId, toLoad);
@@ -3369,12 +3552,38 @@ function App() {
       const ensDerivedNames = new Set(
         (simulationMetadata.derivedVariables || []).map((d) => d.name),
       );
+      const members = simulationMetadata.memberSimulations || [];
+      const primarySim = members[0] || null;
+      const ensDerived = simulationMetadata.derivedVariables || [];
       for (const [memberSimId, rawColList] of Object.entries(byMem)) {
-        const toLoad = rawColList.filter((c) => c && !ensDerivedNames.has(c));
-        if (!toLoad.length) continue;
+        let toLoad = rawColList.filter(
+          (c) => c && (memberSimId === 'formula' || !ensDerivedNames.has(c)),
+        );
+        if (
+          !toLoad.length &&
+          memberSimId === primarySim &&
+          rawColList.some((c) => c && ensDerivedNames.has(c)) &&
+          ensDerived.length
+        ) {
+          const g = ensembleColumnGroupsRef.current.find((x) => x.simId === memberSimId);
+          const csvCols = g?.columns || [];
+          const tc = pickTimeColumn(csvCols);
+          const needD = columnsNeededForDerived(ensDerived, csvCols);
+          toLoad = [...new Set([tc, ...needD].filter(Boolean))];
+        }
+        if (!toLoad.length) {
+          console.warn('[DCS:ensemble-plot] addChart: toLoad empty after rules — skipping member', {
+            memberSimId,
+            rawColList,
+            primarySim,
+            ensDerivedNames: [...ensDerivedNames],
+          });
+          continue;
+        }
         try {
           await ensureEnsembleMemberColumnsLoaded(memberSimId, toLoad);
-        } catch {
+        } catch (e) {
+          console.error('[DCS:ensemble-plot] addChart: ensureEnsembleMemberColumnsLoaded failed', memberSimId, e);
           return;
         }
       }
@@ -3480,29 +3689,58 @@ function App() {
   ]);
 
   /**
-   * Add a derived variable (formula-based column). Persists to .sim.json.
-   * Re-augments simulationData with the new computed column.
+   * Add a derived variable (formula-based column).
+   * Ensemble mode: saves formula to .ensemble.json, materializes to formula.data.csv on disk,
+   * then refreshes the formula group in the Variables panel — nothing is added to ƒ (live).
+   * Single-scenario mode: augments in-memory simulationData and persists.
    */
   const handleAddDerivedVariable = useCallback(async (formula, variableName) => {
     if (!simulationMetadata?.id || !currentConfigName) return;
 
     if (simulationMetadata?.isEnsemble) {
-      const members = simulationMetadata.memberSimulations || [];
-      const primary = members[0];
-      if (!primary) return;
+      const eid = simulationMetadata.ensembleId;
+      if (!eid) return;
       const newDerived = [...(simulationMetadata.derivedVariables || []), { name: variableName, formula }];
-      const { augmentEnsemblePrimaryWithCrossMemberDerived } = await import('./utils/formulaEvaluator');
-      const qualified = qualifyEnsembleColumn(primary, variableName);
-      setSimulationMetadata((prev) => {
-        const cols = [...(prev.columns || [])];
-        if (!cols.includes(qualified)) cols.push(qualified);
-        return { ...prev, derivedVariables: newDerived, columns: cols };
-      });
-      setEnsembleMemberSimulationData((prev) => {
-        if (!prev) return prev;
-        return augmentEnsemblePrimaryWithCrossMemberDerived(members, prev, newDerived, primary);
-      });
-      persistChartsToSimJson(openCharts, { derived_variables: newDerived });
+
+      // 1. Persist to .ensemble.json so the formula is saved on disk.
+      await persistChartsToSimJson(openCharts, { derived_variables: newDerived });
+
+      // 2. Materialize: evaluate formulas across all member CSVs → write formula.data.csv.
+      try {
+        const matUrl = `${API_BASE_URL}/api/designs/${encodeURIComponent(
+          designApiPath,
+        )}/ensembles/${encodeURIComponent(eid)}/materialize-formula-csv`;
+        const matRes = await fetch(matUrl, { method: 'POST' });
+        if (!matRes.ok) {
+          console.warn('materialize-formula-csv failed', await matRes.text());
+          return;
+        }
+      } catch (e) {
+        console.warn('materialize-formula-csv error', e);
+        return;
+      }
+
+      // 3. Re-fetch formula metadata so the Variables panel shows the new column immediately.
+      try {
+        const formulaMeta = await fetchSimulationMetadata(designApiPath, 'formula');
+        if (formulaMeta?.columns?.length) {
+          setEnsembleColumnGroups((prev) => {
+            const withoutFormula = prev.filter((g) => g.simId !== 'formula');
+            return [...withoutFormula, { simId: 'formula', columns: formulaMeta.columns }];
+          });
+          setSimulationMetadata((prev) => {
+            const existing = new Set(prev.columns || []);
+            const next = [...(prev.columns || [])];
+            for (const c of formulaMeta.columns) {
+              const q = qualifyEnsembleColumn('formula', c);
+              if (!existing.has(q)) next.push(q);
+            }
+            return { ...prev, derivedVariables: newDerived, columns: next };
+          });
+        }
+      } catch (e) {
+        console.warn('re-fetch formula metadata failed', e);
+      }
       return;
     }
 
@@ -3524,7 +3762,7 @@ function App() {
     });
     setSimulationData(augmented);
     persistChartsToSimJson(openCharts, { derived_variables: newDerived });
-  }, [simulationMetadata, currentConfigName, simulationData, openCharts, persistChartsToSimJson]);
+  }, [simulationMetadata, currentConfigName, simulationData, openCharts, persistChartsToSimJson, designApiPath]);
 
   /** Reindex chartStacks when a chart at removedIdx is removed */
   const reindexChartStacksAfterRemove = (stacks, removedIdx) => {
@@ -3555,6 +3793,15 @@ function App() {
     });
     persistChartsToSimJson(nextCharts, { chart_stacks: nextStacks });
   };
+
+  /** Update chart labels/title — persists to .sim.json. */
+  const handleUpdateChart = useCallback((chartId, overrides) => {
+    setOpenCharts(prev => {
+      const next = prev.map(c => c.id === chartId ? { ...c, ...overrides } : c);
+      persistChartsToSimJson(next);
+      return next;
+    });
+  }, [persistChartsToSimJson]);
 
   /**
    * Handle closing the entire chart panel.
@@ -4281,11 +4528,13 @@ function App() {
             currentConfigName={currentConfigName}
             onUploadSimData={handleUploadSimData}
             onDeleteSimulation={handleDeleteSimulation}
+            onDeleteAllSimulations={handleDeleteAllSimulations}
             onClearSimulationCache={handleClearSimulationCache}
             onViewSimData={handleViewSimData}
             onAddSimulation={handleAddSimulation}
             onAddSimulationsFromXlsx={handleAddSimulationsFromXlsx}
             onAddSimulationsFromPkl={handleAddSimulationsFromPkl}
+            onAddSimulationFromPkl2={handleAddSimulationFromPkl2}
             /* Drives the “Loading data” linear bar under the scenario list while handleRunSimulation runs. */
             simulationLoadProgress={simulationLoadProgress}
           />
@@ -4341,6 +4590,7 @@ function App() {
           onUnstackCharts={handleUnstackCharts}
           onClose={handleCloseChartPanel}
           onRemoveChart={handleRemoveChart}
+          onUpdateChart={handleUpdateChart}
           height={chartPanelHeight}
           onHeightChange={handleChartPanelHeightChange}
           panelOpacity={chartPanelOpacity}

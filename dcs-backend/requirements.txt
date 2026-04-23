@@ -59,17 +59,20 @@ python-dateutil==2.8.2
 # ----------------------------------------------------------------------------
 # pandas - Data manipulation and analysis library
 # Used for CSV data processing, time-series analysis, and simulation data
-pandas==2.2.0
+# 2.2.0 pins numpy<2 on Python 3.12, so pip keeps NumPy 1.26 and NumPy-2 pickles fail.
+pandas>=2.2.3,<3
 
 # openpyxl - Excel file support for pandas (read/write .xlsx)
 openpyxl==3.1.2
 
 # numpy - Numerical computing library
 # Used for mathematical operations, array processing, and signal analysis
-numpy==1.26.3
+# Pin 2.x so pandas pickles created on NumPy 2 (numpy._core.*) unpickle correctly.
+numpy>=2.0.0,<3
 
 # Pillow - Image processing (for design diagram fixes, etc.)
 Pillow>=10.0.0
 
 # scipy - Scientific computing (ndimage for image morphology)
-scipy>=1.11.0
+# SciPy <1.13 pins NumPy 1.x; pip then ignores numpy>=2 above. 1.13+ supports NumPy 2 (pickles).
+scipy>=1.13.0

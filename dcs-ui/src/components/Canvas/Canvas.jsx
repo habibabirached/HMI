@@ -1131,6 +1131,15 @@ const Canvas = forwardRef(({
           }
           onClose={() => setContextMenu(null)}
           onSelectChartType={handleChartTypeSelected}
+          onToggleInitialOpen={
+            mode === 'design'
+              ? () => {
+                  const comp = contextMenu.component;
+                  const next = comp.initialSimStatus === 'open' ? null : 'open';
+                  stableOnUpdateComponent(comp.id, { initialSimStatus: next });
+                }
+              : undefined
+          }
         />
       )}
       
@@ -1141,6 +1150,15 @@ const Canvas = forwardRef(({
           components={contextMenu.components}
           onClose={() => setContextMenu(null)}
           onSelectChartType={handleMultiComponentChartTypeSelected}
+          onSetInitialSimStatus={
+            mode === 'design'
+              ? (status) => {
+                  contextMenu.components.forEach((comp) => {
+                    stableOnUpdateComponent(comp.id, { initialSimStatus: status ?? null });
+                  });
+                }
+              : undefined
+          }
         />
       )}
       

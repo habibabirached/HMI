@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "all",
+      "display_name": "all",
+      "member_simulations": [
+        "Bess",
+        "NoBess"
+      ],
+      "chart_panel": {
+        "charts_to_display": [
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "nd",
+            "x_column": "Bess — Time",
+            "y_columns": [
+              "Bess — P_load",
+              "formula — both generators",
+              "Bess — P_bess"
+            ],
+            "title": "with Bess",
+            "ensemble_cross_member": true,
+            "chart_card_width": 1642,
+            "x_label": "Time",
+            "y_label": "Power (MW)",
+            "legend_labels": {
+              "Bess — P_load": "Load",
+              "formula — both generators": "both generator power",
+              "Bess — P_bess": "BESS"
+            }
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "Time",
+            "y_column": "w_rotor",
+            "title": "With Bess",
+            "ensemble_sim_id": "Bess",
+            "chart_card_width": 1642,
+            "x_label": "Time",
+            "y_label": "Speed Rotor"
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "nd",
+            "x_column": "NoBess — Time",
+            "y_columns": [
+              "NoBess — P_load",
+              "formula — No Bess Both Generators",
+              "NoBess — P_bess"
+            ],
+            "title": "without BESS",
+            "ensemble_cross_member": true,
+            "x_label": "Time",
+            "y_label": "Power (MW)",
+            "legend_labels": {
+              "NoBess — P_load": "Load",
+              "formula — No Bess Both Generators": "Both Generator",
+              "NoBess — P_bess": "BESS"
+            }
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "Time",
+            "y_column": "w_rotor",
+            "title": "34.5kV Bus L - w_rotor",
+            "ensemble_sim_id": "NoBess"
+          }
+        ],
+        "chart_stacks": [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "chart_sample_default": 8,
+        "chart_panel_height": 1234,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 1450,
+        "view_mode": "customer",
+        "derived_variables": [
+          {
+            "name": "both generators",
+            "formula": "Bess — P_g1+Bess — P_g2"
+          },
+          {
+            "name": "No Bess Both Generators",
+            "formula": "NoBess — P_g1+NoBess — P_g2"
+          }
+        ]
+      }
+    }
+  ]
+}

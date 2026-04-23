@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "BessNoBess",
+      "display_name": "BessNoBess",
+      "member_simulations": [
+        "b_BESS_1",
+        "b_BESS_2",
+        "b_LM2500_1",
+        "b_LM2500_2",
+        "b_Frequency-FFT",
+        "b_LM2500_3",
+        "b_LM2500_4",
+        "b_LM2500_5",
+        "b_LM2500_6",
+        "b_LM2500_7",
+        "b_LM2500_8",
+        "b_Load_1",
+        "b_Load_2",
+        "b_Load_3",
+        "b_Load_4",
+        "NoBessFrequency-FFT",
+        "NoBessLM2500_1",
+        "NoBessLM2500_2",
+        "NoBessLM2500_3",
+        "NoBessLM2500_4",
+        "NoBessLM2500_5",
+        "NoBessLM2500_6",
+        "NoBessLM2500_7",
+        "NoBessLM2500_8",
+        "NoBessLoad_1",
+        "NoBessLoad_2",
+        "NoBessLoad_3",
+        "NoBessLoad_4"
+      ],
+      "chart_panel": {
+        "charts_to_display": [
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "nd",
+            "x_column": "b_BESS_1 — t|Main",
+            "y_columns": [
+              "formula — All Besses",
+              "formula — All LMs",
+              "formula — All Loads"
+            ],
+            "title": "WITH BESS",
+            "ensemble_cross_member": true,
+            "chart_card_width": 847,
+            "x_label": "time ",
+            "y_label": "Power MW",
+            "legend_labels": {
+              "formula — All Besses": "All Besses",
+              "formula — All LMs": "All LMs",
+              "formula — All Loads": "All Loads"
+            }
+          }
+        ],
+        "chart_stacks": [],
+        "chart_sample_default": 16,
+        "chart_panel_height": 672,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 500,
+        "view_mode": "customer",
+        "derived_variables": [
+          {
+            "name": "All Besses",
+            "formula": "b_BESS_1 — P_BESS1|BESS_1+b_BESS_2 — P_BESS2|BESS_2"
+          },
+          {
+            "name": "All LMs",
+            "formula": "b_LM2500_1 — P_g1|LM2500_1+b_LM2500_2 — P_g2|LM2500_2+b_LM2500_3 — P_g3|LM2500_3+b_LM2500_4 — Q_g4|LM2500_4+b_LM2500_5 — P_g5|LM2500_5+b_LM2500_6 — P_g6|LM2500_6+b_LM2500_6 — P_g6|LM2500_6+b_LM2500_7 — P_g7|LM2500_7+b_LM2500_8 — P_g8|LM2500_8"
+          },
+          {
+            "name": "All Loads",
+            "formula": "b_Load_1 — Pload_1|Load_1+b_Load_2 — Pload_2|Load_2+b_Load_3 — Pload_3|Load_3+b_Load_4 — Pload_4|Load_4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "all",
+      "display_name": "all",
+      "member_simulations": [
+        "b_BESS_1",
+        "b_BESS_2",
+        "b_Frequency-FFT",
+        "b_LM2500_1",
+        "b_LM2500_2",
+        "b_LM2500_3",
+        "b_LM2500_4",
+        "b_LM2500_5",
+        "b_LM2500_6",
+        "b_LM2500_7",
+        "b_LM2500_8",
+        "b_LM6000PF1_GEN_System_MW",
+        "b_Load_1",
+        "b_Load_2",
+        "b_Load_3",
+        "b_Load_4",
+        "b_Main",
+        "b_SynchronousMachine",
+        "formula",
+        "NoBessFrequency-FFT",
+        "NoBessLM2500_1",
+        "NoBessLM2500_2",
+        "NoBessLM2500_3",
+        "NoBessLM2500_4",
+        "NoBessLM2500_5",
+        "NoBessLM2500_6",
+        "NoBessLM2500_7",
+        "NoBessLM2500_8",
+        "NoBessLM6000PF1_GEN_System_1",
+        "NoBessLM6000PF1_GEN_System_MW",
+        "NoBessLoad_1",
+        "NoBessLoad_2",
+        "NoBessLoad_3",
+        "NoBessLoad_4",
+        "NoBessMain",
+        "NoBessSynchronousMachine",
+        "NoBessTERMINALVOLTAGE_1"
+      ],
+      "chart_panel": {
+        "charts_to_display": [],
+        "chart_stacks": [],
+        "chart_sample_default": 1,
+        "chart_panel_height": 672,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 500,
+        "view_mode": "customer",
+        "derived_variables": []
+      }
+    }
+  ]
+}

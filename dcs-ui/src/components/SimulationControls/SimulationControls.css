@@ -532,13 +532,49 @@
   border-bottom: 2px solid #2a3a3a;
 }
 
+.simulation-scenarios-section .scenarios-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .simulation-scenarios-section .scenarios-title {
   color: #00d4a8;
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 12px;
+  margin: 0;
+}
+
+.scenarios-bulk-delete {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 212, 168, 0.35);
+  background: rgba(0, 94, 96, 0.2);
+  color: #5fd4c0;
+  cursor: pointer;
+  line-height: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.scenarios-bulk-delete:hover:not(:disabled) {
+  background: rgba(198, 40, 40, 0.2);
+  border-color: rgba(229, 115, 115, 0.6);
+  color: #ffab91;
+}
+
+.scenarios-bulk-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .scenarios-info {
@@ -888,6 +924,30 @@
   color: #00d4a8;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.import-sample-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #7ecfbe;
+  padding: 2px 0;
+}
+
+.import-sample-select {
+  background: rgba(0, 80, 85, 0.7);
+  border: 1px solid #005E60;
+  color: #00d4a8;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.import-sample-select:focus {
+  outline: none;
+  border-color: #00d4a8;
 }
 
 .btn-add-sim:hover {

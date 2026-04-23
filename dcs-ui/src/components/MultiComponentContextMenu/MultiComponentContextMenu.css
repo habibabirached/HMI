@@ -1,6 +1,12 @@
 /* ============================================================================
    MULTI-COMPONENT CONTEXT MENU - GE Vernova Professional Style
    ============================================================================ */
+.multi-component-context-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
 .multi-component-context-menu {
   background: #1a1a1a;
   border: 2px solid #0066ff;
@@ -78,6 +84,24 @@
   background: rgba(0, 102, 255, 0.15);
   color: #0099ff;
   padding-left: 20px;
+}
+
+.context-menu-item--open {
+  background: rgba(255, 80, 0, 0.07);
+}
+
+.context-menu-item--open:hover {
+  background: rgba(255, 80, 0, 0.16);
+  color: #ff9800;
+}
+
+.context-menu-item--close {
+  background: rgba(0, 180, 90, 0.07);
+}
+
+.context-menu-item--close:hover {
+  background: rgba(0, 180, 90, 0.16);
+  color: #66bb6a;
 }
 
 .context-menu-icon {

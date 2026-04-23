@@ -24,6 +24,7 @@ import { isPerfDebugEnabled, logPerfLayout, logPerfAfterPaint } from '../../util
  * - availableSimulations: array - unique simulation identifiers from CSV
  * - simConfig: object - simulation configuration JSON with display names and metadata
  * - onRunSimulation: function - callback when user clicks a simulation button
+ * - onDeleteAllSimulations: function (optional) - delete every scenario in the design (design-dir flow)
  * - activeSimulationId: string | null - STEP 2: ID of the simulation currently loaded; the matching
  *   scenario button gets a bright "active" style so the user sees which sim they're in
  * - simulationLoadProgress: { simulationId, percent, status, loadSource?: 'pending'|'cache'|'server' } | null -
@@ -70,12 +71,15 @@ const SimulationControls = ({
   currentConfigName,
   onUploadSimData,
   onDeleteSimulation,
+  /** Delete every scenario in the current design (design-dir flow). */
+  onDeleteAllSimulations,
   /** Clear IndexedDB cache for this scenario’s CSV payload (browser only). */
   onClearSimulationCache,
   onViewSimData,
   onAddSimulation,
   onAddSimulationsFromXlsx,
   onAddSimulationsFromPkl,
+  onAddSimulationFromPkl2,
   // Set by App while a scenario CSV is downloading or being processed. Used to render the linear meter,
   // show the current phase in plain language, and prevent double-clicks on another scenario mid-load.
   simulationLoadProgress = null,
@@ -83,8 +87,10 @@ const SimulationControls = ({
   const [showAddSimForm, setShowAddSimForm] = React.useState(false);
   const [newSimName, setNewSimName] = React.useState('');
   const [ensembleEditor, setEnsembleEditor] = React.useState(null);
+  const [importSampleStep, setImportSampleStep] = React.useState(1);
   const xlsxInputRef = React.useRef(null);
   const pklInputRef = React.useRef(null);
+  const pkl2InputRef = React.useRef(null);
 
   React.useLayoutEffect(() => {
     if (mode !== 'simulation' && viewMode !== 'customer') return;
@@ -421,6 +427,21 @@ const SimulationControls = ({
                 >
                   + Add simulation scenario
                 </button>
+                {(onAddSimulationsFromXlsx || onAddSimulationsFromPkl || onAddSimulationFromPkl2) && (
+                  <label className="import-sample-label">
+                    Import sample:
+                    <select
+                      className="import-sample-select"
+                      value={importSampleStep}
+                      onChange={(e) => setImportSampleStep(Number(e.target.value))}
+                      title="Keep 1 in N rows when importing — reduces file size and load time"
+                    >
+                      {[1, 2, 4, 8, 16, 32, 64, 128].map((n) => (
+                        <option key={n} value={n}>1 in {n}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {onAddSimulationsFromXlsx && (
                   <>
                     <input
@@ -430,7 +451,7 @@ const SimulationControls = ({
                       style={{ display: 'none' }}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) onAddSimulationsFromXlsx(f);
+                        if (f) onAddSimulationsFromXlsx(f, importSampleStep);
                         e.target.value = '';
                       }}
                     />
@@ -453,7 +474,14 @@ const SimulationControls = ({
                       style={{ display: 'none' }}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) onAddSimulationsFromPkl(f);
+                        if (f) {
+                          const raw = window.prompt(
+                            `Prefix for simulation names from "${f.name}":\n(e.g. "run1_" → run1_LM2500_1, run1_LM2500_2 …)\nLeave blank for none.`,
+                            '',
+                          );
+                          if (raw === null) { e.target.value = ''; return; } // cancelled
+                          onAddSimulationsFromPkl(f, raw.trim(), importSampleStep);
+                        }
                         e.target.value = '';
                       }}
                     />
@@ -464,6 +492,36 @@ const SimulationControls = ({
                       title="Import each MultiIndex tab group as a simulation scenario (pandas pickle)"
                     >
                       Add simulation scenarios from pkl
+                    </button>
+                  </>
+                )}
+                {onAddSimulationFromPkl2 && (
+                  <>
+                    <input
+                      ref={pkl2InputRef}
+                      type="file"
+                      accept=".pkl,.pickle,application/octet-stream"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          const raw = window.prompt(
+                            `Simulation name for "${f.name}":\n(e.g. "NoBESS_21Hz")\nLeave blank to use the file name.`,
+                            '',
+                          );
+                          if (raw === null) { e.target.value = ''; return; } // cancelled
+                          onAddSimulationFromPkl2(f, raw.trim(), importSampleStep);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-add-sim btn-add-sim-xlsx"
+                      onClick={() => pkl2InputRef.current?.click()}
+                      title="Import a single simulation from a pkl2 file (dict of column→Series)"
+                    >
+                      Add simulation from pkl2
                     </button>
                   </>
                 )}
@@ -604,7 +662,34 @@ const SimulationControls = ({
             ================================================================ */}
         {availableSimulations && availableSimulations.length > 0 && (
           <div className="simulation-scenarios-section">
-            <h4 className="scenarios-title">Simulation Scenarios</h4>
+            <div className="scenarios-title-row">
+              {useDesignDir && currentConfigName && onDeleteAllSimulations && (
+                <button
+                  type="button"
+                  className="scenarios-bulk-delete"
+                  disabled={!!simulationLoadProgress}
+                  onClick={() => onDeleteAllSimulations()}
+                  title="Delete all simulation scenarios in this design"
+                  aria-label="Delete all simulation scenarios in this design"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    width="16"
+                    height="16"
+                    aria-hidden
+                  >
+                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
+                  </svg>
+                </button>
+              )}
+              <h4 className="scenarios-title">Simulation Scenarios</h4>
+            </div>
             <div className="scenarios-info">
               {availableSimulations.length} scenario(s) detected
             </div>

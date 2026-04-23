@@ -1,17 +1,22 @@
 import React from 'react';
 import './MultiComponentContextMenu.css';
+import { BREAKER_TYPES } from '../../data/componentVisuals';
 
 const MultiComponentContextMenu = ({ 
   position, 
   components, 
   onClose, 
-  onSelectChartType 
+  onSelectChartType,
+  onSetInitialSimStatus,
 }) => {
   const handleChartTypeClick = (chartType) => {
     console.log(`📊 ${chartType} selected for`, components.length, 'components');
     onSelectChartType(chartType);
     onClose();
   };
+
+  const offCount = components.filter(c => c.initialSimStatus === 'open').length;
+  const breakerCount = components.filter(c => BREAKER_TYPES.has(c.type)).length;
 
   return (
     <div 
@@ -23,14 +28,54 @@ const MultiComponentContextMenu = ({
         zIndex: 10000
       }}
     >
+      {/* Invisible overlay to close menu on outside click */}
+      <div
+        className="multi-component-context-overlay"
+        onClick={onClose}
+      />
       <div className="context-menu-content">
         <div className="context-menu-header">
-          📊 Multi-Component Charts
+          Multi-Component Actions
           <div className="context-menu-subtitle">
             {components.length} components selected
+            {breakerCount > 0 ? ` · ${breakerCount} breaker${breakerCount > 1 ? 's' : ''}` : ''}
           </div>
         </div>
         <div className="context-menu-separator"></div>
+
+        {onSetInitialSimStatus && (
+          <>
+            <button
+              className="context-menu-item context-menu-item--open"
+              onClick={() => {
+                onSetInitialSimStatus('open');
+                onClose();
+              }}
+            >
+              <span className="context-menu-icon">🔴</span>
+              <span className="context-menu-label">
+                On Simulate: start OFF
+                {offCount > 0 && offCount < components.length
+                  ? ` (${components.length - offCount} will change)`
+                  : ''}
+              </span>
+            </button>
+            <button
+              className="context-menu-item context-menu-item--close"
+              onClick={() => {
+                onSetInitialSimStatus(null);
+                onClose();
+              }}
+            >
+              <span className="context-menu-icon">🟢</span>
+              <span className="context-menu-label">
+                On Simulate: start ON
+                {offCount > 0 ? ` (clears ${offCount})` : ''}
+              </span>
+            </button>
+            <div className="context-menu-separator"></div>
+          </>
+        )}
         
         <button 
           className="context-menu-item"

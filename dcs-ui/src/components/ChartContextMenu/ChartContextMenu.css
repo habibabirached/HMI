@@ -96,6 +96,25 @@
   border-left-color: #ce93d8;
 }
 
+.chart-context-item--init-state {
+  background: rgba(255, 120, 0, 0.06);
+  border-bottom: 1px solid #333;
+}
+
+.chart-context-item--init-state:hover {
+  background: rgba(255, 120, 0, 0.13);
+  border-left-color: #ff9800;
+}
+
+.chart-context-item--init-open {
+  background: rgba(255, 50, 50, 0.07);
+}
+
+.chart-context-item--init-open:hover {
+  background: rgba(255, 50, 50, 0.14);
+  border-left-color: #ef5350;
+}
+
 .chart-context-icon {
   font-size: 24px;
   flex-shrink: 0;

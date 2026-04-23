@@ -95,7 +95,10 @@ export function augmentEnsemblePrimaryWithCrossMemberDerived(
     const out = { ...row };
     for (const { name, formula } of derivedVariables) {
       const val = evaluateFormula(formula, evalRow);
-      out[name] = Number.isNaN(val) ? '' : val;
+      const cell = Number.isNaN(val) ? '' : val;
+      out[name] = cell;
+      // Chart builder / saved charts use qualifyEnsembleColumn(primary, name) as the column id.
+      out[qualifyEnsembleColumn(primarySimId, name)] = cell;
     }
     return out;
   });

@@ -34,26 +34,34 @@ export function primaryLabelText(component, visualConfig) {
 }
 
 export function strokeForStatus(component, isSelected) {
+  // In design mode (idle), if the component is configured to start open,
+  // show a dim orange dashed outline as a preview hint.
+  const startsOpen = component.status === 'idle' && component.initialSimStatus === 'open';
   const strokeColor =
-    component.status === 'idle'
-      ? '#666'
-      : component.status === 'offline'
-        ? '#ff0000'
-        : component.status === 'tripped'
+    startsOpen
+      ? '#c06010'
+      : component.status === 'idle'
+        ? '#666'
+        : component.status === 'offline'
           ? '#ff0000'
-          : component.status === 'open'
-            ? '#ff9800'
-            : isSelected
-              ? '#005E60'
-              : '#444';
+          : component.status === 'tripped'
+            ? '#ff0000'
+            : component.status === 'open'
+              ? '#ff9800'
+              : isSelected
+                ? '#005E60'
+                : '#444';
   const strokeWidthVal =
     component.status === 'offline' || component.status === 'tripped'
       ? 4
       : component.status === 'open'
         ? 3
-        : isSelected
-          ? 3
-          : 2;
+        : startsOpen
+          ? 2
+          : isSelected
+            ? 3
+            : 2;
+  // Signal to callers that this component has a "starts open" design-time hint
   return { strokeColor, strokeWidthVal };
 }
 

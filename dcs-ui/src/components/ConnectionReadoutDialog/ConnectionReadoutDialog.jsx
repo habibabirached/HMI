@@ -79,12 +79,31 @@ export default function ConnectionReadoutDialog({
     return [{ id: '', label: 'Current scenario' }];
   }, [isEnsemble, ensembleColumnGroups]);
 
-  const defaultTabId = guessedDefaultEnsembleTabId || tabOptions[0]?.id || '';
+  const validTabIds = useMemo(() => new Set(tabOptions.map((t) => t.id)), [tabOptions]);
+
+  const defaultTabId = guessedDefaultEnsembleTabId && validTabIds.has(guessedDefaultEnsembleTabId)
+    ? guessedDefaultEnsembleTabId
+    : (tabOptions[0]?.id || '');
+
+  // If a saved slot's ensembleSimId no longer matches any current member, reset it to the
+  // guessed/first valid tab so the variable list is never empty on open.
+  useEffect(() => {
+    if (!isEnsemble || !ensembleColumnGroups?.length) return;
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.ensembleSimId && !validTabIds.has(s.ensembleSimId)
+          ? { ...s, ensembleSimId: defaultTabId, column: '' }
+          : s,
+      ),
+    );
+  }, [isEnsemble, validTabIds, defaultTabId]);
 
   const columnsForTab = (ensembleSimId) => {
-    if (isEnsemble && ensembleSimId) {
+    if (isEnsemble) {
       const g = ensembleColumnGroups.find((x) => x.simId === ensembleSimId);
-      return g?.columns || [];
+      if (g) return g.columns;
+      // Stale / unrecognised simId — fall back to first group so the list is never empty.
+      return ensembleColumnGroups[0]?.columns || [];
     }
     return simulationMetadata?.columns || [];
   };

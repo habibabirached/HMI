@@ -159,3 +159,27 @@ def fetch_row_page_from_db(
         d = json.loads(r.row_json)
         out.append({k: d.get(k, "") for k in resolved})
     return out, imp.row_count
+
+
+def clear_simulation_csv_mirror(db: Session, catalog_rel: str, sim_name: str) -> bool:
+    """
+    Remove SimulationCsvImport and SimulationCsvRow rows for this design+scenario, if a mirror exists.
+    Call when the corresponding *.data.csv and *.sim.json are removed from disk.
+    """
+    existing = (
+        db.query(SimulationCsvImport)
+        .filter(
+            SimulationCsvImport.catalog_rel == catalog_rel,
+            SimulationCsvImport.sim_name == sim_name,
+        )
+        .first()
+    )
+    if not existing:
+        return False
+    try:
+        _clear_import_and_rows(db, existing)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return True
