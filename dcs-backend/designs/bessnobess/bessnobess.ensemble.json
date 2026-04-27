@@ -41,7 +41,12 @@
             "ensemble_sim_id": "Bess",
             "chart_card_width": 1642,
             "x_label": "Time",
-            "y_label": "Speed Rotor"
+            "y_label": "Speed Rotor",
+            "axis_range": {
+              "y_min": 0.85,
+              "y_max": 1.1,
+              "y_locked": true
+            }
           },
           {
             "type": "single",
@@ -69,8 +74,15 @@
             "chart_type": "2d",
             "x_column": "Time",
             "y_column": "w_rotor",
-            "title": "34.5kV Bus L - w_rotor",
-            "ensemble_sim_id": "NoBess"
+            "title": "without BESS",
+            "ensemble_sim_id": "NoBess",
+            "x_label": "Time",
+            "y_label": "Speed Rotor",
+            "axis_range": {
+              "y_min": 0.85,
+              "y_max": 1.1,
+              "y_locked": true
+            }
           }
         ],
         "chart_stacks": [
@@ -84,9 +96,9 @@
           ]
         ],
         "chart_sample_default": 8,
-        "chart_panel_height": 841,
+        "chart_panel_height": 634,
         "chart_panel_opacity": 1.0,
-        "chart_card_width": 1450,
+        "chart_card_width": 1442,
         "view_mode": "customer",
         "derived_variables": [
           {

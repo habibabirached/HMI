@@ -6639,7 +6639,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -6661,7 +6662,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -6785,7 +6787,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -6807,7 +6810,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -6931,7 +6935,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -6953,7 +6958,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7077,7 +7083,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7099,7 +7106,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7121,7 +7129,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7209,14 +7218,46 @@
       "from": "comp-bess-cb-left",
       "to": "comp-bess-xfmr-left",
       "type": "power",
-      "status": "idle"
+      "status": "idle",
+      "style": {
+        "useAuto": false,
+        "color": "#2d7a32",
+        "thickness": 5,
+        "animation": "none",
+        "depth3d": 38,
+        "glossiness": 18,
+        "shadow": {
+          "blur": 4,
+          "offsetX": 2,
+          "offsetY": 2,
+          "opacity": 0.35,
+          "color": "#000000"
+        },
+        "flowArrows": "forward"
+      }
     },
     {
       "id": "conn-188",
       "from": "comp-bess-xfmr-left",
       "to": "comp-ct-bess-left",
-      "type": "power",
-      "status": "idle"
+      "type": "AC",
+      "status": "idle",
+      "style": {
+        "useAuto": false,
+        "color": "#2d7a32",
+        "thickness": 5,
+        "animation": "none",
+        "depth3d": 38,
+        "glossiness": 18,
+        "shadow": {
+          "blur": 4,
+          "offsetX": 2,
+          "offsetY": 2,
+          "opacity": 0.35,
+          "color": "#000000"
+        },
+        "flowArrows": "forward"
+      }
     },
     {
       "id": "conn-189",
@@ -7302,7 +7343,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7346,7 +7388,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7368,7 +7411,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7383,7 +7427,23 @@
       "from": "comp-it-lt-aux",
       "to": "comp-it-lt-aux-cb",
       "type": "power",
-      "status": "idle"
+      "status": "idle",
+      "style": {
+        "useAuto": false,
+        "color": "#c62828",
+        "thickness": 5,
+        "animation": "none",
+        "depth3d": 38,
+        "glossiness": 18,
+        "shadow": {
+          "blur": 4,
+          "offsetX": 2,
+          "offsetY": 2,
+          "opacity": 0.35,
+          "color": "#000000"
+        },
+        "flowArrows": "reverse"
+      }
     },
     {
       "id": "conn-200",
@@ -7433,7 +7493,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7441,7 +7502,23 @@
       "from": "comp-it-lt-ups",
       "to": "comp-it-lt-rack",
       "type": "power",
-      "status": "idle"
+      "status": "idle",
+      "style": {
+        "useAuto": false,
+        "color": "#c62828",
+        "thickness": 5,
+        "animation": "none",
+        "depth3d": 38,
+        "glossiness": 18,
+        "shadow": {
+          "blur": 4,
+          "offsetX": 2,
+          "offsetY": 2,
+          "opacity": 0.35,
+          "color": "#000000"
+        },
+        "flowArrows": "forward"
+      }
     },
     {
       "id": "conn-204",
@@ -7462,7 +7539,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7506,7 +7584,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7528,7 +7607,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7543,7 +7623,23 @@
       "from": "comp-it-lb-aux",
       "to": "comp-it-lb-aux-cb",
       "type": "power",
-      "status": "idle"
+      "status": "idle",
+      "style": {
+        "useAuto": false,
+        "color": "#c62828",
+        "thickness": 5,
+        "animation": "none",
+        "depth3d": 38,
+        "glossiness": 18,
+        "shadow": {
+          "blur": 4,
+          "offsetX": 2,
+          "offsetY": 2,
+          "opacity": 0.35,
+          "color": "#000000"
+        },
+        "flowArrows": "reverse"
+      }
     },
     {
       "id": "conn-210",
@@ -7593,7 +7689,8 @@
           "offsetY": 2,
           "opacity": 0.35,
           "color": "#000000"
-        }
+        },
+        "flowArrows": "forward"
       }
     },
     {
@@ -7601,7 +7698,23 @@
       "from": "comp-it-lb-ups",
       "to": "comp-it-lb-rack",
       "type": "power",
-      "status": "idle"
+      "status": "idle",
+      "style": {
+        "useAuto": false,
+        "color": "#c62828",
+        "thickness": 5,
+        "animation": "none",
+        "depth3d": 38,
+        "glossiness": 18,
+        "shadow": {
+          "blur": 4,
+          "offsetX": 2,
+          "offsetY": 2,
+          "opacity": 0.35,
+          "color": "#000000"
+        },
+        "flowArrows": "forward"
+      }
     },
     {
       "id": "conn-214",
@@ -7925,11 +8038,11 @@
     }
   ],
   "systemState": {
-    "simulationRunning": true,
-    "zoom": 0.6999999999999993,
+    "simulationRunning": false,
+    "zoom": 0.5999999999999993,
     "pan": {
-      "x": 134,
-      "y": 96
+      "x": 355,
+      "y": -127
     },
     "mode": "design"
   }
