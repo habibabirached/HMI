@@ -8,11 +8,13 @@ const KeyboardShortcuts = () => {
     { keys: ['Shift', 'Click'], desc: 'Multi-select components' },
     { keys: ['Ctrl/⌘', 'A'], desc: 'Select all' },
     { keys: ['Esc'], desc: 'Clear selection' },
-    { keys: ['Arrow'], desc: 'Move selected (grid)' },
+    { keys: ['↑', '↓'], desc: 'Zoom in / out' },
+    { keys: ['←', '→'], desc: 'Move selected left/right' },
+    { keys: ['Shift', '↑/↓'], desc: 'Move selected up/down' },
     { keys: ['Delete'], desc: 'Delete selected' },
     { keys: ['⌘/Ctrl', 'Click'], desc: 'Start/finish connection (right-click = charts on Mac)' },
     { keys: ['Alt', 'Drag'], desc: 'Pan canvas' },
-    { keys: ['Scroll'], desc: 'Zoom in/out' }
+    { keys: ['Trackpad 2-finger'], desc: 'Pan canvas' }
   ];
 
   if (!isOpen) {

@@ -114,6 +114,142 @@ const ChartPanel = ({
   const CHART_COLLAPSED_MIN_PX = 60;
   /** Inline label editor: { chartId, title, xLabel, yLabel } | null */
   const [editingLabels, setEditingLabels] = useState(null);
+  /** Per-chart last known Plotly axis ranges, for pre-populating the axis range editor. */
+  const plotlyRangesRef = useRef({});
+  const [editingAxisRange, setEditingAxisRange] = useState(null);
+  // { chartId, xMin, xMax, yMin, yMax, xLocked, yLocked }
+
+  const openAxisRangeEditor = (chart, e) => {
+    e.stopPropagation();
+    const live = plotlyRangesRef.current[chart.id];
+    const saved = chart.axisRange;
+    const fmt = (v) => (v != null && !Number.isNaN(Number(v)) ? String(v) : '');
+    setEditingAxisRange({
+      chartId: chart.id,
+      xMin: fmt(live?.xMin ?? saved?.xMin),
+      xMax: fmt(live?.xMax ?? saved?.xMax),
+      yMin: fmt(live?.yMin ?? saved?.yMin),
+      yMax: fmt(live?.yMax ?? saved?.yMax),
+      xLocked: saved?.xLocked ?? false,
+      yLocked: saved?.yLocked ?? false,
+    });
+  };
+
+  const commitAxisRangeEdit = () => {
+    if (!editingAxisRange) return;
+    const { chartId, xMin, xMax, yMin, yMax, xLocked, yLocked } = editingAxisRange;
+    const p = (v) => (v === '' || v == null ? undefined : Number(v));
+    // Only persist min/max for a locked axis; Plotly "Home" uses saved range on locked
+    // axes and autorange on unlocked axes, so we must not store unused box values.
+    const axisRange = {
+      xLocked,
+      yLocked,
+      ...(xLocked ? { xMin: p(xMin), xMax: p(xMax) } : {}),
+      ...(yLocked ? { yMin: p(yMin), yMax: p(yMax) } : {}),
+    };
+    const hasRange =
+      (xLocked && (axisRange.xMin != null || axisRange.xMax != null)) ||
+      (yLocked && (axisRange.yMin != null || axisRange.yMax != null));
+    const hasLock = xLocked || yLocked;
+    onUpdateChart?.(chartId, { axisRange: (hasRange || hasLock) ? axisRange : null });
+    setEditingAxisRange(null);
+  };
+
+  const clearAxisRange = (chartId) => {
+    onUpdateChart?.(chartId, { axisRange: null });
+    setEditingAxisRange(null);
+  };
+
+  const renderAxisRangeForm = (chart) => {
+    const xL = editingAxisRange.xLocked;
+    const yL = editingAxisRange.yLocked;
+    return (
+      <div className="chart-axis-range-editor" onClick={(e) => e.stopPropagation()}>
+        <div className="chart-axis-range-editor-title">
+          Axis Ranges
+          <span className="chart-axis-range-editor-hint">
+            {' '}
+            (empty = auto-fit · locked: Home uses min/max; unlocked: data auto-fit)
+          </span>
+        </div>
+
+        {/* X axis row */}
+        <div className="chart-axis-range-axis-row">
+          <button
+            className={`chart-axis-lock-btn${xL ? ' chart-axis-lock-btn--locked' : ''}`}
+            onClick={() => setEditingAxisRange((p) => ({ ...p, xLocked: !p.xLocked }))}
+            title={xL ? 'X axis locked — click to unlock' : 'Click to lock X axis (prevents zoom/pan on X)'}
+          >
+            {xL ? '🔒' : '🔓'} X
+          </button>
+          <label className="chart-axis-range-editor-row">
+            <span>min</span>
+            <input
+              className="chart-axis-range-editor-input"
+              type="number"
+              value={editingAxisRange.xMin}
+              onChange={(e) => setEditingAxisRange((p) => ({ ...p, xMin: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitAxisRangeEdit(); if (e.key === 'Escape') setEditingAxisRange(null); }}
+              placeholder="auto"
+            />
+          </label>
+          <label className="chart-axis-range-editor-row">
+            <span>max</span>
+            <input
+              className="chart-axis-range-editor-input"
+              type="number"
+              value={editingAxisRange.xMax}
+              onChange={(e) => setEditingAxisRange((p) => ({ ...p, xMax: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitAxisRangeEdit(); if (e.key === 'Escape') setEditingAxisRange(null); }}
+              placeholder="auto"
+            />
+          </label>
+        </div>
+
+        {/* Y axis row */}
+        <div className="chart-axis-range-axis-row">
+          <button
+            className={`chart-axis-lock-btn${yL ? ' chart-axis-lock-btn--locked' : ''}`}
+            onClick={() => setEditingAxisRange((p) => ({ ...p, yLocked: !p.yLocked }))}
+            title={yL ? 'Y axis locked — click to unlock' : 'Click to lock Y axis (prevents zoom/pan on Y)'}
+          >
+            {yL ? '🔒' : '🔓'} Y
+          </button>
+          <label className="chart-axis-range-editor-row">
+            <span>min</span>
+            <input
+              className="chart-axis-range-editor-input"
+              type="number"
+              value={editingAxisRange.yMin}
+              onChange={(e) => setEditingAxisRange((p) => ({ ...p, yMin: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitAxisRangeEdit(); if (e.key === 'Escape') setEditingAxisRange(null); }}
+              placeholder="auto"
+              autoFocus
+            />
+          </label>
+          <label className="chart-axis-range-editor-row">
+            <span>max</span>
+            <input
+              className="chart-axis-range-editor-input"
+              type="number"
+              value={editingAxisRange.yMax}
+              onChange={(e) => setEditingAxisRange((p) => ({ ...p, yMax: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitAxisRangeEdit(); if (e.key === 'Escape') setEditingAxisRange(null); }}
+              placeholder="auto"
+            />
+          </label>
+        </div>
+
+        <div className="chart-axis-range-editor-actions">
+          <button className="chart-label-editor-btn chart-label-editor-btn--save" onClick={commitAxisRangeEdit}>Apply</button>
+          {(chart.axisRange) && (
+            <button className="chart-label-editor-btn chart-axis-range-clear-btn" onClick={() => clearAxisRange(chart.id)}>Clear all</button>
+          )}
+          <button className="chart-label-editor-btn" onClick={() => setEditingAxisRange(null)}>Cancel</button>
+        </div>
+      </div>
+    );
+  };
 
   const openLabelEditor = (chart, e) => {
     e.stopPropagation();
@@ -1061,6 +1197,42 @@ const ChartPanel = ({
   };
 
   /**
+   * Plotly’s modebar “Home” (reset) restores the layout we pass on each update.
+   * For each axis: if locked and min/max are saved, embed `range` so Home snaps to
+   * them; if unlocked, use `autorange: true` so Home and the default view follow data.
+   */
+  const resolveAxisProps = (ar) => {
+    if (!ar) {
+      return {
+        xRangeProps: { autorange: true },
+        yRangeProps: { autorange: true },
+        xLockProps: {},
+        yLockProps: {},
+      };
+    }
+    const xLocked = ar.xLocked ?? false;
+    const yLocked = ar.yLocked ?? false;
+    const xHas = ar.xMin != null || ar.xMax != null;
+    const yHas = ar.yMin != null || ar.yMax != null;
+
+    const xRangeProps =
+      xLocked && xHas
+        ? { range: [ar.xMin ?? null, ar.xMax ?? null], autorange: false }
+        : { autorange: true };
+    const yRangeProps =
+      yLocked && yHas
+        ? { range: [ar.yMin ?? null, ar.yMax ?? null], autorange: false }
+        : { autorange: true };
+
+    return {
+      xRangeProps,
+      yRangeProps,
+      xLockProps: xLocked ? { fixedrange: true } : {},
+      yLockProps: yLocked ? { fixedrange: true } : {},
+    };
+  };
+
+  /**
    * Generate professional Plotly layout
    */
   const generatePlotlyLayout = (chart, data) => {
@@ -1213,6 +1385,7 @@ const ChartPanel = ({
     if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
       const eventShapes = generateEventMarkerShapes();
       const yLabelHTML = getMultiBarYAxisLabelHTML(chart);
+      const { xRangeProps, yRangeProps, xLockProps, yLockProps } = resolveAxisProps(chart.axisRange);
       return {
         ...baseLayout,
         shapes: eventShapes,
@@ -1229,7 +1402,9 @@ const ChartPanel = ({
           tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
           zeroline: true,
           zerolinecolor: lineRgba,
-          zerolinewidth: 2
+          zerolinewidth: 2,
+          ...xRangeProps,
+          ...xLockProps
         },
         yaxis: {
           title: {
@@ -1244,7 +1419,9 @@ const ChartPanel = ({
           tickfont: { family: 'Arial, sans-serif', size: 11, color: '#999' },
           zeroline: true,
           zerolinecolor: lineRgba,
-          zerolinewidth: 2
+          zerolinewidth: 2,
+          ...yRangeProps,
+          ...yLockProps
         },
         showlegend: true,
         legend: {
@@ -1358,6 +1535,7 @@ const ChartPanel = ({
     // Chart-specific layout
     if (chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'bar') {
       const eventShapes = generateEventMarkerShapes();
+      const { xRangeProps, yRangeProps, xLockProps, yLockProps } = resolveAxisProps(chart.axisRange);
       
       return {
         ...baseLayout,
@@ -1383,7 +1561,9 @@ const ChartPanel = ({
           },
           zeroline: true,
           zerolinecolor: lineRgba,
-          zerolinewidth: 2
+          zerolinewidth: 2,
+          ...xRangeProps,
+          ...xLockProps
         },
         yaxis: {
           title: {
@@ -1407,7 +1587,9 @@ const ChartPanel = ({
           },
           zeroline: true,
           zerolinecolor: lineRgba,
-          zerolinewidth: 2
+          zerolinewidth: 2,
+          ...yRangeProps,
+          ...yLockProps
         },
         shapes: eventShapes // Add event marker shapes
       };
@@ -1976,8 +2158,16 @@ const ChartPanel = ({
                     title="Edit title and axis labels"
                   >✎</button>
                 )}
+                {onUpdateChart && (
+                  <button
+                    className={`chart-label-edit-btn chart-axis-range-btn${chart.axisRange ? ' chart-axis-range-btn--active' : ''}`}
+                    onClick={(e) => openAxisRangeEditor(chart, e)}
+                    title="Axis ranges: locked axis uses min/max for Home; unlocked axis auto-fits to data"
+                  >⊟</button>
+                )}
               </div>
               {editingLabels?.chartId === chart.id && renderLabelEditorForm()}
+              {editingAxisRange?.chartId === chart.id && renderAxisRangeForm(chart)}
               <select
                 className="chart-panel-chart-sample"
                 value={getSampleStep(chart.id)}
@@ -2038,6 +2228,16 @@ const ChartPanel = ({
                     config={plotlyConfig}
                     style={{ width: '100%', height: '100%' }}
                     useResizeHandler={true}
+                    onRelayout={(rd) => {
+                      if (rd['xaxis.range[0]'] != null || rd['yaxis.range[0]'] != null) {
+                        plotlyRangesRef.current[chart.id] = {
+                          xMin: rd['xaxis.range[0]'],
+                          xMax: rd['xaxis.range[1]'],
+                          yMin: rd['yaxis.range[0]'],
+                          yMax: rd['yaxis.range[1]'],
+                        };
+                      }
+                    }}
                     {...(chart.isMultiComponent ? plotlyTransition : {})}
                     {...(supportsSelection && onSelectionChange ? {
                       onInitialized: (fig, gd) => attachSelectionListeners(chart.id, gd)
@@ -2102,8 +2302,16 @@ const ChartPanel = ({
                           title="Edit title and axis labels"
                         >✎</button>
                       )}
+                      {onUpdateChart && (
+                        <button
+                          className={`chart-label-edit-btn chart-axis-range-btn${chart.axisRange ? ' chart-axis-range-btn--active' : ''}`}
+                          onClick={(e) => openAxisRangeEditor(chart, e)}
+                          title="Axis ranges: locked axis uses min/max for Home; unlocked axis auto-fits to data"
+                        >⊟</button>
+                      )}
                     </div>
                     {editingLabels?.chartId === chart.id && renderLabelEditorForm()}
+                    {editingAxisRange?.chartId === chart.id && renderAxisRangeForm(chart)}
                     <select
                       className="chart-panel-chart-sample"
                       value={getSampleStep(chart.id)}
@@ -2136,6 +2344,16 @@ const ChartPanel = ({
                       const supportsSelection = chart.chartType === '2d' || chart.chartType === 'nd' || chart.chartType === 'stacked-nd' || (chart.isMultiComponent && chart.chartType === 'multi-line-chart');
                       return (
                         <Plot data={plotlyData} layout={layout} config={plotlyConfig} style={{ width: '100%', height: '100%' }} useResizeHandler={true}
+                          onRelayout={(rd) => {
+                            if (rd['xaxis.range[0]'] != null || rd['yaxis.range[0]'] != null) {
+                              plotlyRangesRef.current[chart.id] = {
+                                xMin: rd['xaxis.range[0]'],
+                                xMax: rd['xaxis.range[1]'],
+                                yMin: rd['yaxis.range[0]'],
+                                yMax: rd['yaxis.range[1]'],
+                              };
+                            }
+                          }}
                           {...(chart.isMultiComponent ? plotlyTransition : {})}
                           {...(supportsSelection && onSelectionChange ? { onInitialized: (fig, gd) => attachSelectionListeners(chart.id, gd) } : {})}
                         />

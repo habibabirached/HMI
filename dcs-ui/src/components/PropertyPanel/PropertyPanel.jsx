@@ -305,6 +305,26 @@ const PropertyPanel = ({
                 </div>
 
                 <div className="prop-group">
+                  <label>Flow Arrows</label>
+                  <select
+                    value={connStyle.flowArrows || 'none'}
+                    onChange={(e) =>
+                      onUpdateConnection(selectedConnection.id, {
+                        style: {
+                          ...(selectedConnection.style || {}),
+                          flowArrows: e.target.value
+                        }
+                      })
+                    }
+                  >
+                    <option value="none">None (hidden)</option>
+                    <option value="forward">→ A to B (source → target)</option>
+                    <option value="reverse">← B to A (target → source)</option>
+                  </select>
+                  <div className="prop-hint">Arrows circulate during Simulation</div>
+                </div>
+
+                <div className="prop-group">
                   <label>Animation</label>
                   <select
                     value={connStyle.animation || 'none'}

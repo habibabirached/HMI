@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "all",
+      "display_name": "all",
+      "member_simulations": [
+        "bess_BESS_1",
+        "bess_BESS_2",
+        "bess_Frequency-FFT",
+        "bess_LM2500_1",
+        "bess_LM2500_2",
+        "bess_LM2500_3",
+        "bess_LM2500_4",
+        "bess_LM2500_5",
+        "bess_LM2500_6",
+        "bess_LM2500_7",
+        "bess_LM2500_8",
+        "bess_LM6000PF1_GEN_System_MW",
+        "bess_Load_1",
+        "bess_Load_2",
+        "bess_Load_3",
+        "bess_Load_4",
+        "bess_Main",
+        "bess_SynchronousMachine",
+        "noBessFrequency-FFT",
+        "noBessLM2500_1",
+        "noBessLM2500_2",
+        "noBessLM2500_3",
+        "noBessLM2500_4",
+        "noBessLM2500_5",
+        "noBessLM2500_6",
+        "noBessLM2500_7",
+        "noBessLM2500_8",
+        "noBessLM6000PF1_GEN_System_1",
+        "noBessLM6000PF1_GEN_System_MW",
+        "noBessLoad_1",
+        "noBessLoad_2",
+        "noBessLoad_3",
+        "noBessLoad_4",
+        "noBessMain",
+        "noBessSynchronousMachine",
+        "noBessTERMINALVOLTAGE_1"
+      ]
+    }
+  ]
+}

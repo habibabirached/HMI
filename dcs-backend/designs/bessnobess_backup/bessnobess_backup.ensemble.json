@@ -84,9 +84,9 @@
           ]
         ],
         "chart_sample_default": 8,
-        "chart_panel_height": 1234,
+        "chart_panel_height": 933,
         "chart_panel_opacity": 1.0,
-        "chart_card_width": 1450,
+        "chart_card_width": 1292,
         "view_mode": "customer",
         "derived_variables": [
           {

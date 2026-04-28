@@ -132,6 +132,31 @@ function buildOpenChartsFromChartsToDisplay(chartsToDisplay, canvasComponents, r
       ...(chartDef.x_label != null && { xLabel: chartDef.x_label }),
       ...(chartDef.y_label != null && { yLabel: chartDef.y_label }),
       ...(chartDef.legend_labels != null && typeof chartDef.legend_labels === 'object' && { legendLabels: chartDef.legend_labels }),
+      ...(chartDef.axis_range != null
+        ? (() => {
+            const a = chartDef.axis_range;
+            const xL = a.x_locked ?? false;
+            const yL = a.y_locked ?? false;
+            return {
+              axisRange: {
+                xLocked: xL,
+                yLocked: yL,
+                ...(xL
+                  ? {
+                      ...(a.x_min != null && { xMin: a.x_min }),
+                      ...(a.x_max != null && { xMax: a.x_max }),
+                    }
+                  : {}),
+                ...(yL
+                  ? {
+                      ...(a.y_min != null && { yMin: a.y_min }),
+                      ...(a.y_max != null && { yMax: a.y_max }),
+                    }
+                  : {}),
+              },
+            };
+          })()
+        : {}),
       ...(chartDef.ensemble_sim_id && !chartDef.ensemble_cross_member && { ensembleSimId: chartDef.ensemble_sim_id }),
       ...(chartDef.ensemble_cross_member && { ensembleCrossMember: true }),
     };
@@ -191,6 +216,27 @@ function App() {
   useLayoutEffect(() => {
     canvasComponentsRef.current = canvasComponents;
   }, [canvasComponents]);
+
+  /** Latest reset logic for playback loop + Start simulation — avoids stale interval closures. */
+  const resetPlaybackVisualsRef = useRef(() => {});
+  resetPlaybackVisualsRef.current = () => {
+    const prev = canvasComponentsRef.current;
+    const initialState = {};
+    const next = prev.map((comp) => {
+      let startStatus = 'online';
+      if (comp.initialSimStatus === 'open') {
+        startStatus = BREAKER_TYPES.has(comp.type) ? 'open' : 'offline';
+      }
+      initialState[comp.id] = {
+        ...comp.state,
+        status: startStatus,
+      };
+      return { ...comp, status: startStatus, isTripped: false };
+    });
+    setCanvasComponents(next);
+    setSystemState(initialState);
+  };
+
   const [connections, setConnections] = useState([]);
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [selectedConnection, setSelectedConnection] = useState(null);
@@ -207,6 +253,14 @@ function App() {
   const [systemState, setSystemState] = useState({});
   const [simulationTime, setSimulationTime] = useState(0); // Current simulation time in seconds
   const [simulationSpeed, setSimulationSpeed] = useState(1); // Speed multiplier: 1x, 10x, 100x, 1000x
+  const simulationSpeedRef = useRef(1);
+  useLayoutEffect(() => {
+    simulationSpeedRef.current = simulationSpeed;
+  }, [simulationSpeed]);
+
+  /** Last simulation time (seconds) from metadata / loaded CSV — drives playback loop when reached. */
+  const playbackMaxTimeRef = useRef(null);
+
   const simulationIntervalRef = useRef(null); // Interval for advancing simulation time
   
   // Save/Load dialog state
@@ -272,6 +326,52 @@ function App() {
   useLayoutEffect(() => {
     ensembleMemberSimulationDataRef.current = ensembleMemberSimulationData;
   }, [ensembleMemberSimulationData]);
+
+  /** Playback span end time (seconds) — when reached, simulation loops from t = 0. */
+  useEffect(() => {
+    const meta = simulationMetadata;
+    const trMax = meta?.timeRange?.max;
+    if (Number.isFinite(trMax) && trMax > 0) {
+      playbackMaxTimeRef.current = trMax;
+      return;
+    }
+    const rows = simulationDataRef.current?.length ? simulationDataRef.current : simulationData;
+    if (rows?.length) {
+      const tc = pickTimeColumn(Object.keys(rows[0]));
+      if (tc) {
+        const v = parseFloat(rows[rows.length - 1][tc]);
+        if (Number.isFinite(v) && v > 0) {
+          playbackMaxTimeRef.current = v;
+          return;
+        }
+      }
+    }
+    if (meta?.isEnsemble) {
+      const ens = ensembleMemberSimulationDataRef.current;
+      const members = meta.memberSimulations || [];
+      let maxLast = -Infinity;
+      for (const id of members) {
+        const mrows = ens?.[id];
+        if (!mrows?.length) continue;
+        const tc = pickTimeColumn(Object.keys(mrows[0]));
+        if (!tc) continue;
+        const nv = parseFloat(mrows[mrows.length - 1][tc]);
+        if (Number.isFinite(nv)) maxLast = Math.max(maxLast, nv);
+      }
+      if (Number.isFinite(maxLast) && maxLast >= 0) {
+        playbackMaxTimeRef.current = maxLast;
+        return;
+      }
+    }
+    playbackMaxTimeRef.current = null;
+  }, [
+    simulationMetadata?.timeRange?.max,
+    simulationMetadata?.id,
+    simulationMetadata?.isEnsemble,
+    simulationMetadata?.memberSimulations,
+    simulationData,
+    ensembleMemberSimulationData,
+  ]);
 
   /** Serialize per-member lazy merges so concurrent subset fetches do not clobber each other. */
   const ensembleLoadChainsRef = useRef({});
@@ -606,32 +706,7 @@ function App() {
       setSimulationRunning(true);
       setSimulationTime(0); // Reset simulation time to 0
 
-      setCanvasComponents((prev) =>
-        prev.map((comp) => {
-          let startStatus = 'online';
-          if (comp.initialSimStatus === 'open') {
-            startStatus = BREAKER_TYPES.has(comp.type) ? 'open' : 'offline';
-          }
-          return {
-            ...comp,
-            status: startStatus,
-            isTripped: false,
-          };
-        }),
-      );
-
-      const initialState = {};
-      canvasComponents.forEach((comp) => {
-        let startStatus = 'online';
-        if (comp.initialSimStatus === 'open') {
-          startStatus = BREAKER_TYPES.has(comp.type) ? 'open' : 'offline';
-        }
-        initialState[comp.id] = {
-          ...comp.state,
-          status: startStatus,
-        };
-      });
-      setSystemState(initialState);
+      resetPlaybackVisualsRef.current();
 
       startSimulationClock();
     };
@@ -930,20 +1005,28 @@ function App() {
     }
   }, [designApiPath, csvStatus?.use_design_dir]);
 
-  // Simulation clock advancement
+  // Simulation clock advancement — loops to t = 0 when playback reaches CSV/metadata max time.
   const startSimulationClock = (speed) => {
-    // Use the speed parameter if provided, otherwise use state
-    const currentSpeed = speed !== undefined ? speed : simulationSpeed;
-    
-    // Clear any existing interval
+    if (speed !== undefined) {
+      simulationSpeedRef.current = speed;
+    }
+
     if (simulationIntervalRef.current) {
       clearInterval(simulationIntervalRef.current);
     }
-    
-    // Advance simulation time every 100ms (10 FPS)
-    // Time increment = (100ms / 1000) * speed = 0.1 * speed seconds per frame
+
     simulationIntervalRef.current = setInterval(() => {
-      setSimulationTime(prev => prev + (0.1 * currentSpeed));
+      setSimulationTime((prev) => {
+        const spd = simulationSpeedRef.current;
+        const dt = 0.1 * spd;
+        const next = prev + dt;
+        const tMax = playbackMaxTimeRef.current;
+        if (Number.isFinite(tMax) && tMax > 0 && next >= tMax) {
+          queueMicrotask(() => resetPlaybackVisualsRef.current());
+          return 0;
+        }
+        return next;
+      });
     }, 100);
   };
   
@@ -957,8 +1040,9 @@ function App() {
   // Update simulation speed
   const handleSetSimulationSpeed = (speed) => {
     setSimulationSpeed(speed);
+    simulationSpeedRef.current = speed;
     if (simulationRunning) {
-      startSimulationClock(speed); // Pass speed directly to avoid stale closure
+      startSimulationClock(speed);
     }
   };
   
@@ -2703,6 +2787,21 @@ function App() {
         if (c.legendLabels != null && typeof c.legendLabels === 'object' && Object.keys(c.legendLabels).length) {
           base.legend_labels = c.legendLabels;
         }
+        if (c.axisRange != null) {
+          const { xMin, xMax, yMin, yMax, xLocked, yLocked } = c.axisRange;
+          const rangeObj = {};
+          if (xLocked) {
+            if (xMin != null && !Number.isNaN(xMin)) rangeObj.x_min = xMin;
+            if (xMax != null && !Number.isNaN(xMax)) rangeObj.x_max = xMax;
+            rangeObj.x_locked = true;
+          }
+          if (yLocked) {
+            if (yMin != null && !Number.isNaN(yMin)) rangeObj.y_min = yMin;
+            if (yMax != null && !Number.isNaN(yMax)) rangeObj.y_max = yMax;
+            rangeObj.y_locked = true;
+          }
+          if (Object.keys(rangeObj).length) base.axis_range = rangeObj;
+        }
         return base;
       });
       const body = {
@@ -4384,6 +4483,8 @@ function App() {
               ensembleColumnGroups={ensembleColumnGroups}
               onConfigureConnectionReadout={(comp) => setConnectionReadoutContext(comp)}
               zoom={zoom}
+              onZoomIn={() => setZoom((prev) => Math.min(prev + 0.1, 2))}
+              onZoomOut={() => setZoom((prev) => Math.max(prev - 0.1, 0.5))}
               pan={pan}
               onPan={setPan}
               mode={mode}

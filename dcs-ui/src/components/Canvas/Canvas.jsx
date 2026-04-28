@@ -189,6 +189,8 @@ const Canvas = forwardRef(({
   ensembleColumnGroups = [],
   onConfigureConnectionReadout,
   zoom,
+  onZoomIn,
+  onZoomOut,
   pan,
   onPan,
   mode,
@@ -200,6 +202,9 @@ const Canvas = forwardRef(({
   systemState
 }, ref) => {
   const canvasRef = useRef(null);
+  /** Keep latest pan for native wheel/touch handlers (avoids stale closures). */
+  const panForGesturesRef = useRef(pan);
+  const twoTouchPanRef = useRef(null);
   /** Stable identities for React.memo(CanvasBlock) — latest implementation swapped in each render. */
   const handleComponentMouseDownLatestRef = useRef(null);
   const handleComponentContextMenuLatestRef = useRef(null);
@@ -713,6 +718,79 @@ const Canvas = forwardRef(({
     };
   }, [resizingComponent, onUpdateComponent]);
 
+  useEffect(() => {
+    panForGesturesRef.current = pan;
+  }, [pan]);
+
+  // Two-finger trackpad (wheel) and two-finger touch: pan the canvas. Native listeners
+  // with { passive: false } are required so we can preventDefault and avoid the page
+  // scrolling. Ctrl/Meta+wheel (pinch / browser zoom) is left alone.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      let dx = e.deltaX;
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) {
+        dx *= 16;
+        dy *= 16;
+      } else if (e.deltaMode === 2) {
+        dx *= 80;
+        dy *= 80;
+      }
+      onPan((p) => ({ x: p.x - dx, y: p.y - dy }));
+    };
+
+    const onTouchStart = (e) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const midX = (t0.clientX + t1.clientX) / 2;
+      const midY = (t0.clientY + t1.clientY) / 2;
+      const p0 = panForGesturesRef.current;
+      twoTouchPanRef.current = { midX, midY, startPan: { x: p0.x, y: p0.y } };
+    };
+
+    const onTouchMove = (e) => {
+      const s = twoTouchPanRef.current;
+      if (!s || e.touches.length < 2) return;
+      e.preventDefault();
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const midX = (t0.clientX + t1.clientX) / 2;
+      const midY = (t0.clientY + t1.clientY) / 2;
+      onPan({
+        x: s.startPan.x + (midX - s.midX),
+        y: s.startPan.y + (midY - s.midY),
+      });
+    };
+
+    const onTouchEnd = (e) => {
+      if (e.touches.length < 2) {
+        twoTouchPanRef.current = null;
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [onPan]);
+
   const handleComponentMouseUp = (e, component) => {
     if (connecting && connecting !== component.id) {
       // Complete connection
@@ -763,9 +841,32 @@ const Canvas = forwardRef(({
   
   // Enhanced keyboard shortcuts for multi-selection
   useEffect(() => {
+    const isTypingTarget = (t) => {
+      if (!t) return true;
+      const tag = t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (t.isContentEditable) return true;
+      if (typeof t.closest === 'function' && t.closest('input, textarea, select, [contenteditable="true"]')) {
+        return true;
+      }
+      return false;
+    };
+
+    const isBlockingOverlay = () => {
+      if (contextMenu) return true;
+      if (showMultiChartDialog) return true;
+      if (typeof document === 'undefined') return false;
+      if (document.querySelector('dialog[open]')) return true;
+      if (document.querySelector('[aria-modal="true"]')) return true;
+      if (document.querySelector('.connection-readout-dialog')) return true;
+      return false;
+    };
+
     const handleKeyDown = (e) => {
-      // Ignore if typing in an input field
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      if (isTypingTarget(e.target)) {
+        return;
+      }
+      if (isBlockingOverlay()) {
         return;
       }
       
@@ -774,6 +875,14 @@ const Canvas = forwardRef(({
         onClearMultiSelection();
         setContextMenu(null);
         console.log('⌨️  Escape - Cleared selection');
+      }
+      
+      // Arrow Up / Down — zoom in / out (same limits as toolbar)
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey) {
+        e.preventDefault();
+        if (e.key === 'ArrowUp') onZoomIn?.();
+        else onZoomOut?.();
+        return;
       }
       
       // Ctrl/Cmd+A - Select all components (Design mode only)
@@ -795,27 +904,24 @@ const Canvas = forwardRef(({
         alert(`Delete ${selectedComponents.length} components? (Not yet implemented)`);
       }
       
-      // ARROW KEYS - Move selected components (Design mode only)
-      if (mode === 'design' && selectedComponents.length > 0 && !e.shiftKey) {
+      // ARROW KEYS — nudge selected components (Shift+Up/Down for vertical; Left/Right without Shift)
+      if (mode === 'design' && selectedComponents.length > 0) {
         const gridSize = 50;
         let dx = 0, dy = 0;
-        
-        if (e.key === 'ArrowUp') {
+        if (e.key === 'ArrowUp' && e.shiftKey) {
           e.preventDefault();
           dy = -gridSize;
-        } else if (e.key === 'ArrowDown') {
+        } else if (e.key === 'ArrowDown' && e.shiftKey) {
           e.preventDefault();
           dy = gridSize;
-        } else if (e.key === 'ArrowLeft') {
+        } else if (e.key === 'ArrowLeft' && !e.shiftKey) {
           e.preventDefault();
           dx = -gridSize;
-        } else if (e.key === 'ArrowRight') {
+        } else if (e.key === 'ArrowRight' && !e.shiftKey) {
           e.preventDefault();
           dx = gridSize;
         }
-        
         if (dx !== 0 || dy !== 0) {
-          // Move all selected components; re-snap center so positions stay on the design lattice
           selectedComponents.forEach(compId => {
             const comp = components.find(c => c.id === compId);
             if (comp) {
@@ -836,7 +942,18 @@ const Canvas = forwardRef(({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClearMultiSelection, selectedComponents, components, mode, onMultiSelect, onMoveComponent]);
+  }, [
+    onClearMultiSelection,
+    selectedComponents,
+    components,
+    mode,
+    onMultiSelect,
+    onMoveComponent,
+    onZoomIn,
+    onZoomOut,
+    contextMenu,
+    showMultiChartDialog,
+  ]);
   
   // Click outside handler for multi-component context menu
   useEffect(() => {
@@ -1000,6 +1117,42 @@ const Canvas = forwardRef(({
                 >
                   {conn.voltage > 0 ? `${conn.voltage} kV` : ''}
                 </text>
+
+                {/* Directional flow arrows — only visible during simulation */}
+                {simulationRunning && resolved.flowArrows !== 'none' && (() => {
+                  // Build SVG path string from segments
+                  const segs = resolved.flowArrows === 'reverse'
+                    ? [...segments].reverse().map(([x1, y1, x2, y2]) => [x2, y2, x1, y1])
+                    : segments;
+                  if (segs.length === 0) return null;
+                  let pathD = `M ${segs[0][0]},${segs[0][1]}`;
+                  for (const [, , px2, py2] of segs) pathD += ` L ${px2},${py2}`;
+                  const totalLen = segs.reduce(
+                    (s, [ax, ay, bx, by]) => s + Math.hypot(bx - ax, by - ay), 0
+                  );
+                  if (totalLen < 8) return null;
+                  // Arrow color: always bright white-ish so it's visible over any wire
+                  const arrowColor = 'rgba(255,255,255,0.92)';
+                  const speed = 90; // canvas-px per second
+                  const duration = Math.max(0.8, totalLen / speed);
+                  const count = Math.min(5, Math.max(2, Math.floor(totalLen / 60)));
+                  return Array.from({ length: count }, (_, i) => (
+                    <polygon
+                      key={`fa-${conn.id}-${i}`}
+                      points="-5,-4 5,0 -5,4"
+                      fill={arrowColor}
+                      pointerEvents="none"
+                      style={{
+                        offsetPath: `path("${pathD}")`,
+                        offsetRotate: 'auto',
+                        transformBox: 'fill-box',
+                        transformOrigin: 'center',
+                        animation: `flowArrowPath ${duration}s linear infinite`,
+                        animationDelay: `${-(i * duration / count)}s`,
+                      }}
+                    />
+                  ));
+                })()}
               </g>
             );
           })}

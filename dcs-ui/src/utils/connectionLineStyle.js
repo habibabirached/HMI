@@ -175,6 +175,7 @@ function buildCustomGradientStops(baseHex, depth3d, glossiness, energized) {
  *   stops: Array<{ offset: string, color: string, opacity: number }>,
  *   strokeWidth: number,
  *   animation: 'none'|'forward'|'reverse',
+ *   flowArrows: 'none'|'forward'|'reverse',
  *   dropShadowCss: string|null,
  *   role: string|null
  * }}
@@ -182,6 +183,10 @@ function buildCustomGradientStops(baseHex, depth3d, glossiness, energized) {
 export function resolveConnectionRenderParams(conn, fromType, toType, isEnergized) {
   const style = conn.style;
   const useAuto = !style || style.useAuto !== false;
+
+  // flowArrows works independently of useAuto — read it from style regardless
+  const rawArrows = style?.flowArrows;
+  const flowArrows = rawArrows === 'forward' || rawArrows === 'reverse' ? rawArrows : 'none';
 
   if (useAuto) {
     const role = getConnectionLineRole(fromType, toType);
@@ -193,6 +198,7 @@ export function resolveConnectionRenderParams(conn, fromType, toType, isEnergize
       ],
       strokeWidth: 5,
       animation: 'none',
+      flowArrows,
       dropShadowCss: null,
       role
     };
@@ -230,6 +236,7 @@ export function resolveConnectionRenderParams(conn, fromType, toType, isEnergize
     stops,
     strokeWidth,
     animation,
+    flowArrows,
     dropShadowCss,
     role: null
   };
