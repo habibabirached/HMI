@@ -27,8 +27,40 @@ const FUNCTIONS = [
 ];
 
 /**
- * @typedef {{ k: 'V', name: string } | { k: 'R', t: string }} FormulaPart
+ * @typedef {{ k: 'V', name: string, display?: string } | { k: 'R', t: string }} FormulaPart
  */
+
+/**
+ * Ensemble formula picker: grouped headers + short labels; `value` stays qualified for evaluation rows.
+ * @param {string[] | Array<{ value?: string, qualified?: string, label?: string }>} variables
+ * @param {null | Array<{ title?: string, simId?: string, items: unknown[] }>} variableGroups
+ */
+function buildPickItems(variables, variableGroups) {
+  if (variableGroups != null && Array.isArray(variableGroups)) {
+    if (variableGroups.length === 0) return [];
+    return variableGroups.flatMap((g) => {
+      const groupTitle = String(g.title ?? g.simId ?? '').trim() || 'Scenario';
+      const rawItems = g.items || [];
+      return rawItems.map((raw) => {
+        if (typeof raw === 'string') {
+          return { value: raw, label: raw, groupTitle };
+        }
+        const value = raw?.value ?? raw?.qualified ?? '';
+        const label = raw?.label ?? value;
+        return { value: String(value), label: String(label), groupTitle };
+      });
+    });
+  }
+  return (variables || []).map((v) =>
+    typeof v === 'string'
+      ? { value: v, label: v, groupTitle: null }
+      : {
+          value: String(v?.value ?? ''),
+          label: String(v?.label ?? v?.value ?? ''),
+          groupTitle: null,
+        },
+  );
+}
 
 function chipLabel(fullName) {
   const s = String(fullName);
@@ -40,6 +72,8 @@ const FormulaCalculator = ({
   open = false,
   onClose,
   variables = [],
+  /** Ensemble: `{ title, simId?, items: [{ value, label }] }[]` — UI groups by scenario; formula keeps qualified `value`. */
+  variableGroups = null,
   value: controlledValue,
   onChange,
   onDone,
@@ -69,6 +103,11 @@ const FormulaCalculator = ({
     [chain, draft],
   );
 
+  const allPickItems = useMemo(
+    () => buildPickItems(variables, variableGroups),
+    [variables, variableGroups],
+  );
+
   useEffect(() => {
     if (isControlled) return;
     onChange?.(getFormulaString());
@@ -90,30 +129,34 @@ const FormulaCalculator = ({
     setDraft('');
   }, []);
 
-  const latch = useCallback((fullName) => {
+  const latch = useCallback((fullName, displayLabel) => {
     if (fullName == null || String(fullName) === '') return;
-    setChain((c) => [...c, { k: 'V', name: String(fullName) }]);
+    const disp = displayLabel != null && String(displayLabel).trim() !== '' ? String(displayLabel) : undefined;
+    setChain((c) => [...c, { k: 'V', name: String(fullName), ...(disp ? { display: disp } : {}) }]);
     setDraft('');
     setVarNavIndex(-1);
     requestAnimationFrame(() => draftInputRef.current?.focus());
   }, []);
 
-  const filteredVariables = useMemo(() => {
-    if (!variables.length) return [];
-    if (!varFilterMode) return variables;
+  const filteredPickItems = useMemo(() => {
+    if (!allPickItems.length) return [];
+    if (!varFilterMode) return allPickItems;
     const q = draft.toLowerCase().trim();
-    if (!q) return variables;
-    return variables.filter((v) => String(v).toLowerCase().includes(q));
-  }, [variables, draft, varFilterMode]);
+    if (!q) return allPickItems;
+    return allPickItems.filter(
+      (it) =>
+        it.label.toLowerCase().includes(q) || it.value.toLowerCase().includes(q),
+    );
+  }, [allPickItems, draft, varFilterMode]);
 
   useEffect(() => {
-    const n = filteredVariables.length;
+    const n = filteredPickItems.length;
     setVarNavIndex((i) => {
       if (n === 0) return -1;
       if (i < 0) return -1;
       return Math.min(i, n - 1);
     });
-  }, [filteredVariables.length]);
+  }, [filteredPickItems.length]);
 
   const formulaStr = getFormulaString();
   const trimmedFormula = formulaStr.trim();
@@ -127,13 +170,18 @@ const FormulaCalculator = ({
     requestAnimationFrame(() => nameInputRef.current?.focus());
   }, [canDone, trimmedFormula]);
 
-  const handleAddVariable = useCallback(() => {
+  const handleAddVariable = useCallback(async () => {
     const trimmedName = variableName.trim();
     if (!trimmedName || !onDone) return;
-    onDone(pendingFormula, trimmedName);
-    setNamingPhase(false);
-    setPendingFormula('');
-    setVariableName('');
+    try {
+      await Promise.resolve(onDone(pendingFormula, trimmedName));
+      setNamingPhase(false);
+      setPendingFormula('');
+      setVariableName('');
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || String(err));
+    }
   }, [variableName, pendingFormula, onDone]);
 
   const handleBackToFormula = useCallback(() => {
@@ -172,12 +220,12 @@ const FormulaCalculator = ({
         setVarNavIndex(-1);
         return;
       }
-      if (e.key === 'ArrowRight' && varFilterMode && filteredVariables.length > 0) {
+      if (e.key === 'ArrowRight' && varFilterMode && filteredPickItems.length > 0) {
         e.preventDefault();
-        setVarNavIndex((i) => (i < 0 ? 0 : Math.min(i + 1, filteredVariables.length - 1)));
+        setVarNavIndex((i) => (i < 0 ? 0 : Math.min(i + 1, filteredPickItems.length - 1)));
         return;
       }
-      if (e.key === 'ArrowLeft' && varFilterMode && filteredVariables.length > 0) {
+      if (e.key === 'ArrowLeft' && varFilterMode && filteredPickItems.length > 0) {
         e.preventDefault();
         setVarNavIndex((i) => (i <= 0 ? -1 : i - 1));
         return;
@@ -190,9 +238,10 @@ const FormulaCalculator = ({
         }
         if (varFilterMode) {
           e.preventDefault();
-          if (filteredVariables.length > 0) {
+          if (filteredPickItems.length > 0) {
             const idx = varNavIndex >= 0 ? varNavIndex : 0;
-            latch(filteredVariables[idx]);
+            const it = filteredPickItems[idx];
+            latch(it.value, it.label);
           }
         } else {
           e.preventDefault();
@@ -212,7 +261,7 @@ const FormulaCalculator = ({
     },
     [
       varFilterMode,
-      filteredVariables,
+      filteredPickItems,
       varNavIndex,
       latch,
       canDone,
@@ -337,7 +386,7 @@ const FormulaCalculator = ({
                     {chain.map((p, i) =>
                       p.k === 'V' ? (
                         <span key={`V-${i}-${p.name}`} className="formula-calculator-chip" title={p.name} tabIndex={-1}>
-                          {chipLabel(p.name)}
+                          {chipLabel(p.display || p.name)}
                         </span>
                       ) : (
                         <span key={`R-${i}`} className="formula-calculator-raw" tabIndex={-1}>
@@ -459,32 +508,67 @@ const FormulaCalculator = ({
                   ))}
                 </div>
 
-                {variables.length > 0 && (
+                {allPickItems.length > 0 && (
                   <div className="formula-calculator-vars">
                     <div className="formula-calculator-vars-label">Variables</div>
-                    {draft && filteredVariables.length === 0 ? (
+                    {draft && filteredPickItems.length === 0 ? (
                       <p className="formula-calculator-vars-hint" role="status">
                         No variable names include this filter. Change what you are typing, or clear it, to see the
                         full list.
                       </p>
                     ) : null}
-                    <div className="formula-calculator-vars-list" role="listbox" aria-label="Filtered variables">
-                      {filteredVariables.map((v, idx) => (
-                        <button
-                          key={v}
-                          type="button"
-                          role="option"
-                          aria-selected={varNavIndex === idx}
-                          className={`formula-calculator-btn formula-calculator-btn-var${
-                            varNavIndex === idx ? ' formula-calculator-btn-var--nav' : ''
-                          }`}
-                          onClick={() => latch(v)}
-                          title={v}
-                        >
-                          {v}
-                        </button>
-                      ))}
-                    </div>
+                    {variableGroups != null && variableGroups.length > 0 ? (
+                      <div className="formula-calculator-vars-groups">
+                        {variableGroups.map((g) => {
+                          const title = String(g.title ?? g.simId ?? '').trim() || 'Scenario';
+                          const items = filteredPickItems.filter((it) => it.groupTitle === title);
+                          if (!items.length) return null;
+                          return (
+                            <div key={g.simId || title} className="formula-calculator-var-group">
+                              <div className="formula-calculator-var-group-title">{title}</div>
+                              <div className="formula-calculator-vars-list" role="listbox" aria-label={`Variables · ${title}`}>
+                                {items.map((it) => {
+                                  const idx = filteredPickItems.indexOf(it);
+                                  return (
+                                    <button
+                                      key={`${title}-${it.value}`}
+                                      type="button"
+                                      role="option"
+                                      aria-selected={varNavIndex === idx}
+                                      className={`formula-calculator-btn formula-calculator-btn-var${
+                                        varNavIndex === idx ? ' formula-calculator-btn-var--nav' : ''
+                                      }`}
+                                      onClick={() => latch(it.value, it.label)}
+                                      title={it.value}
+                                    >
+                                      {it.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="formula-calculator-vars-list" role="listbox" aria-label="Filtered variables">
+                        {filteredPickItems.map((it, idx) => (
+                          <button
+                            key={it.value}
+                            type="button"
+                            role="option"
+                            aria-selected={varNavIndex === idx}
+                            className={`formula-calculator-btn formula-calculator-btn-var${
+                              varNavIndex === idx ? ' formula-calculator-btn-var--nav' : ''
+                            }`}
+                            onClick={() => latch(it.value, it.label)}
+                            title={it.value}
+                          >
+                            {it.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

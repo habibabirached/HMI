@@ -156,6 +156,80 @@
   color: #005E60;
 }
 
+/* Save dropdown: icon trigger + menu */
+.toolbar-save-dropdown {
+  position: relative;
+}
+
+.btn-save-trigger {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: #0d0d0d;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-save-trigger:hover {
+  background: #2a2a2a;
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+.toolbar-save-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  z-index: 200;
+  padding: 6px 0;
+  background: #141414;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.toolbar-save-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.toolbar-save-menu-item:hover:not(:disabled) {
+  background: #252525;
+  color: #4caf50;
+}
+
+.toolbar-save-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toolbar-save-menu-item--link:hover:not(:disabled) {
+  color: #4caf50;
+  box-shadow: inset 3px 0 0 #4caf50;
+}
+
 /* Save/Load Buttons */
 .btn-save,
 .btn-save-as,

@@ -1,0 +1,35 @@
+{
+  "display_name": "A Bess 2",
+  "description": "",
+  "charts_to_display": [],
+  "event_markers": {},
+  "data_row_count": 2500,
+  "data_column_count": 6,
+  "chart_stacks": [],
+  "chart_sample_default": 128,
+  "chart_panel_height": 653,
+  "chart_panel_opacity": 1.0,
+  "chart_card_width": 500,
+  "derived_variables": [
+    {
+      "name": "toto",
+      "formula": "P_BESS2|BESS_2 + Q_BESS2|BESS_2"
+    }
+  ],
+  "current_configuration": {
+    "view_mode": "customer",
+    "charts_to_display": [],
+    "chart_stacks": [],
+    "chart_sample_default": 128,
+    "chart_panel_height": 653,
+    "chart_panel_opacity": 1.0,
+    "chart_card_width": 500,
+    "derived_variables": [
+      {
+        "name": "toto",
+        "formula": "P_BESS2|BESS_2 + Q_BESS2|BESS_2"
+      }
+    ],
+    "event_markers": {}
+  }
+}

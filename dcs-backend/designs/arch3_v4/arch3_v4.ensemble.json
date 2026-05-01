@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "all",
+      "display_name": "all",
+      "member_simulations": [
+        "a_BESS_1",
+        "a_BESS_2",
+        "a_Frequency-FFT",
+        "a_LM2500_1",
+        "a_LM2500_2",
+        "a_LM2500_3",
+        "a_LM2500_4",
+        "a_LM2500_5",
+        "a_LM2500_6",
+        "a_LM2500_7",
+        "a_LM2500_8",
+        "a_LM6000PF1_GEN_System_MW",
+        "a_Load_1",
+        "a_Load_2",
+        "a_Load_3",
+        "a_Load_4",
+        "a_Main",
+        "a_SynchronousMachine"
+      ],
+      "chart_panel": {
+        "charts_to_display": [
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "nd",
+            "x_column": "t|Main",
+            "y_columns": [
+              "All_LM_Power",
+              "all_Loads",
+              "all_sources",
+              "percent_bess"
+            ],
+            "title": "34.5kV Bus L - nD",
+            "ensemble_sim_id": "a_BESS_1"
+          }
+        ],
+        "chart_stacks": [],
+        "chart_sample_default": 4,
+        "chart_panel_height": 653,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 499,
+        "view_mode": "customer",
+        "derived_variables": [
+          {
+            "name": "AllBesses",
+            "formula": "BessBESS_1 — P_BESS1|BESS_1+BessBESS_2 — P_BESS2|BESS_2"
+          },
+          {
+            "name": "All_LM_Power",
+            "formula": "BessLM2500_1 — P_g1|LM2500_1+BessLM2500_2 — P_g2|LM2500_2+BessLM2500_3 — P_g3|LM2500_3+BessLM2500_4 — P_g4|LM2500_4+BessLM2500_5 — P_g5|LM2500_5+BessLM2500_6 — P_g6|LM2500_6+BessLM2500_7 — P_g7|LM2500_7+BessLM2500_8 — P_g8|LM2500_8"
+          },
+          {
+            "name": "all_Loads",
+            "formula": "BessLoad_1 — Pload_1|Load_1+BessLoad_2 — Pload_2|Load_2+BessLoad_3 — Pload_3|Load_3+BessLoad_4 — Pload_4|Load_4"
+          },
+          {
+            "name": "all_sources",
+            "formula": "formula — AllBesses+formula — All_LM_Power"
+          },
+          {
+            "name": "percent_bess",
+            "formula": "formula — AllBesses/formula — all_sources*100"
+          },
+          {
+            "name": "tmp",
+            "formula": "BessBESS_1 — all_Loads+formula — AllBesses"
+          },
+          {
+            "name": "bess12",
+            "formula": "a_BESS_1 — P_BESS1|BESS_1+a_BESS_2 — P_BESS2|BESS_2"
+          }
+        ]
+      }
+    }
+  ]
+}

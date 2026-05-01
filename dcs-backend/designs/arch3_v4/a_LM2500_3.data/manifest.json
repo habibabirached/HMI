@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "columns": [
+    "t|Main",
+    "P_g3|LM2500_3",
+    "Q_g3|LM2500_3",
+    "V_g3|LM2500_3",
+    "freq_gt_3|LM2500_3",
+    "Vlow_gt_3|LM2500_3"
+  ],
+  "row_count": 2500,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet",
+    "c0004.parquet",
+    "c0005.parquet"
+  ]
+}

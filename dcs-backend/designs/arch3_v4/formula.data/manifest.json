@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "columns": [
+    "t|Main",
+    "AllBesses",
+    "All_LM_Power",
+    "all_Loads",
+    "all_sources",
+    "percent_bess",
+    "tmp",
+    "bess12"
+  ],
+  "row_count": 2500,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet",
+    "c0004.parquet",
+    "c0005.parquet",
+    "c0006.parquet",
+    "c0007.parquet"
+  ]
+}

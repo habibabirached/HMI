@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "columns": [
+    "t|Main",
+    "Vload_3|Load_3",
+    "Qload_3|Load_3",
+    "Pload_3|Load_3"
+  ],
+  "row_count": 2500,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet"
+  ]
+}

@@ -1,6 +1,6 @@
 """
 Materialize ensemble chart_panel.derived_variables into a normal scenario
-`formula` (default id) with formula.data.csv + formula.sim.json.
+`formula` (default id) with formula.data/ Parquet bundle + formula.sim.json.
 
 Matches browser evaluation in dcs-ui/src/utils/formulaEvaluator.js and
 qualifyEnsembleColumn in simulationLazyApi.js (ENSEMBLE_COLUMN_SEP).
@@ -8,7 +8,6 @@ qualifyEnsembleColumn in simulationLazyApi.js (ENSEMBLE_COLUMN_SEP).
 
 from __future__ import annotations
 
-import csv
 import json
 import math
 import os
@@ -16,6 +15,8 @@ import re
 from typing import Any, Optional
 
 import pandas as pd
+
+from simulation_parquet_bundle import read_bundle_dataframe, scenario_data_dir, write_bundle_from_dataframe
 
 # Same as dcs-ui ENSEMBLE_COLUMN_SEP: space, EM DASH (U+2014), space
 ENSEMBLE_COLUMN_SEP = " \u2014 "
@@ -129,8 +130,8 @@ def materialize_formula_scenario_for_ensemble(
     formula_sim_id: str = "formula",
 ) -> dict[str, Any]:
     """
-    Read member *.data.csv files, evaluate ensemble derived_variables, write
-    {formula_sim_id}.data.csv and .sim.json. Returns metadata dict.
+    Read member Parquet bundles ({sid}.data/), evaluate ensemble derived_variables, write
+    {formula_sim_id}.data/ bundle and .sim.json. Returns metadata dict.
     """
     _e, members, derived_variables = _load_ensemble_and_members(ens_path, ensemble_id)
     if not derived_variables:
@@ -139,31 +140,21 @@ def materialize_formula_scenario_for_ensemble(
     safe_fid = re.sub(r"[^\w\-]", "", formula_sim_id) or "formula"
     per_member: dict[str, pd.DataFrame] = {}
     for sid in members:
-        csv_path = os.path.join(dir_path, f"{sid}.data.csv")
-        if not os.path.isfile(csv_path):
+        bundle_root = scenario_data_dir(dir_path, sid)
+        if not os.path.isdir(bundle_root):
             raise FileNotFoundError(
-                f"Member scenario CSV not found: {sid}.data.csv (required for materialize)"
+                f"Member scenario data not found: {sid}.data/ (Parquet bundle required for materialize)"
             )
-        per_member[sid] = pd.read_csv(csv_path, encoding="utf-8-sig")
+        per_member[sid] = read_bundle_dataframe(dir_path, sid)
     n = min(len(df) for df in per_member.values())
     if n <= 0:
-        raise ValueError("No data rows in member CSVs")
+        raise ValueError("No data rows in member scenarios")
 
     primary = members[0]
     primary_df = per_member[primary]
     time_col = _time_column_name(primary_df)
 
-    has_any = False
-    for item in derived_variables:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("name", "")).strip() and str(item.get("formula", "")).strip():
-            has_any = True
-            break
-    if not has_any:
-        return {"skipped": True, "reason": "no valid derived variable names"}
-
-    out_cols: dict[str, list] = {time_col: [primary_df.iloc[i][time_col] for i in range(n)]}
+    items_valid: list[tuple[str, str]] = []
     for item in derived_variables:
         if not isinstance(item, dict):
             continue
@@ -171,6 +162,14 @@ def materialize_formula_scenario_for_ensemble(
         fml = item.get("formula", "")
         if not name or not str(fml).strip():
             continue
+        items_valid.append((name, str(fml)))
+
+    if not items_valid:
+        return {"skipped": True, "reason": "no valid derived variable names"}
+
+    primary_id = primary
+    out_cols: dict[str, list] = {time_col: [primary_df.iloc[i][time_col] for i in range(n)]}
+    for idx, (name, fml) in enumerate(items_valid):
         col_vals: list = []
         for i in range(n):
             ev: dict[str, float] = {}
@@ -183,19 +182,35 @@ def materialize_formula_scenario_for_ensemble(
                         ev[key] = float(raw)
                     except (TypeError, ValueError):
                         ev[key] = 0.0
+            for j in range(idx):
+                pn = items_valid[j][0]
+                rv = out_cols[pn][i]
+                try:
+                    pv = float(rv)
+                except (TypeError, ValueError):
+                    pv = 0.0
+                pv = pv if math.isfinite(pv) else 0.0
+                ev[pn] = pv
+                ev[_qualify_ensemble_column(primary_id, pn)] = pv
+            # Same numeric columns as will appear under formula.data — expose as `formula — Name`
+            # so chart_panel formulas can reference the materialized scenario id like a member.
+            for prev_col in out_cols:
+                if prev_col == time_col:
+                    continue
+                rv = out_cols[prev_col][i]
+                try:
+                    pv = float(rv)
+                except (TypeError, ValueError):
+                    pv = 0.0
+                pv = pv if math.isfinite(pv) else 0.0
+                ev[_qualify_ensemble_column(safe_fid, prev_col)] = pv
             v = _evaluate_formula(str(fml), ev)
             col_vals.append(v if math.isfinite(v) else float("nan"))
         out_cols[name] = col_vals
 
     out_df = pd.DataFrame(out_cols)
-    csv_path_out = os.path.join(dir_path, f"{safe_fid}.data.csv")
+    bundle_root = write_bundle_from_dataframe(out_df, dir_path, safe_fid)
     sim_path_out = os.path.join(dir_path, f"{safe_fid}.sim.json")
-    out_df.to_csv(
-        csv_path_out,
-        index=False,
-        quoting=csv.QUOTE_MINIMAL,
-        lineterminator="\n",
-    )
     # Merge or create .sim.json (keep existing charts if any)
     if os.path.isfile(sim_path_out):
         with open(sim_path_out, "r", encoding="utf-8") as fp:
@@ -224,5 +239,5 @@ def materialize_formula_scenario_for_ensemble(
         "formula_sim_id": safe_fid,
         "rows": n,
         "columns": int(len(out_df.columns)),
-        "csv_path": csv_path_out,
+        "bundle_dir": bundle_root,
     }

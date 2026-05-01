@@ -105,6 +105,7 @@ function buildOpenChartsFromChartsToDisplay(chartsToDisplay, canvasComponents, r
     const component = canvasComponents.find((c) => c.id === chartDef.component_id);
     if (!component) return null;
     const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
+    const isPie = chartDef.chart_type === 'pie' && chartDef.y_columns?.length;
     const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
     const single = {
       id: chartId,
@@ -113,7 +114,7 @@ function buildOpenChartsFromChartsToDisplay(chartsToDisplay, canvasComponents, r
       chartType: chartDef.chart_type || '2d',
       csvName,
       xColumn: chartDef.x_column,
-      ...(isNd ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
+      ...(isNd || isPie ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
       ...(isStackedNd
         ? {
             yColumns: chartDef.y_columns,
@@ -126,9 +127,11 @@ function buildOpenChartsFromChartsToDisplay(chartsToDisplay, canvasComponents, r
         chartDef.title ||
         (isNd
           ? `${component.name} - nD`
-          : isStackedNd
-            ? `${component.name} - Stacked nD`
-            : `${component.name} - ${chartDef.y_column}`),
+          : isPie
+            ? `${component.name} - Pie`
+            : isStackedNd
+              ? `${component.name} - Stacked nD`
+              : `${component.name} - ${chartDef.y_column}`),
       ...(chartDef.x_label != null && { xLabel: chartDef.x_label }),
       ...(chartDef.y_label != null && { yLabel: chartDef.y_label }),
       ...(chartDef.legend_labels != null && typeof chartDef.legend_labels === 'object' && { legendLabels: chartDef.legend_labels }),
@@ -271,6 +274,8 @@ function App() {
   const [currentConfigName, setCurrentConfigName] = useState(null); // Track current config name for "Save"
   const [isSaving, setIsSaving] = useState(false); // Saving spinner state
   const [isUploading, setIsUploading] = useState(false); // Upload spinner state
+  /** Full-screen wait until derived formula is persisted (ensemble: Parquet + DB). */
+  const [derivedVariableCommitMessage, setDerivedVariableCommitMessage] = useState(null);
   const [csvStatus, setCsvStatus] = useState(null); // CSV status for current configuration
   const [availableSimulations, setAvailableSimulations] = useState([]); // Unique simulations from CSV
   const [simConfig, setSimConfig] = useState(null); // Simulation configuration JSON (from backend)
@@ -1881,6 +1886,7 @@ function App() {
               return null;
             }
             const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
+            const isPie = chartDef.chart_type === 'pie' && chartDef.y_columns?.length;
             const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
             const single = {
               id: chartId,
@@ -1889,13 +1895,13 @@ function App() {
               chartType: chartDef.chart_type || '2d',
               csvName: csvNameForCharts,
               xColumn: chartDef.x_column,
-              ...(isNd ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
+              ...(isNd || isPie ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
               ...(isStackedNd ?  {
                 yColumns: chartDef.y_columns,
                 splitBy: chartDef.split_by || 'phase',
                 ...(chartDef.split_by === 'manual' && chartDef.manual_group_breaks?.length && { manualGroupBreaks: chartDef.manual_group_breaks })
               } : {}),
-              title: chartDef.title || (isNd ? `${component.name} - nD` : isStackedNd ? `${component.name} - Stacked nD` : `${component.name} - ${chartDef.y_column}`),
+              title: chartDef.title || (isNd ? `${component.name} - nD` : isPie ? `${component.name} - Pie` : isStackedNd ? `${component.name} - Stacked nD` : `${component.name} - ${chartDef.y_column}`),
               ...(chartDef.ensemble_sim_id && !chartDef.ensemble_cross_member && { ensembleSimId: chartDef.ensemble_sim_id }),
               ...(chartDef.ensemble_cross_member && { ensembleCrossMember: true }),
             };
@@ -2122,6 +2128,7 @@ function App() {
             const component = canvasComponentsRef.current.find((c) => c.id === chartDef.component_id);
             if (!component) return null;
             const isNd = chartDef.chart_type === 'nd' && chartDef.y_columns?.length;
+            const isPie = chartDef.chart_type === 'pie' && chartDef.y_columns?.length;
             const isStackedNd = chartDef.chart_type === 'stacked-nd' && chartDef.y_columns?.length;
             const single = {
               id: chartId,
@@ -2130,7 +2137,7 @@ function App() {
               chartType: chartDef.chart_type || '2d',
               csvName: csvNameForCharts,
               xColumn: chartDef.x_column,
-              ...(isNd ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
+              ...(isNd || isPie ? { yColumns: chartDef.y_columns } : isStackedNd ? {} : { yColumn: chartDef.y_column }),
               ...(isStackedNd
                 ? {
                     yColumns: chartDef.y_columns,
@@ -2145,9 +2152,11 @@ function App() {
                 chartDef.title ||
                 (isNd
                   ? `${component.name} - nD`
-                  : isStackedNd
-                    ? `${component.name} - Stacked nD`
-                    : `${component.name} - ${chartDef.y_column}`),
+                  : isPie
+                    ? `${component.name} - Pie`
+                    : isStackedNd
+                      ? `${component.name} - Stacked nD`
+                      : `${component.name} - ${chartDef.y_column}`),
               ...(chartDef.ensemble_sim_id && !chartDef.ensemble_cross_member && { ensembleSimId: chartDef.ensemble_sim_id }),
               ...(chartDef.ensemble_cross_member && { ensembleCrossMember: true }),
             };
@@ -2742,14 +2751,16 @@ function App() {
             ...(c.ensembleSimId && !c.ensembleCrossMember && { ensemble_sim_id: c.ensembleSimId }),
             ...(c.ensembleCrossMember && { ensemble_cross_member: true }),
           };
-        } else if (c.chartType === 'nd' && c.yColumns?.length) {
+        } else if ((c.chartType === 'nd' || c.chartType === 'pie') && c.yColumns?.length) {
           base = {
             type: 'single',
             component_id: c.componentId,
-            chart_type: 'nd',
+            chart_type: c.chartType,
             x_column: c.xColumn,
             y_columns: c.yColumns,
-            title: c.title || `${c.componentName || ''} - nD`,
+            title:
+              c.title ||
+              (c.chartType === 'pie' ? `${c.componentName || ''} - Pie` : `${c.componentName || ''} - nD`),
             ...(c.ensembleSimId && !c.ensembleCrossMember && { ensemble_sim_id: c.ensembleSimId }),
             ...(c.ensembleCrossMember && { ensemble_cross_member: true }),
           };
@@ -3631,6 +3642,14 @@ function App() {
     const lazyCols =
       chartType === 'nd' || chartType === 'stacked-nd'
         ? [...selections]
+        : chartType === 'pie'
+          ? (() => {
+              const mc = (simulationMetadata?.columns || []).filter(Boolean);
+              const tc = pickTimeColumn(mc);
+              const s = [...selections];
+              if (tc && !s.includes(tc)) return [tc, ...s];
+              return s;
+            })()
         : chartType === '2d' || chartType === 'bar'
           ? selections.slice(0, 2)
           : [...selections];
@@ -3727,6 +3746,10 @@ function App() {
         xColumn = quals[0];
         yColumns = quals.slice(1);
         title = `${componentName} - nD`;
+      } else if (chartType === 'pie' && selections?.length >= 2) {
+        xColumn = pickTimeColumn(cols.filter(Boolean)) || '';
+        yColumns = [...selections];
+        title = `${componentName} - Pie`;
       } else if (chartType === 'stacked-nd') {
         xColumn = quals[0];
         yColumns = quals.slice(1);
@@ -3745,6 +3768,10 @@ function App() {
       xColumn = sel[0];
       yColumns = sel.slice(1);
       title = `${componentName} - nD`;
+    } else if (chartType === 'pie') {
+      xColumn = pickTimeColumn(cols.filter(Boolean)) || '';
+      yColumns = [...selections];
+      title = `${componentName} - Pie`;
     } else if (chartType === 'stacked-nd') {
       xColumn = sel[0];
       yColumns = sel.slice(1);
@@ -3794,33 +3821,43 @@ function App() {
    * Single-scenario mode: augments in-memory simulationData and persists.
    */
   const handleAddDerivedVariable = useCallback(async (formula, variableName) => {
-    if (!simulationMetadata?.id || !currentConfigName) return;
+    if (!currentConfigName) return;
+    const meta = simulationMetadataRef.current;
+    if (!meta?.id) return;
+    if (meta.isEnsemble && !meta.ensembleId) return;
 
-    if (simulationMetadata?.isEnsemble) {
-      const eid = simulationMetadata.ensembleId;
-      if (!eid) return;
-      const newDerived = [...(simulationMetadata.derivedVariables || []), { name: variableName, formula }];
+    if (!meta.isEnsemble) {
+      const rows = simulationDataRef.current;
+      if (!rows?.length) {
+        alert('No simulation rows loaded — load scenario data before adding a derived variable.');
+        return;
+      }
+    }
 
-      // 1. Persist to .ensemble.json so the formula is saved on disk.
-      await persistChartsToSimJson(openCharts, { derived_variables: newDerived });
+    const isEns = !!meta.isEnsemble;
+    setDerivedVariableCommitMessage(
+      isEns
+        ? 'Please wait until this derived variable is written to disk (Parquet) and to the database.'
+        : 'Please wait until this derived variable is saved to your scenario configuration.',
+    );
 
-      // 2. Materialize: evaluate formulas across all member CSVs → write formula.data.csv.
-      try {
+    try {
+      if (isEns) {
+        const eid = meta.ensembleId;
+        const prevDv = meta.derivedVariables ?? [];
+        const newDerived = [...prevDv, { name: variableName, formula }];
+
+        await persistChartsToSimJson(openCharts, { derived_variables: newDerived });
+
         const matUrl = `${API_BASE_URL}/api/designs/${encodeURIComponent(
           designApiPath,
         )}/ensembles/${encodeURIComponent(eid)}/materialize-formula-csv`;
         const matRes = await fetch(matUrl, { method: 'POST' });
         if (!matRes.ok) {
-          console.warn('materialize-formula-csv failed', await matRes.text());
-          return;
+          const errText = await matRes.text();
+          throw new Error(errText || `Materialize failed (${matRes.status})`);
         }
-      } catch (e) {
-        console.warn('materialize-formula-csv error', e);
-        return;
-      }
 
-      // 3. Re-fetch formula metadata so the Variables panel shows the new column immediately.
-      try {
         const formulaMeta = await fetchSimulationMetadata(designApiPath, 'formula');
         if (formulaMeta?.columns?.length) {
           setEnsembleColumnGroups((prev) => {
@@ -3836,32 +3873,302 @@ function App() {
             }
             return { ...prev, derivedVariables: newDerived, columns: next };
           });
+        } else {
+          setSimulationMetadata((prev) => ({ ...prev, derivedVariables: newDerived }));
         }
-      } catch (e) {
-        console.warn('re-fetch formula metadata failed', e);
+        return;
       }
-      return;
-    }
 
-    if (!simulationData?.length) return;
-    const newDerived = [...(simulationMetadata.derivedVariables || []), { name: variableName, formula }];
-    const { augmentRowsWithDerived } = await import('./utils/formulaEvaluator');
-    const augmented = augmentRowsWithDerived(simulationData, [{ name: variableName, formula }]);
-    setSimulationMetadata((prev) => {
-      const augKeys = Object.keys(augmented[0] || {});
-      const base = Array.isArray(prev.columns) && prev.columns.length ? [...prev.columns] : [...augKeys];
-      const set = new Set(base);
-      for (const k of augKeys) {
-        if (!set.has(k)) {
-          base.push(k);
-          set.add(k);
+      const rows = simulationDataRef.current;
+      const prevDvSingle = meta.derivedVariables || [];
+      const newDerived = [...prevDvSingle, { name: variableName, formula }];
+      const { augmentRowsWithDerived } = await import('./utils/formulaEvaluator');
+      const augmented = augmentRowsWithDerived(rows, [{ name: variableName, formula }]);
+      setSimulationMetadata((prev) => {
+        const augKeys = Object.keys(augmented[0] || {});
+        const base = Array.isArray(prev.columns) && prev.columns.length ? [...prev.columns] : [...augKeys];
+        const colSet = new Set(base);
+        for (const k of augKeys) {
+          if (!colSet.has(k)) {
+            base.push(k);
+            colSet.add(k);
+          }
+        }
+        return { ...prev, derivedVariables: newDerived, columns: base };
+      });
+      setSimulationData(augmented);
+      await persistChartsToSimJson(openCharts, { derived_variables: newDerived });
+    } catch (e) {
+      console.error('handleAddDerivedVariable', e);
+      alert(e?.message || String(e));
+    } finally {
+      setDerivedVariableCommitMessage(null);
+    }
+  }, [currentConfigName, openCharts, persistChartsToSimJson, designApiPath]);
+
+  /**
+   * Delete one CSV column from disk (Parquet bundle + manifest + SQLite mirror + derived prune),
+   * then refresh metadata and in-memory rows.
+   */
+  const handleRemoveScenarioColumn = useCallback(
+    async ({ simId: memberSimId, rawColumn }) => {
+      const col = (rawColumn ?? '').trim();
+      if (!col || !designApiPath || !currentConfigName) return;
+
+      const snap = simulationMetadataRef.current;
+      const targetSimId = snap?.isEnsemble ? memberSimId : snap?.id;
+      if (!targetSimId) return;
+      if (snap?.isEnsemble && !memberSimId) {
+        alert('Missing member scenario id.');
+        return;
+      }
+
+      if (
+        !window.confirm(
+          `Remove "${col}" from scenario "${targetSimId}"?\nThis deletes stored column data (Parquet / manifest), matching derived-variable definitions, and the SQLite mirror.`,
+        )
+      ) {
+        return;
+      }
+
+      const url = `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/simulations/${encodeURIComponent(targetSimId)}/column?name=${encodeURIComponent(col)}`;
+      let res;
+      try {
+        res = await fetch(url, { method: 'DELETE' });
+      } catch (e) {
+        alert(`Network error: ${e.message || e}`);
+        return;
+      }
+      if (!res.ok) {
+        try {
+          const t = await res.text();
+          alert(t || `Remove failed (${res.status})`);
+        } catch (_) {
+          alert(`Remove failed (${res.status})`);
+        }
+        return;
+      }
+
+      try {
+        await deleteCachedSimulationPayload(designApiPath, targetSimId);
+      } catch (_) {
+        /* ignore IDB */
+      }
+
+      let meta;
+      try {
+        meta = await fetchSimulationMetadata(designApiPath, targetSimId);
+      } catch (e) {
+        alert(`Removed on server but metadata refresh failed: ${e.message || e}`);
+        return;
+      }
+
+      const derivedNow = meta.sim_config?.derived_variables || [];
+      ensembleMemberDerivedBySimIdRef.current = {
+        ...ensembleMemberDerivedBySimIdRef.current,
+        [targetSimId]: derivedNow,
+      };
+      ensembleMemberMetaCacheRef.current = {
+        ...ensembleMemberMetaCacheRef.current,
+        [targetSimId]: meta,
+      };
+
+      const snapAfter = simulationMetadataRef.current;
+      const qRemoved = qualifyEnsembleColumn(targetSimId, col);
+      const filteredEnsDerived =
+        snapAfter?.isEnsemble && targetSimId === 'formula'
+          ? (snapAfter.derivedVariables || []).filter(
+              (d) => String(d?.name ?? '').trim() !== col.trim(),
+            )
+          : snapAfter?.derivedVariables || [];
+
+      if (snapAfter?.isEnsemble) {
+        setEnsembleColumnGroups((prev) =>
+          prev.map((g) =>
+            g.simId === targetSimId ? { ...g, columns: meta.columns || [] } : g,
+          ),
+        );
+        setSimulationMetadata((prev) => {
+          if (!prev?.isEnsemble) return prev;
+          return {
+            ...prev,
+            columns: (prev.columns || []).filter((c) => c !== qRemoved),
+            rowCount: Math.max(prev.rowCount ?? 0, meta.row_count ?? 0),
+            ...(targetSimId === 'formula' ? { derivedVariables: filteredEnsDerived } : {}),
+          };
+        });
+        const eid = snapAfter?.ensembleId;
+        if (eid && targetSimId === 'formula') {
+          setDesignEnsembles((prev) =>
+            prev.map((ent) =>
+              ent.id === eid
+                ? {
+                    ...ent,
+                    chart_panel: {
+                      ...(ent.chart_panel || {}),
+                      derived_variables: filteredEnsDerived,
+                    },
+                  }
+                : ent,
+            ),
+          );
+        }
+
+        const loadedMap = ensembleMemberSimulationDataRef.current || {};
+        const existingRows = loadedMap[targetSimId];
+        const members = snapAfter.memberSimulations || [];
+        const primary = members[0];
+
+        const stripRows = (rows) =>
+          rows?.length
+            ? rows.map((row) => {
+                const o = { ...row };
+                const hit =
+                  Object.keys(o).find((k) => k === col || String(k).trim() === col.trim()) ?? null;
+                if (hit) delete o[hit];
+                return o;
+              })
+            : rows;
+
+        if (existingRows?.length) {
+          let stripped = stripRows(existingRows);
+          const { augmentRowsWithDerived, augmentEnsemblePrimaryWithCrossMemberDerived } = await import(
+            './utils/formulaEvaluator',
+          );
+          stripped = augmentRowsWithDerived(stripped, derivedNow);
+          let nextMap = { ...loadedMap, [targetSimId]: stripped };
+          const ensCross = filteredEnsDerived;
+          if (ensCross.length && primary) {
+            nextMap = augmentEnsemblePrimaryWithCrossMemberDerived(members, nextMap, ensCross, primary);
+          }
+          ensembleMemberSimulationDataRef.current = nextMap;
+          setEnsembleMemberSimulationData(nextMap);
+          if (primary && targetSimId === primary) {
+            simulationRawRowsRef.current = nextMap[primary];
+            setSimulationData(nextMap[primary]);
+          }
+        }
+        return;
+      }
+
+      let columnsForUi = [...(meta.columns || [])];
+      const colSet = new Set(columnsForUi);
+      for (const { name } of derivedNow) {
+        if (name && !colSet.has(name)) {
+          columnsForUi.push(name);
+          colSet.add(name);
         }
       }
-      return { ...prev, derivedVariables: newDerived, columns: base };
-    });
-    setSimulationData(augmented);
-    persistChartsToSimJson(openCharts, { derived_variables: newDerived });
-  }, [simulationMetadata, currentConfigName, simulationData, openCharts, persistChartsToSimJson, designApiPath]);
+
+      const raw = simulationRawRowsRef.current;
+      const rawFor = simulationRawRowsSimIdRef.current;
+      if (raw?.length && rawFor === targetSimId) {
+        const stripped = raw.map((row) => {
+          const o = { ...row };
+          const hit =
+            Object.keys(o).find((k) => k === col || String(k).trim() === col.trim()) ?? null;
+          if (hit) delete o[hit];
+          return o;
+        });
+        simulationRawRowsRef.current = stripped;
+        const { augmentRowsWithDerived } = await import('./utils/formulaEvaluator');
+        setSimulationData(augmentRowsWithDerived(stripped, derivedNow));
+      } else {
+        setSimulationData((prev) => {
+          if (!prev?.length) return prev;
+          return prev.map((row) => {
+            const o = { ...row };
+            const hit =
+              Object.keys(o).find((k) => k === col || String(k).trim() === col.trim()) ?? null;
+            if (hit) delete o[hit];
+            return o;
+          });
+        });
+      }
+
+      if (useLazySimulationData && lazyColumnNeedRef.current?.length) {
+        lazyColumnNeedRef.current = lazyColumnNeedRef.current.filter(
+          (k) => k !== col && String(k).trim() !== col.trim(),
+        );
+      }
+
+      setSimulationMetadata((prev) => ({
+        ...prev,
+        rowCount: meta.row_count ?? prev.rowCount,
+        columns: columnsForUi,
+        derivedVariables: derivedNow,
+        timeRange:
+          meta.time_column_min != null && meta.time_column_max != null
+            ? { min: meta.time_column_min, max: meta.time_column_max }
+            : prev.timeRange,
+      }));
+    },
+    [designApiPath, currentConfigName, useLazySimulationData],
+  );
+
+  const handleRemoveEnsembleLiveDerived = useCallback(
+    async (variableName) => {
+      const vn = (variableName ?? '').trim();
+      const metaInst = simulationMetadataRef.current;
+      const eid = metaInst?.ensembleId;
+      if (!vn || !designApiPath || !currentConfigName || !metaInst?.isEnsemble || !eid) return;
+
+      if (
+        !window.confirm(
+          `Remove live formula "${vn}" from this ensemble?\nThis removes it from chart_panel (not member Parquet files).`,
+        )
+      ) {
+        return;
+      }
+
+      const url = `${API_BASE_URL}/api/designs/${encodeURIComponent(designApiPath)}/ensembles/${encodeURIComponent(eid)}/derived-variables?name=${encodeURIComponent(vn)}`;
+      let res;
+      try {
+        res = await fetch(url, { method: 'DELETE' });
+      } catch (e) {
+        alert(`Network error: ${e.message || e}`);
+        return;
+      }
+      if (!res.ok) {
+        try {
+          const t = await res.text();
+          alert(t || `Remove failed (${res.status})`);
+        } catch (_) {
+          alert(`Remove failed (${res.status})`);
+        }
+        return;
+      }
+
+      const members = metaInst.memberSimulations || [];
+      const primary = members[0];
+      const q = qualifyEnsembleColumn(primary, vn);
+      const newDerived = (metaInst.derivedVariables || []).filter((d) => d.name !== vn);
+
+      setSimulationMetadata((prev) => ({
+        ...prev,
+        derivedVariables: newDerived,
+        columns: (prev.columns || []).filter((c) => c !== q),
+      }));
+
+      const loaded = ensembleMemberSimulationDataRef.current || {};
+      if (primary && loaded[primary]?.length) {
+        const { augmentEnsemblePrimaryWithCrossMemberDerived } = await import('./utils/formulaEvaluator');
+        const stripped = loaded[primary].map((row) => {
+          const o = { ...row };
+          delete o[vn];
+          delete o[q];
+          return o;
+        });
+        let nextMap = { ...loaded, [primary]: stripped };
+        nextMap = augmentEnsemblePrimaryWithCrossMemberDerived(members, nextMap, newDerived, primary);
+        ensembleMemberSimulationDataRef.current = nextMap;
+        setEnsembleMemberSimulationData(nextMap);
+        simulationRawRowsRef.current = nextMap[primary];
+        setSimulationData(nextMap[primary]);
+      }
+    },
+    [designApiPath, currentConfigName],
+  );
 
   /** Reindex chartStacks when a chart at removedIdx is removed */
   const reindexChartStacksAfterRemove = (stacks, removedIdx) => {
@@ -4533,6 +4840,8 @@ function App() {
             ensembleColumnGroups={ensembleColumnGroups}
             derivedVariables={simulationMetadata?.derivedVariables || []}
             onAddDerivedVariable={handleAddDerivedVariable}
+            onRemoveScenarioColumn={handleRemoveScenarioColumn}
+            onRemoveEnsembleLiveDerived={handleRemoveEnsembleLiveDerived}
             canvasComponents={canvasComponents}
             onUpdateComponent={handleUpdateComponent}
             onUpdateConnection={handleUpdateConnection}
@@ -4765,6 +5074,24 @@ function App() {
             <div className="saving-spinner"></div>
             <div className="saving-text">Saving Configuration...</div>
             <div className="saving-subtext">Please wait</div>
+          </div>
+        </div>
+      )}
+
+      {/* Derived variable commit — blocks until ensemble Parquet + DB import complete */}
+      {derivedVariableCommitMessage && (
+        <div
+          className="saving-overlay derived-variable-commit-overlay"
+          role="alertdialog"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <div className="saving-spinner-container">
+            <div className="saving-spinner" />
+            <div className="saving-text">{derivedVariableCommitMessage}</div>
+            <div className="saving-subtext derived-variable-commit-hint">
+              Wait until this finishes before building another formula that depends on this column — otherwise the prior variable may not exist on disk yet.
+            </div>
           </div>
         </div>
       )}

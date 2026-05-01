@@ -554,3 +554,32 @@ body {
   color: #999;
   letter-spacing: 0.5px;
 }
+
+/* Above FormulaCalculator modal (z-index ~100000): derived-variable disk + DB commit */
+.saving-overlay.derived-variable-commit-overlay {
+  z-index: 200010;
+}
+
+.saving-overlay.derived-variable-commit-overlay .saving-spinner {
+  border-top-color: var(--vernova-accent);
+  border-right-color: rgba(0, 212, 168, 0.35);
+  box-shadow: 0 0 28px rgba(0, 212, 168, 0.12);
+}
+
+.saving-overlay.derived-variable-commit-overlay .saving-text {
+  color: var(--vernova-accent);
+  max-width: min(460px, 92vw);
+  text-align: center;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.saving-subtext.derived-variable-commit-hint {
+  font-size: 13px;
+  color: var(--vernova-text-dim);
+  max-width: min(480px, 94vw);
+  text-align: center;
+  line-height: 1.45;
+}
+

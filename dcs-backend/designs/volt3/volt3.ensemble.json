@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "ensembles": [
+    {
+      "id": "all",
+      "display_name": "all",
+      "member_simulations": [
+        "_BESS_1",
+        "_BESS_2",
+        "_LM2500_1",
+        "_LM2500_2",
+        "_LM2500_3",
+        "_LM2500_4",
+        "_LM2500_5",
+        "_LM2500_6",
+        "_LM2500_7",
+        "_LM2500_8",
+        "_Load_1",
+        "_Load_2",
+        "_Load_3",
+        "_Load_4",
+        "_Main"
+      ],
+      "chart_panel": {
+        "charts_to_display": [
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "t",
+            "y_column": "V_g4",
+            "title": "34.5kV Bus L - V_g4",
+            "ensemble_sim_id": "_LM2500_4"
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "2d",
+            "x_column": "t",
+            "y_column": "V_g7",
+            "title": "34.5kV Bus L - V_g7",
+            "ensemble_sim_id": "_LM2500_7"
+          },
+          {
+            "type": "single",
+            "component_id": "comp-bus-left",
+            "chart_type": "pie",
+            "x_column": "_BESS_1 — t",
+            "y_columns": [
+              "formula — All_LM_Power",
+              "formula — All_BESS_Power"
+            ],
+            "title": "34.5kV Bus L - Pie",
+            "ensemble_cross_member": true
+          }
+        ],
+        "chart_stacks": [],
+        "chart_sample_default": 4,
+        "chart_panel_height": 738,
+        "chart_panel_opacity": 1.0,
+        "chart_card_width": 850,
+        "view_mode": "customer",
+        "derived_variables": [
+          {
+            "name": "All_LM_Power",
+            "formula": "_LM2500_1 — P_g1+_LM2500_2 — P_g2+_LM2500_3 — P_g3+_LM2500_4 — P_g4+_LM2500_5 — P_g5+_LM2500_6 — P_g6+_LM2500_7 — P_g7+_LM2500_8 — P_g8"
+          },
+          {
+            "name": "All_BESS_Power",
+            "formula": "_BESS_1 — P_BESS1+_BESS_2 — P_BESS2"
+          }
+        ]
+      }
+    }
+  ]
+}

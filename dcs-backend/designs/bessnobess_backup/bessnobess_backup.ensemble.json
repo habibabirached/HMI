@@ -55,6 +55,7 @@
             ],
             "title": "without BESS",
             "ensemble_cross_member": true,
+            "chart_card_width": 1039,
             "x_label": "Time",
             "y_label": "Power (MW)",
             "legend_labels": {
@@ -70,7 +71,8 @@
             "x_column": "Time",
             "y_column": "w_rotor",
             "title": "34.5kV Bus L - w_rotor",
-            "ensemble_sim_id": "NoBess"
+            "ensemble_sim_id": "NoBess",
+            "chart_card_width": 1071
           }
         ],
         "chart_stacks": [
@@ -86,7 +88,7 @@
         "chart_sample_default": 8,
         "chart_panel_height": 933,
         "chart_panel_opacity": 1.0,
-        "chart_card_width": 1292,
+        "chart_card_width": 200,
         "view_mode": "customer",
         "derived_variables": [
           {

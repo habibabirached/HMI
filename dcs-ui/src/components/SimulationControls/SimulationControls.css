@@ -17,7 +17,7 @@
    This is the outer box that contains the entire control panel.
    It appears on the right side of the screen below the Property Panel. */
 .simulation-controls {
-  width: 320px;                    /* Fixed width - same as Property Panel */
+  width: 440px;                    /* Fixed width - same as Property Panel */
   background: #1a1a1a;             /* Dark grey background */
   border-left: 2px solid #333;     /* Separator line from canvas */
   border-top: 1px solid #333;      /* Top border for definition */
@@ -326,7 +326,7 @@
  * Ensemble UI (SimulationControls): the next several rules style the purple “ensemble” buttons, the
  * horizontal split between scenario rows and the read-only variables pane, and the purple outline on
  * scenario rows that belong to the currently selected ensemble. Wider panel width is applied only while
- * the variables pane is visible so the default320px column stays compact for designs without ensemble.json.
+ * the variables pane is visible so the default 440px column stays compact for designs without ensemble.json.
  */
 .simulation-ensembles-section {
   margin-bottom: 20px;

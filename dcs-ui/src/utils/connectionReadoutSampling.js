@@ -83,26 +83,6 @@ export function buildConnectionReadoutLines(connectionReadout, ctx) {
   };
 }
 
-/** Component types that show “Connection readout” in the right-click chart menu (sparkle #1–#4). */
-export const CONNECTION_READOUT_COMPONENT_TYPES = new Set([
-  'gas-turbine-lm2500',
-  'gas-turbine-lm2500-andritz',
-  'gas-turbine-lm2500-plus',
-  /* BESS — library uses `battery`; saved designs often use id-style types like `bess-50mw`. */
-  'battery',
-  'bess',
-  'bess-30mw',
-  'bess-50mw',
-  /* Auxiliary loads — library `auxiliary`; designs use id-style types. */
-  'auxiliary',
-  'auxiliary-loads',
-  'auxiliary-loads-bess',
-]);
-
-export function componentSupportsConnectionReadout(component) {
-  return component && CONNECTION_READOUT_COMPONENT_TYPES.has(component.type);
-}
-
 const AUX_LOAD_NAME_NUM_RE = /Aux(?:iliary)?\s*Loads?\s*#(\d+)/i;
 
 /** UI label for ensemble tab dropdown: `Load_4` → "Load 4". */

@@ -12,11 +12,13 @@ import {
   buildCross2dTraces,
   buildCrossMultiLineTraces,
   buildCrossNdTraces,
+  buildCrossPieTraces,
   buildCrossStackedNdTraces,
   crossMemberDataReady,
   layoutDataForEnsembleCrossChart,
 } from '../../utils/ensembleCrossMemberChart';
 import { cellFloat } from '../../utils/csvRowAccess';
+import { ENSEMBLE_COLUMN_SEP } from '../../utils/simulationLazyApi';
 
 // Store native selection listeners per chart so we can clean up on unmount
 const selectionListenersByChart = new Map();
@@ -902,6 +904,51 @@ const ChartPanel = ({
     });
   };
 
+  const slicePieColumnLabel = (col) => {
+    const s = String(col);
+    const idx = s.indexOf(ENSEMBLE_COLUMN_SEP);
+    return idx >= 0 ? s.slice(idx + ENSEMBLE_COLUMN_SEP.length).trim() : s;
+  };
+
+  /** Pie: each slice magnitude is the variable at the current row; Plotly shows share = v_i / Σv. First row when idle; current row follows simulation time via the hidden time column (not shown in the builder). */
+  const generatePiePlaybackTraces = (chart, data) => {
+    if (!data?.length || !chart.yColumns?.length) return [];
+    const xCol = chart.xColumn;
+    const yCols = chart.yColumns;
+    let rowIndex = 0;
+    let bestTime = -Infinity;
+    if (simulationRunning && simulationTime !== undefined) {
+      for (let i = 0; i < data.length; i++) {
+        const xv = cellFloat(data[i], xCol);
+        if (!Number.isNaN(xv) && xv <= simulationTime && xv >= bestTime) {
+          bestTime = xv;
+          rowIndex = i;
+        }
+      }
+    }
+    const row = data[rowIndex];
+    const labels = yCols.map((c) => slicePieColumnLabel(c));
+    let values = yCols.map((c) => {
+      const v = cellFloat(row, c);
+      return Number.isFinite(v) ? Math.max(0, v) : 0;
+    });
+    const sum = values.reduce((a, b) => a + b, 0);
+    if (sum <= 0) values = values.map(() => 1 / Math.max(1, values.length));
+    return [
+      {
+        type: 'pie',
+        labels,
+        values,
+        marker: {
+          colors: yCols.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+        },
+        textinfo: 'label+percent',
+        hovertemplate: '<b>%{label}</b><br>%{percent}<br>value %{value}<extra></extra>',
+        textfont: { color: '#fff', size: 12 },
+      },
+    ];
+  };
+
   /**
    * Generate Plotly configuration for professional scientific charts
    * Filters data based on simulation time if simulation is running
@@ -925,6 +972,14 @@ const ChartPanel = ({
       }
       if (chart.chartType === 'stacked-nd' && chart.yColumns?.length) {
         return buildCrossStackedNdTraces({ ...base, groupFn: groupColumnsBySplit });
+      }
+      if (chart.chartType === 'pie' && chart.yColumns?.length) {
+        return buildCrossPieTraces({
+          chart,
+          memberData: ensembleMemberSimulationData,
+          simulationRunning,
+          simulationTime,
+        });
       }
       if (chart.chartType === '2d') {
         return buildCross2dTraces({ ...base, lineColor: '#005E60' });
@@ -957,6 +1012,10 @@ const ChartPanel = ({
     // Handle multi-line 2D charts
     if (chart.isMultiComponent && chart.chartType === 'multi-line-chart') {
       return generateMultiComponentLineChart(chart, data);
+    }
+    // Pie: one row; slice sizes = Y columns (same row); shares = v_i / sum; row from time column vs simulationTime when running
+    if (chart.chartType === 'pie' && chart.yColumns?.length) {
+      return generatePiePlaybackTraces(chart, data);
     }
     // Handle nD charts (X + multiple Y columns)
     if (chart.chartType === 'nd' && chart.yColumns?.length) {
@@ -1035,28 +1094,6 @@ const ChartPanel = ({
               color: '#000',
               width: 1
             }
-          }
-        }];
-
-      case 'pie':
-        // For pie charts, aggregate data
-        const aggregated = {};
-        yValues.forEach(val => {
-          const rounded = Math.round(val);
-          aggregated[rounded] = (aggregated[rounded] || 0) + 1;
-        });
-        
-        return [{
-          labels: Object.keys(aggregated),
-          values: Object.values(aggregated),
-          type: 'pie',
-          marker: {
-            colors: ['#005E60', '#ff9800', '#4caf50', '#f44336', '#9c27b0', '#ffeb3b']
-          },
-          textinfo: 'label+percent',
-          textfont: {
-            color: '#fff',
-            size: 12
           }
         }];
 

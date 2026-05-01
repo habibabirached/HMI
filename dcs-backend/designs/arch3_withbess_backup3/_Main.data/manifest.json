@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "columns": [
+    "t",
+    "Pload",
+    "Qload",
+    "Pcmd_BESS",
+    "Pcmd_gt",
+    "f_poi_meas2",
+    "f_poi_meas"
+  ],
+  "row_count": 20000,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet",
+    "c0004.parquet",
+    "c0005.parquet",
+    "c0006.parquet"
+  ]
+}

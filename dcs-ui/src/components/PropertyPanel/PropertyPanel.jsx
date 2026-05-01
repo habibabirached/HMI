@@ -20,6 +20,8 @@ const PropertyPanel = ({
   ensembleColumnGroups = [],
   derivedVariables = [],
   onAddDerivedVariable,
+  onRemoveScenarioColumn,
+  onRemoveEnsembleLiveDerived,
   canvasComponents = [],
   onUpdateComponent,
   onUpdateConnection = () => {},
@@ -73,6 +75,9 @@ const PropertyPanel = ({
             ensembleColumnGroups={ensembleColumnGroups}
             derivedVariables={derivedVariables}
             onAddDerivedVariable={onAddDerivedVariable}
+            onRemoveScenarioColumn={onRemoveScenarioColumn}
+            onRemoveEnsembleLiveDerived={onRemoveEnsembleLiveDerived}
+            removeColumnDisabled={disabled}
             displayName={simulationMetadata.displayName}
             onAddChart={onAddChartFromBuilder}
           />

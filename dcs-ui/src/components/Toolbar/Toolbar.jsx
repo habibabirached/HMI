@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './Toolbar.css';
 
 const Toolbar = ({
@@ -22,6 +22,29 @@ const Toolbar = ({
   canSaveSimulationConfig, // Design-dir scenario loaded: open “Save configuration as” for .sim.json presets
   canCopyScenarioLink, // Scenario running from design dir: copy ?design=&sim=&config= link
 }) => {
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+  const saveDropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!saveMenuOpen) return;
+    const onDocMouseDown = (e) => {
+      if (saveDropdownRef.current && !saveDropdownRef.current.contains(e.target)) {
+        setSaveMenuOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setSaveMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [saveMenuOpen]);
+
+  const closeSaveMenu = () => setSaveMenuOpen(false);
+
   /**
    * Toggle fullscreen for the entire page
    */
@@ -63,47 +86,81 @@ const Toolbar = ({
         </div>
       )}
 
-      {/* Save/Load Section */}
+      {/* Save/Load Section: save actions in dropdown; Load stays on the bar */}
       <div className="toolbar-section">
-        <button 
-          className="btn-save" 
-          onClick={onSave} 
-          title={canSave ? "Save Design (overwrite current config)" : "Save Design As (first time save)"}
-          disabled={!hasComponents}
-        >
-          💾 {canSave ? 'Save Design' : 'Save Design As'}
-        </button>
-        {canSave && (
-          <button 
-            className="btn-save-as" 
-            onClick={onSaveAs} 
-            title="Save Design As (create new config)"
-          >
-            💾 Save Design As
-          </button>
-        )}
-        {canSaveSimulationConfig && (
+        <div className="toolbar-save-dropdown" ref={saveDropdownRef}>
           <button
             type="button"
-            className="btn-save-sim-config"
-            onClick={onSaveSimulationConfig}
-            title="Save configuration as: snapshot current charts and panel settings into this scenario’s .sim.json under a name"
+            className="btn-save-trigger"
+            onClick={() => setSaveMenuOpen((o) => !o)}
+            title="Save"
+            aria-expanded={saveMenuOpen}
+            aria-haspopup="menu"
           >
-            💾 Save configuration as
+            💾
           </button>
-        )}
-        {canCopyScenarioLink && (
-          <button
-            type="button"
-            className="btn-copy-scenario-link"
-            onClick={onCopyScenarioLink}
-            title="Copy a link that opens this design, loads this scenario, and optionally the highlighted chart preset"
-          >
-            🔗 Copy scenario link
-          </button>
-        )}
-        <button className="btn-load" onClick={onLoad} title="Load Configuration">
-          📂 Load Design
+          {saveMenuOpen && (
+            <div className="toolbar-save-menu" role="menu">
+              <button
+                type="button"
+                className="toolbar-save-menu-item"
+                role="menuitem"
+                disabled={!hasComponents}
+                title={canSave ? 'Save Design (overwrite current config)' : 'Save Design As (first time save)'}
+                onClick={() => {
+                  closeSaveMenu();
+                  onSave();
+                }}
+              >
+                {canSave ? 'Save Design' : 'Save Design As'}
+              </button>
+              {canSave && (
+                <button
+                  type="button"
+                  className="toolbar-save-menu-item"
+                  role="menuitem"
+                  title="Save Design As (create new config)"
+                  onClick={() => {
+                    closeSaveMenu();
+                    onSaveAs();
+                  }}
+                >
+                  Save Design As
+                </button>
+              )}
+              {canSaveSimulationConfig && (
+                <button
+                  type="button"
+                  className="toolbar-save-menu-item"
+                  role="menuitem"
+                  title="Save configuration as: snapshot current charts and panel settings into this scenario’s .sim.json under a name"
+                  onClick={() => {
+                    closeSaveMenu();
+                    onSaveSimulationConfig();
+                  }}
+                >
+                  Save configuration as
+                </button>
+              )}
+              {canCopyScenarioLink && (
+                <button
+                  type="button"
+                  className="toolbar-save-menu-item toolbar-save-menu-item--link"
+                  role="menuitem"
+                  title="Copy a link that opens this design, loads this scenario, and optionally the highlighted chart preset"
+                  onClick={() => {
+                    closeSaveMenu();
+                    onCopyScenarioLink();
+                  }}
+                >
+                  Copy scenario link
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <button className="btn-load" onClick={onLoad} title="Load configuration">
+          📂 Load
         </button>
       </div>
 

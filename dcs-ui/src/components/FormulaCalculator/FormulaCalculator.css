@@ -474,6 +474,42 @@
   flex-shrink: 0;
 }
 
+.formula-calculator-vars-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 320px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 80px;
+}
+
+.formula-calculator-vars-groups::-webkit-scrollbar {
+  width: 6px;
+}
+
+.formula-calculator-vars-groups::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.formula-calculator-vars-groups::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 168, 0.3);
+  border-radius: 3px;
+}
+
+.formula-calculator-var-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #00d4a8;
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.formula-calculator-var-group .formula-calculator-vars-list {
+  max-height: none;
+}
+
 .formula-calculator-vars-hint {
   font-size: 12px;
   line-height: 1.4;

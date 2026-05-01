@@ -2,7 +2,7 @@
  * Build Plotly traces for ensemble charts where each axis/series may come from a different member scenario.
  * Rows are aligned by index (0..n-1) across members, like a virtual join on row number.
  */
-import { parseEnsembleColumnSelections } from './simulationLazyApi';
+import { ENSEMBLE_COLUMN_SEP, parseEnsembleColumnSelections } from './simulationLazyApi';
 import { cellFloat } from './csvRowAccess';
 
 const CHART_COLORS = ['#005E60', '#FF6B35', '#4ECDC4', '#F7B731', '#5F27CD', '#00D2FF', '#C23616', '#0FB9B1'];
@@ -280,4 +280,57 @@ export function buildCrossMultiLineTraces({
         : { color: lineColor, size: 4, opacity: 0.7 },
     };
   }).filter(Boolean);
+}
+
+function sliceCrossMemberColumnLabel(column) {
+  const idx = column.indexOf(ENSEMBLE_COLUMN_SEP);
+  return idx >= 0 ? column.slice(idx + ENSEMBLE_COLUMN_SEP.length).trim() : column;
+}
+
+/** One pie trace: slices from one row across members (aligned by row index); updates with playback time on X. */
+export function buildCrossPieTraces({ chart, memberData, simulationRunning, simulationTime }) {
+  const items = getCrossMemberBindingsForChart(chart);
+  if (!items || items.length < 2) return [];
+  const lens = items.map(({ simId }) => memberData[simId]?.length ?? 0);
+  const nMin = Math.min(...lens);
+  if (nMin <= 0) return [];
+
+  const xItem = items[0];
+  const yItems = items.slice(1);
+
+  let rowIndex = 0;
+  let bestTime = -Infinity;
+  if (simulationRunning && simulationTime !== undefined) {
+    const rows = memberData[xItem.simId];
+    for (let i = 0; i < nMin; i++) {
+      const xv = cellFloat(rows[i], xItem.column);
+      if (!Number.isNaN(xv) && xv <= simulationTime && xv >= bestTime) {
+        bestTime = xv;
+        rowIndex = i;
+      }
+    }
+  }
+
+  const labels = yItems.map(({ column }) => sliceCrossMemberColumnLabel(column));
+  let values = yItems.map(({ simId, column }) => {
+    const v = cellFloat(memberData[simId][rowIndex], column);
+    return Number.isFinite(v) ? Math.max(0, v) : 0;
+  });
+  const sum = values.reduce((a, b) => a + b, 0);
+  if (sum <= 0) values = values.map(() => 1 / Math.max(1, values.length));
+
+  return [
+    {
+      type: 'pie',
+      labels,
+      values,
+      marker: {
+        colors: CHART_COLORS.slice(0, Math.max(labels.length, 1)),
+      },
+      textinfo: 'label+percent',
+      hovertemplate:
+        '<b>%{label}</b><br>%{percent}<br>value %{value}<extra></extra>',
+      textfont: { color: '#fff', size: 12 },
+    },
+  ];
 }

@@ -79,26 +79,37 @@ export function buildMergedEvaluationRow(rowIndex, memberSimulations, dataMap) {
 
 /**
  * Append ensemble-level formula columns onto the primary member’s rows (same row index across members).
+ * Treats materialized scenario id `formulaScenarioId` like another member: each computed column N gets
+ * keys `formulaScenarioId — N` so formulas can chain `formula — earlierDerived` like backend materialize.
  */
 export function augmentEnsemblePrimaryWithCrossMemberDerived(
   memberSimulations,
   dataMap,
   derivedVariables,
   primarySimId,
+  formulaScenarioId = 'formula',
 ) {
   if (!derivedVariables?.length || !dataMap || !primarySimId) return dataMap;
   const primaryRows = dataMap[primarySimId];
   if (!primaryRows?.length) return dataMap;
 
   const newPrimary = primaryRows.map((row, rowIndex) => {
-    const evalRow = buildMergedEvaluationRow(rowIndex, memberSimulations, dataMap);
+    let evalRow = { ...buildMergedEvaluationRow(rowIndex, memberSimulations, dataMap) };
     const out = { ...row };
     for (const { name, formula } of derivedVariables) {
       const val = evaluateFormula(formula, evalRow);
       const cell = Number.isNaN(val) ? '' : val;
+      const numForScope =
+        typeof cell === 'number' && Number.isFinite(cell)
+          ? cell
+          : Number.parseFloat(cell);
+      const n = Number.isFinite(numForScope) ? numForScope : 0;
       out[name] = cell;
-      // Chart builder / saved charts use qualifyEnsembleColumn(primary, name) as the column id.
       out[qualifyEnsembleColumn(primarySimId, name)] = cell;
+      out[qualifyEnsembleColumn(formulaScenarioId, name)] = cell;
+      evalRow[name] = n;
+      evalRow[qualifyEnsembleColumn(primarySimId, name)] = n;
+      evalRow[qualifyEnsembleColumn(formulaScenarioId, name)] = n;
     }
     return out;
   });

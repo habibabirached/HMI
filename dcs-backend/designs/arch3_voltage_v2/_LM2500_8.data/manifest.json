@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "columns": [
+    "t",
+    "Q_g8",
+    "V_g8",
+    "freq_gt_8",
+    "Vlow_gt_8",
+    "P_g8",
+    "Tm_1.7",
+    "Tm0_1.7",
+    "Te_1.7",
+    "Wpu_1.7",
+    "Pmech_1.7"
+  ],
+  "row_count": 12000,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet",
+    "c0004.parquet",
+    "c0005.parquet",
+    "c0006.parquet",
+    "c0007.parquet",
+    "c0008.parquet",
+    "c0009.parquet",
+    "c0010.parquet"
+  ]
+}

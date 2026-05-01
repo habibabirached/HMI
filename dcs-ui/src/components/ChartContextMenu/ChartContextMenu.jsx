@@ -1,6 +1,5 @@
 import React from 'react';
 import './ChartContextMenu.css';
-import { componentSupportsConnectionReadout } from '../../utils/connectionReadoutSampling';
 
 /**
  * Component types that represent circuit breakers / switches.
@@ -110,7 +109,7 @@ const ChartContextMenu = ({
               </div>
             </div>
           )}
-          {canConfigureConnectionReadout && componentSupportsConnectionReadout(component) && (
+          {canConfigureConnectionReadout && (
             <div
               className="chart-context-item chart-context-item--readout"
               onClick={() => {

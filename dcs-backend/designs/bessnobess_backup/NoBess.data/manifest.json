@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "columns": [
+    "Time",
+    "P_load",
+    "P_g1",
+    "P_g2",
+    "P_bess",
+    "Q_load",
+    "Q_g1",
+    "Q_g2",
+    "Q_bess",
+    "freq",
+    "volt",
+    "w_rotor",
+    "T_mech"
+  ],
+  "row_count": 9376,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet",
+    "c0004.parquet",
+    "c0005.parquet",
+    "c0006.parquet",
+    "c0007.parquet",
+    "c0008.parquet",
+    "c0009.parquet",
+    "c0010.parquet",
+    "c0011.parquet",
+    "c0012.parquet"
+  ]
+}

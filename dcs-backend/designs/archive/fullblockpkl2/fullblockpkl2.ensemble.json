@@ -1,5 +1,0 @@
-{
-  "_note": "This file lists named groups of existing scenario ids (the same names as your .sim.json files without the extension). The UI reads it via GET /api/designs/.../ensembles. It does not replace per-scenario sim+json+csv; it only tells the app which tabs to treat as one ensemble for merged variable lists and (later) multi-scenario playback. The file name must match the design folder leaf: fullblockpkl2/fullblockpkl2.ensemble.json.",
-  "version": 1,
-  "ensembles": []
-}

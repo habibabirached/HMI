@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "columns": [
+    "t",
+    "P_g3",
+    "Q_g3",
+    "V_g3",
+    "freq_gt_3",
+    "Vlow_gt_3",
+    "Tm_1.2",
+    "Tm0_1.2",
+    "Te_1.2",
+    "Wpu_1.2",
+    "Pmech_1.2"
+  ],
+  "row_count": 12000,
+  "column_files": [
+    "c0000.parquet",
+    "c0001.parquet",
+    "c0002.parquet",
+    "c0003.parquet",
+    "c0004.parquet",
+    "c0005.parquet",
+    "c0006.parquet",
+    "c0007.parquet",
+    "c0008.parquet",
+    "c0009.parquet",
+    "c0010.parquet"
+  ]
+}

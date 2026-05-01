@@ -196,6 +196,17 @@
   border-right: none;
 }
 
+/* Titles / variables column needs more width than plot-type presets for long qualified names */
+.sim-chart-builder-col.sim-chart-builder-titles {
+  flex: 1.65 1 0;
+  min-width: 0;
+}
+
+.sim-chart-builder-col.sim-chart-builder-plots {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .sim-chart-builder-col-header-row {
   display: flex;
   align-items: center;
@@ -228,6 +239,93 @@
   flex-shrink: 0;
 }
 
+/* Formula variables — plot-types column */
+.sim-chart-builder-formula-pane {
+  flex-shrink: 0;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #333;
+}
+
+.sim-chart-builder-formula-pane-title {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #005e60;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sim-chart-builder-formula-pane-hint {
+  margin: 0 0 12px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #888;
+}
+
+.sim-chart-builder-formula-scope-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.sim-chart-builder-formula-scope-text {
+  font-size: 10px;
+  color: #005e60;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sim-chart-builder-formula-scope-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 212, 168, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sim-chart-builder-formula-scope-select:focus {
+  outline: none;
+  border-color: #00d4a8;
+  box-shadow: 0 0 0 1px rgba(0, 212, 168, 0.25);
+}
+
+.sim-chart-builder-formula-pane-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(118, 77, 209, 0.28) 0%, rgba(118, 77, 209, 0.12) 100%);
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  border-radius: 8px;
+  color: #c4b5fd;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sim-chart-builder-formula-pane-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(118, 77, 209, 0.42) 0%, rgba(118, 77, 209, 0.22) 100%);
+  border-color: #a78bfa;
+  box-shadow: 0 0 14px rgba(118, 77, 209, 0.35);
+}
+
+.sim-chart-builder-formula-pane-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sim-chart-builder-formula-pane-btn-icon {
+  font-size: 17px;
+  font-weight: 400;
+}
+
 .sim-chart-builder-item-row {
   display: flex;
   align-items: center;
@@ -255,6 +353,32 @@
 .sim-chart-builder-item-row .sim-chart-builder-item {
   flex: 1;
   min-width: 0;
+}
+
+.sim-chart-builder-column-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 120, 120, 0.35);
+  background: rgba(180, 60, 60, 0.2);
+  color: #ff9b9b;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sim-chart-builder-column-remove:hover {
+  background: rgba(220, 70, 70, 0.35);
+  border-color: rgba(255, 160, 160, 0.55);
+  color: #fff;
+}
+
+.sim-chart-builder-column-remove:focus-visible {
+  outline: 2px solid rgba(255, 160, 160, 0.7);
+  outline-offset: 1px;
 }
 
 .sim-chart-builder-done-footer {
@@ -475,6 +599,10 @@
   font-size: 11px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  align-items: flex-start;
 }
 
 .sim-chart-builder-item--ensemble-stacked {
@@ -487,8 +615,10 @@
   display: block;
   width: 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .sim-chart-builder-ensemble-sim-hint {

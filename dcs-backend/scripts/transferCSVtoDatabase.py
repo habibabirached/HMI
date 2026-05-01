@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Import every designs/<leaf>/*.data.csv (except under archive/) into the simulation CSV tables.
-Intended to run in the dcs-backend container so DATABASE_URL points at the same SQLite file as the API.
+For each legacy designs/<leaf>/*.data.csv (except archive/), run a one-time import:
+writes {sim}.data/ Parquet bundles (manifest + column files) and mirrors rows into SQLite.
+
+Run inside the dcs-backend container so DATABASE_URL matches the API's SQLite file.
+
+After migrating, the API reads scenario data from Parquet bundles + SQLite only — not from CSV.
 """
 
 from __future__ import annotations
@@ -45,7 +49,10 @@ def _iter_data_csvs(designs_root: str) -> list[tuple[str, str, str]]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Load simulation *.data.csv files from designs/ into the SQLite database."
+        description=(
+            "Migrate legacy *.data.csv files to {sim}.data/ Parquet bundles + SQLite mirrors "
+            "(same DB tables the API uses at runtime)."
+        )
     )
     ap.add_argument(
         "--designs-root",
@@ -67,6 +74,11 @@ def main() -> int:
         "--verbose",
         action="store_true",
         help="Print each file as it is processed.",
+    )
+    ap.add_argument(
+        "--delete-csv",
+        action="store_true",
+        help="Remove each *.data.csv after it was imported successfully (optional cleanup).",
     )
     args = ap.parse_args()
 
@@ -118,6 +130,10 @@ def main() -> int:
                 n_skipped += 1
             else:
                 n_imported += 1
+            if args.delete_csv and os.path.isfile(path):
+                os.remove(path)
+                if args.verbose:
+                    print(f"  deleted legacy CSV {path}", flush=True)
             if args.verbose:
                 print(f"  {status} ({nrows} data rows)", flush=True)
     finally:

@@ -26,7 +26,7 @@ const CHART_TYPES = [
   { id: 'stacked-nd', label: 'Stacked nD', icon: '📊', selections: null }, // X + Y columns + split by (phase/load/column)
   { id: 'histogram', label: 'Histogram', icon: '📊', selections: [{ hint: 'Pick column to bin' }] },
   { id: 'bar', label: 'Bar Chart', icon: '📊', selections: [{ hint: 'Pick X axis' }, { hint: 'Pick Y axis' }] },
-  { id: 'pie', label: 'Pie Chart', icon: '🥧', selections: [{ hint: 'Pick values' }] },
+  { id: 'pie', label: 'Pie Chart', icon: '🥧', selections: null }, // Multiple slice columns only (2+); row/time handled internally
   { id: 'box', label: 'Box Plot', icon: '📦', selections: [{ hint: 'Pick column' }] },
 ];
 
@@ -43,6 +43,9 @@ function SimulationChartBuilder({
   ensembleColumnGroups = [],
   derivedVariables = [],
   onAddDerivedVariable,
+  onRemoveScenarioColumn,
+  onRemoveEnsembleLiveDerived,
+  removeColumnDisabled = false,
   displayName,
   onAddChart,
   onCancel,
@@ -53,30 +56,45 @@ function SimulationChartBuilder({
   const [manualGroupBreaks, setManualGroupBreaks] = useState([]); // indices where each group ends (Y columns only)
   const [cursorHint, setCursorHint] = useState({ x: 0, y: 0, text: '', visible: false });
   const [formulaCalculatorOpen, setFormulaCalculatorOpen] = useState(false);
+  /** Ensemble only: narrow formula variables to one member scenario ('' = all qualified columns). */
+  const [formulaScenarioScope, setFormulaScenarioScope] = useState('');
 
   const currentChart = selectedChartType ? CHART_TYPES.find(c => c.id === selectedChartType) : null;
   const isNdChart = currentChart?.id === 'nd';
+  const isPieChart = currentChart?.id === 'pie';
   const isStackedNdChart = currentChart?.id === 'stacked-nd';
-  const needed = isNdChart || isStackedNdChart ? null : (currentChart?.selections?.length ?? 0);
+  const needed = isNdChart || isPieChart || isStackedNdChart ? null : (currentChart?.selections?.length ?? 0);
   const step = selections.length;
   const showSplitBy = isStackedNdChart && selections.length >= 2;
-  const inSelectionMode = isNdChart
-    ? !!selectedChartType && (step < 1 || true) // nd: stay in mode until Done; need at least X
+  const inSelectionMode = isNdChart || isPieChart
+    ? !!selectedChartType // nD / pie: stay in mode until Done
     : isStackedNdChart
       ? !!selectedChartType // stacked-nd: stay in mode until Done (can add columns or pick split-by)
       : !!(selectedChartType && needed > 0 && step < needed);
 
   const ndHint = step === 0 ? 'Pick X axis' : step === 1 ? 'Pick Y1' : `Pick Y${step} (or click Done)`;
+  const pieHint =
+    step === 0
+      ? 'Pick first slice variable'
+      : step === 1
+        ? 'Pick second slice variable (or Done)'
+        : `Pick slice variable ${step + 1} (or click Done)`;
   const stackedNdHint = step === 0 ? 'Pick X axis' : step === 1 ? 'Pick Y columns' : 'Pick more Y columns';
 
   useEffect(() => {
     if (inSelectionMode) {
-      const hintText = isNdChart ? ndHint : isStackedNdChart ? stackedNdHint : currentChart?.selections?.[step]?.hint ?? '';
+      const hintText = isNdChart
+        ? ndHint
+        : isPieChart
+          ? pieHint
+          : isStackedNdChart
+            ? stackedNdHint
+            : currentChart?.selections?.[step]?.hint ?? '';
       setCursorHint(prev => ({ ...prev, text: hintText, visible: true }));
     } else {
       setCursorHint(prev => ({ ...prev, visible: false }));
     }
-  }, [inSelectionMode, step, currentChart, isNdChart, isStackedNdChart, ndHint, stackedNdHint]);
+  }, [inSelectionMode, step, currentChart, isNdChart, isPieChart, isStackedNdChart, ndHint, pieHint, stackedNdHint]);
 
   useEffect(() => {
     if (!cursorHint.visible) return;
@@ -94,11 +112,11 @@ function SimulationChartBuilder({
 
   const handleTitleClick = (col) => {
     if (!currentChart) return;
-    if (!isNdChart && !isStackedNdChart && step >= needed) return;
+    if (!isNdChart && !isStackedNdChart && !isPieChart && step >= needed) return;
     if (selections.includes(col)) return; // No duplicate columns
     const next = [...selections, col];
     setSelections(next);
-    if (!isNdChart && !isStackedNdChart && next.length >= needed) {
+    if (!isNdChart && !isStackedNdChart && !isPieChart && next.length >= needed) {
       const chart = { chartType: selectedChartType, selections: next };
       onAddChart(chart);
       setSelectedChartType(null);
@@ -107,9 +125,15 @@ function SimulationChartBuilder({
   };
 
   const handleNdDone = () => {
-    if (!isNdChart || selections.length < 2) return; // Need X + at least 1 Y
-    const chart = { chartType: 'nd', selections };
-    onAddChart(chart);
+    if (!isNdChart || selections.length < 2) return; // X + at least one Y
+    onAddChart({ chartType: 'nd', selections });
+    setSelectedChartType(null);
+    setSelections([]);
+  };
+
+  const handlePieDone = () => {
+    if (!isPieChart || selections.length < 2) return; // At least two slice variables
+    onAddChart({ chartType: 'pie', selections });
     setSelectedChartType(null);
     setSelections([]);
   };
@@ -168,10 +192,38 @@ function SimulationChartBuilder({
     return m;
   }, [ensembleColumnGroups]);
 
-  const handleFormulaDone = (formula, variableName) => {
-    onAddDerivedVariable?.(formula, variableName);
-    setFormulaCalculatorOpen(false);
+  const handleFormulaDone = async (formula, variableName) => {
+    try {
+      await onAddDerivedVariable?.(formula, variableName);
+    } finally {
+      setFormulaCalculatorOpen(false);
+    }
   };
+
+  const formulaVariableGroups = useMemo(() => {
+    if (!useEnsembleColumnLayout || !ensembleColumnGroups?.length) return null;
+    return ensembleColumnGroups.map((g) => {
+      let items = (g.columns || []).map((raw) => ({
+        value: qualifyEnsembleColumn(g.simId, raw),
+        label: raw,
+      }));
+      if (primarySimForFormula && g.simId === primarySimForFormula) {
+        for (const d of derivedVariables || []) {
+          const q = qualifyEnsembleColumn(primarySimForFormula, d.name);
+          if (!items.some((it) => it.value === q)) items.push({ value: q, label: d.name });
+        }
+      }
+      const title = g.simId === 'formula' ? 'formula (existing CSV)' : g.simId;
+      return { title, simId: g.simId, items };
+    });
+  }, [useEnsembleColumnLayout, ensembleColumnGroups, primarySimForFormula, derivedVariables]);
+
+  /** Narrow dropdown filters which scenario sections appear in the formula modal (same short labels per row). */
+  const formulaVariableGroupsForModal = useMemo(() => {
+    if (!formulaVariableGroups) return null;
+    if (!formulaScenarioScope) return formulaVariableGroups;
+    return formulaVariableGroups.filter((g) => g.simId === formulaScenarioScope);
+  }, [formulaVariableGroups, formulaScenarioScope]);
 
   if (!useEnsembleColumnLayout && columns.length === 0) {
     return (
@@ -204,8 +256,16 @@ function SimulationChartBuilder({
       <div className="sim-chart-builder-header">
         <h3>📊 {displayName || 'Simulation'}</h3>
         <div className="sim-chart-builder-header-actions">
-          {isNdChart && inSelectionMode && selections.length >= 2 && (
-            <button className="sim-chart-builder-done" onClick={handleNdDone} title="Create chart with selected columns">
+          {(isNdChart || isPieChart) && inSelectionMode && selections.length >= 2 && (
+            <button
+              className="sim-chart-builder-done"
+              onClick={isNdChart ? handleNdDone : handlePieDone}
+              title={
+                isPieChart
+                  ? 'Create pie chart — shares of sum per row; first row when idle'
+                  : 'Create chart with selected columns'
+              }
+            >
               ✓ Done
             </button>
           )}
@@ -227,12 +287,16 @@ function SimulationChartBuilder({
         <div className={`sim-chart-builder-col sim-chart-builder-titles ${inSelectionMode ? 'sim-chart-builder-lit' : ''}`}>
           <div className="sim-chart-builder-col-header-row">
             <h4>Columns</h4>
-            {isNdChart && inSelectionMode && selections.length >= 2 && (
+            {(isNdChart || isPieChart) && inSelectionMode && selections.length >= 2 && (
               <button
                 type="button"
                 className="sim-chart-builder-done sim-chart-builder-done-top"
-                onClick={handleNdDone}
-                title="Create chart with selected columns"
+                onClick={isNdChart ? handleNdDone : handlePieDone}
+                title={
+                  isPieChart
+                    ? 'Create pie chart — shares per row; advances with playback'
+                    : 'Create chart with selected columns'
+                }
               >
                 ✓ Done
               </button>
@@ -248,20 +312,6 @@ function SimulationChartBuilder({
               </button>
             )}
           </div>
-          {/* Formula Builder button – opens calculator modal */}
-          {(isNdChart || isStackedNdChart || currentChart?.id === '2d') && (
-            <div className="sim-chart-builder-formula-trigger">
-              <button
-                type="button"
-                className="sim-chart-builder-formula-btn"
-                onClick={() => setFormulaCalculatorOpen(true)}
-                title="Build a formula from variables"
-              >
-                <span className="sim-chart-builder-formula-btn-icon">ƒ</span>
-                Formula Builder
-              </button>
-            </div>
-          )}
           {showSplitBy && (
             <div className="sim-chart-builder-split-by-row">
               <span className="sim-chart-builder-split-label">Split by:</span>
@@ -332,6 +382,20 @@ function SimulationChartBuilder({
                             >
                               <span className="sim-chart-builder-ensemble-item-main">{mainLabel}</span>
                             </button>
+                            {!inSelectionMode && !removeColumnDisabled && (
+                              <button
+                                type="button"
+                                className="sim-chart-builder-column-remove"
+                                aria-label={`Remove column ${rawCol}`}
+                                title="Remove from scenario Parquet and database"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveScenarioColumn?.({ simId: g.simId, rawColumn: rawCol });
+                                }}
+                              >
+                                ×
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -369,6 +433,20 @@ function SimulationChartBuilder({
                             >
                               {label}
                             </button>
+                            {!inSelectionMode && !removeColumnDisabled && (
+                              <button
+                                type="button"
+                                className="sim-chart-builder-column-remove"
+                                aria-label={`Remove live formula ${d.name}`}
+                                title="Remove ensemble live formula (chart_panel)"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveEnsembleLiveDerived?.(d.name);
+                                }}
+                              >
+                                ×
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -402,17 +480,35 @@ function SimulationChartBuilder({
                   >
                     {label}
                   </button>
+                  {!inSelectionMode && !removeColumnDisabled && (
+                    <button
+                      type="button"
+                      className="sim-chart-builder-column-remove"
+                      aria-label={`Remove column ${col}`}
+                      title="Remove from scenario Parquet and database"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveScenarioColumn?.({ rawColumn: col });
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               );
             })
             )}
-            {(isNdChart && inSelectionMode && selections.length >= 2) && (
+            {(isNdChart || isPieChart) && inSelectionMode && selections.length >= 2 && (
               <div className="sim-chart-builder-done-footer">
                 <button
                   type="button"
                   className="sim-chart-builder-done sim-chart-builder-done-inline"
-                  onClick={handleNdDone}
-                  title="Create chart with selected columns"
+                  onClick={isNdChart ? handleNdDone : handlePieDone}
+                  title={
+                    isPieChart
+                      ? 'Create pie chart — slice i shows value i ÷ sum(values); row tracks playback'
+                      : 'Create chart with selected columns'
+                  }
                 >
                   ✓ Done
                 </button>
@@ -435,6 +531,47 @@ function SimulationChartBuilder({
 
         {/* Plot types column */}
         <div className={`sim-chart-builder-col sim-chart-builder-plots ${inSelectionMode ? 'sim-chart-builder-dim' : ''}`}>
+          <div className="sim-chart-builder-formula-pane">
+            <h4 className="sim-chart-builder-formula-pane-title">Formula variables</h4>
+            <p className="sim-chart-builder-formula-pane-hint">
+              {useEnsembleColumnLayout
+                ? 'Creates a column stored under the formula scenario (combined CSV). Optionally narrow the variable list to one member scenario.'
+                : 'Creates a computed column in this scenario\u2019s CSV.'}
+            </p>
+            {useEnsembleColumnLayout && ensembleColumnGroups?.length > 0 && (
+              <label className="sim-chart-builder-formula-scope-label">
+                <span className="sim-chart-builder-formula-scope-text">Scenario for variables</span>
+                <select
+                  className="sim-chart-builder-formula-scope-select"
+                  value={formulaScenarioScope}
+                  onChange={(e) => setFormulaScenarioScope(e.target.value)}
+                  aria-label="Filter variables by scenario"
+                >
+                  <option value="">All scenarios</option>
+                  {ensembleColumnGroups.map((g) => (
+                    <option key={g.simId} value={g.simId}>
+                      {g.simId === 'formula' ? 'formula (existing CSV)' : g.simId}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              type="button"
+              className="sim-chart-builder-formula-pane-btn"
+              onClick={() => setFormulaCalculatorOpen(true)}
+              disabled={inSelectionMode}
+              title={
+                inSelectionMode
+                  ? 'Finish or cancel chart column selection first'
+                  : 'Define a formula and add it to this scenario or ensemble'
+              }
+            >
+              <span className="sim-chart-builder-formula-pane-btn-icon">ƒ</span>
+              New formula variable
+            </button>
+          </div>
+
           <h4>Plot types</h4>
           <div className="sim-chart-builder-list">
             {CHART_TYPES.map((ct) => (
@@ -444,7 +581,17 @@ function SimulationChartBuilder({
                 className={`sim-chart-builder-plot ${selectedChartType === ct.id ? 'active' : ''}`}
                 onClick={() => handleChartTypeClick(ct.id)}
                 disabled={inSelectionMode}
-                title={ct.id === 'nd' ? 'Pick X, then Y1, Y2... click Done when finished' : ct.id === 'stacked-nd' ? 'Pick X, Y columns, choose split (phase/load/column)' : (ct.selections?.length === 1 ? 'Pick 1 column' : `Pick ${ct.selections?.length} columns (first = X, second = Y)`)}
+                title={
+                  ct.id === 'nd'
+                    ? 'Pick X, then Y1, Y2... click Done when finished'
+                    : ct.id === 'pie'
+                      ? 'Pick time (X), then slice columns — pie shows one row; updates during simulation'
+                      : ct.id === 'stacked-nd'
+                        ? 'Pick X, Y columns, choose split (phase/load/column)'
+                        : ct.selections?.length === 1
+                          ? 'Pick 1 column'
+                          : `Pick ${ct.selections?.length} columns (first = X, second = Y)`
+                }
               >
                 <span className="sim-chart-plot-icon">{ct.icon}</span>
                 <span>{ct.label}</span>
@@ -477,7 +624,8 @@ function SimulationChartBuilder({
       <FormulaCalculator
         open={formulaCalculatorOpen}
         onClose={() => setFormulaCalculatorOpen(false)}
-        variables={allColumns}
+        variables={columns}
+        variableGroups={formulaVariableGroupsForModal ?? undefined}
         onDone={handleFormulaDone}
       />
     </div>
