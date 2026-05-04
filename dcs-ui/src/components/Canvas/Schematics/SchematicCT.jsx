@@ -9,6 +9,8 @@ function SchematicCT({
   height,
   strokeColor,
   zigzagColor,
+  strokeWidthVal = 3,
+  presentationOffline = false,
   primaryLabel,
   secondaryLabel,
 }) {
@@ -30,22 +32,17 @@ function SchematicCT({
   }
   d += ` L ${x1} ${wireY}`;
 
-  const lineColor = zigzagColor || strokeColor;
+  const zigzagStroke = presentationOffline ? strokeColor : zigzagColor || strokeColor;
+  const zigzagW = presentationOffline ? Math.max(4, strokeWidthVal) : 3;
 
   return (
     <>
-      <rect
-        width={width}
-        height={height}
-        fill="transparent"
-        stroke="none"
-        rx="4"
-      />
+      <rect width={width} height={height} fill="transparent" stroke="none" rx="4" />
       <path
         d={d}
         fill="none"
-        stroke={lineColor}
-        strokeWidth={3}
+        stroke={zigzagStroke}
+        strokeWidth={zigzagW}
         strokeLinecap="round"
         strokeLinejoin="round"
         pointerEvents="none"

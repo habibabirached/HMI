@@ -107,23 +107,32 @@ export function getConnectionLineRole(fromType, toType) {
   return 'neutral';
 }
 
+/** De-energized / offline branch stroke — reads as neutral gray on canvas (not tinted green/red). */
+const DEENERGIZED_STROKE_LIGHT = '#b8b8b8';
+const DEENERGIZED_STROKE_DARK = '#696969';
+
 export function getRoleGradientStops(role, energized) {
-  const dim = energized ? 1 : 0.48;
+  if (!energized) {
+    return {
+      a: { color: DEENERGIZED_STROKE_LIGHT, opacity: 0.94 },
+      b: { color: DEENERGIZED_STROKE_DARK, opacity: 0.94 }
+    };
+  }
   if (role === 'producer') {
     return {
-      a: { color: '#7ccc7a', opacity: dim },
-      b: { color: '#2d7a32', opacity: dim }
+      a: { color: '#7ccc7a', opacity: 1 },
+      b: { color: '#2d7a32', opacity: 1 }
     };
   }
   if (role === 'consumer') {
     return {
-      a: { color: '#ff8a80', opacity: dim },
-      b: { color: '#c62828', opacity: dim }
+      a: { color: '#ff8a80', opacity: 1 },
+      b: { color: '#c62828', opacity: 1 }
     };
   }
   return {
-    a: { color: '#b0b0b0', opacity: dim * 0.95 },
-    b: { color: '#6d6d6d', opacity: dim * 0.95 }
+    a: { color: '#b0b0b0', opacity: 0.95 },
+    b: { color: '#6d6d6d', opacity: 0.95 }
   };
 }
 
@@ -145,7 +154,14 @@ export function snapshotStyleFromAutoRole(fromType, toType) {
 }
 
 function buildCustomGradientStops(baseHex, depth3d, glossiness, energized) {
-  const dim = energized ? 1 : 0.48;
+  if (!energized) {
+    return [
+      { offset: '0%', color: DEENERGIZED_STROKE_LIGHT, opacity: 0.94 },
+      { offset: '100%', color: DEENERGIZED_STROKE_DARK, opacity: 0.94 },
+    ];
+  }
+
+  const dim = 1;
   const rgb = hexToRgb(baseHex) || { r: 109, g: 109, b: 109 };
   const t = clamp(Number(depth3d) || 0, 0, 100) / 100;
   const g = clamp(Number(glossiness) || 0, 0, 100) / 100;

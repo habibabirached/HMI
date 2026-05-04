@@ -24,6 +24,7 @@ function CanvasBlock({
   simulationTime = 0,
   simulationColumns = [],
   ensembleColumnGroups = [],
+  presenceForcedOffline = false,
   onMouseDown,
   onMouseUp,
   onContextMenu,
@@ -38,7 +39,8 @@ function CanvasBlock({
 
   const centerX = width / 2;
   const centerY = height / 2;
-  const { strokeColor, strokeWidthVal } = strokeForStatus(component, isSelected);
+  const presentationOffline = presenceForcedOffline;
+  const { strokeColor, strokeWidthVal } = strokeForStatus(component, isSelected, presentationOffline);
 
   return (
     <g
@@ -80,6 +82,7 @@ function CanvasBlock({
           height={height}
           strokeColor={strokeColor}
           strokeWidthVal={strokeWidthVal}
+          presentationOffline={presenceForcedOffline}
         />
 
         {component.embeddedSparklines?.length > 0 &&
@@ -108,12 +111,13 @@ function CanvasBlock({
             cy="10"
             r="4"
             fill={
-              component.status === 'idle'
-                ? '#666'
-                : component.status === 'offline' ||
-                    component.status === 'tripped' ||
-                    component.status === 'open'
-                  ? '#f44336'
+              presentationOffline ||
+              component.status === 'offline' ||
+              component.status === 'tripped' ||
+              component.status === 'open'
+                ? '#f44336'
+                : component.status === 'idle'
+                  ? '#666'
                   : '#4caf50'
             }
           />

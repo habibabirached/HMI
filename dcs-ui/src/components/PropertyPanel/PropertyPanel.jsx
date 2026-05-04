@@ -12,6 +12,24 @@ import {
   snapshotStyleFromAutoRole
 } from '../../utils/connectionLineStyle';
 
+function formatVariablePresenceWhen(mode) {
+  const m = mode && typeof mode === 'string' ? mode : 'lte';
+  if (m === 'lte') return '≤';
+  if (m === 'lt') return '<';
+  if (m === 'gte') return '≥';
+  if (m === 'gt') return '>';
+  return '≈';
+}
+
+function summarizePresenceRuleTargets(r) {
+  const nC = Array.isArray(r?.componentIds) ? r.componentIds.length : 0;
+  const nL = Array.isArray(r?.connectionIds) ? r.connectionIds.length : 0;
+  const parts = [];
+  if (nC) parts.push(`${nC} block${nC === 1 ? '' : 's'}`);
+  if (nL) parts.push(`${nL} line${nL === 1 ? '' : 's'}`);
+  return parts.join(' · ');
+}
+
 const PropertyPanel = ({
   selectedComponent,
   selectedConnection,
@@ -29,7 +47,9 @@ const PropertyPanel = ({
   onDeleteConnection,
   onAddChartFromBuilder,
   onClose,
-  disabled
+  disabled,
+  variableDrivenPresence = [],
+  onRemoveVariableDrivenPresenceRule,
 }) => {
   const [editedProps, setEditedProps] = useState({});
 
@@ -81,14 +101,80 @@ const PropertyPanel = ({
             displayName={simulationMetadata.displayName}
             onAddChart={onAddChartFromBuilder}
           />
+          {variableDrivenPresence.length > 0 && (
+            <div className="prop-section variable-presence-rules-block">
+              <h4>Schematic ↔ variable rules</h4>
+              <p className="variable-presence-rules-hint">
+                When the CSV condition is true at the playhead, linked blocks render offline with a red outline
+                and lines touching those blocks are grayed; standalone line rules gray only selected conductors (no
+                flow arrows).
+                Select a linked block or wire to see which rules apply to it.
+              </p>
+              <ul className="variable-presence-rules-list">
+                {variableDrivenPresence.map((r) => (
+                  <li key={r.id} className="variable-presence-rule-row">
+                    <div className="variable-presence-rule-main">
+                      <code className="variable-presence-rule-col">{r.column}</code>
+                      <span className="variable-presence-rule-when">
+                        {' '}
+                        {formatVariablePresenceWhen(r.when)}{' '}
+                        {r.threshold ?? 0}
+                      </span>
+                      {summarizePresenceRuleTargets(r) !== '' ? (
+                        <div className="variable-presence-rule-targets">
+                          {summarizePresenceRuleTargets(r)}
+                        </div>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-remove-sparkline"
+                      disabled={disabled}
+                      onClick={() => onRemoveVariableDrivenPresenceRule?.(r.id)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       );
     }
     return (
       <div className="property-panel empty">
-        <div className="empty-message">
-          Select a component or connection to view properties
-        </div>
+        <div className="empty-message">Select a component or connection to view properties</div>
+        {variableDrivenPresence.length > 0 && (
+          <div className="prop-section variable-presence-rules-block">
+            <h4>Schematic ↔ variable rules</h4>
+            <ul className="variable-presence-rules-list">
+              {variableDrivenPresence.map((r) => (
+                <li key={r.id} className="variable-presence-rule-row">
+                  <div className="variable-presence-rule-main">
+                    <code className="variable-presence-rule-col">{r.column}</code>
+                    <span className="variable-presence-rule-when">
+                      {formatVariablePresenceWhen(r.when)} {r.threshold ?? 0}
+                    </span>
+                    {summarizePresenceRuleTargets(r) !== '' ? (
+                      <div className="variable-presence-rule-targets">
+                        {summarizePresenceRuleTargets(r)}
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-remove-sparkline"
+                    disabled={disabled}
+                    onClick={() => onRemoveVariableDrivenPresenceRule?.(r.id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     );
   }
@@ -219,6 +305,45 @@ const PropertyPanel = ({
               {selectedConnection.status}
             </div>
           </div>
+
+          {(() => {
+            const rid = selectedConnection.id;
+            const rulesForWire = variableDrivenPresence.filter(
+              (r) => Array.isArray(r?.connectionIds) && r.connectionIds.includes(rid),
+            );
+            if (!rulesForWire.length) return null;
+            return (
+              <div className="prop-section variable-presence-rules-block">
+                <h4>Variable-driven de-energized</h4>
+                <p className="variable-presence-rules-hint">
+                  When the CSV condition holds at the playhead, only this conductor (not its endpoints) renders
+                  de-energized — muted stroke and arrows off unless this line overlaps other rules touching
+                  equipment.
+                </p>
+                <ul className="variable-presence-rules-list">
+                  {rulesForWire.map((r) => (
+                    <li key={r.id} className="variable-presence-rule-row">
+                      <div className="variable-presence-rule-main">
+                        <code className="variable-presence-rule-col">{r.column}</code>
+                        <span className="variable-presence-rule-when">
+                          {' '}
+                          {formatVariablePresenceWhen(r.when)} {r.threshold ?? 0}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-remove-sparkline"
+                        disabled={disabled}
+                        onClick={() => onRemoveVariableDrivenPresenceRule?.(r.id)}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           <div className="prop-section connection-appearance-section">
             <h4>Line appearance</h4>
@@ -510,6 +635,44 @@ const PropertyPanel = ({
             />
           </div>
         </div>
+
+        {(() => {
+          const cid = selectedComponent.id;
+          const rulesForComp = variableDrivenPresence.filter(
+            (r) => Array.isArray(r?.componentIds) && r.componentIds.includes(cid),
+          );
+          if (!rulesForComp.length) return null;
+          return (
+            <div className="prop-section variable-presence-rules-block">
+              <h4>Variable-driven offline</h4>
+              <p className="variable-presence-rules-hint">
+                At the current playhead, if the condition below is true, this block is drawn offline and
+                connections to it follow de-energized styling.
+              </p>
+              <ul className="variable-presence-rules-list">
+                {rulesForComp.map((r) => (
+                  <li key={r.id} className="variable-presence-rule-row">
+                    <div className="variable-presence-rule-main">
+                      <code className="variable-presence-rule-col">{r.column}</code>
+                      <span className="variable-presence-rule-when">
+                        {' '}
+                        {formatVariablePresenceWhen(r.when)} {r.threshold ?? 0}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-remove-sparkline"
+                      disabled={disabled}
+                      onClick={() => onRemoveVariableDrivenPresenceRule?.(r.id)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         <div className="prop-section">
           <h4>Electrical Properties</h4>

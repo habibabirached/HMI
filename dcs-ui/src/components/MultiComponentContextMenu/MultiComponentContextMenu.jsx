@@ -8,6 +8,8 @@ const MultiComponentContextMenu = ({
   onClose, 
   onSelectChartType,
   onSetInitialSimStatus,
+  onConfigureVariablePresence,
+  variableDrivenPresence = [],
 }) => {
   const handleChartTypeClick = (chartType) => {
     console.log(`📊 ${chartType} selected for`, components.length, 'components');
@@ -17,6 +19,10 @@ const MultiComponentContextMenu = ({
 
   const offCount = components.filter(c => c.initialSimStatus === 'open').length;
   const breakerCount = components.filter(c => BREAKER_TYPES.has(c.type)).length;
+  const ids = new Set(components.map((c) => c.id));
+  const presenceRuleOverlap = (variableDrivenPresence || []).filter((r) =>
+    Array.isArray(r?.componentIds) && r.componentIds.some((id) => ids.has(id)),
+  ).length;
 
   return (
     <div 
@@ -71,6 +77,25 @@ const MultiComponentContextMenu = ({
               <span className="context-menu-label">
                 On Simulate: start ON
                 {offCount > 0 ? ` (clears ${offCount})` : ''}
+              </span>
+            </button>
+            <div className="context-menu-separator"></div>
+          </>
+        )}
+        
+        {onConfigureVariablePresence && (
+          <>
+            <button
+              type="button"
+              className="context-menu-item context-menu-item--accent"
+              onClick={() => onConfigureVariablePresence()}
+            >
+              <span className="context-menu-icon">⛓</span>
+              <span className="context-menu-label">
+                Link offline to variable…
+                {presenceRuleOverlap > 0
+                  ? ` (${presenceRuleOverlap} rule${presenceRuleOverlap === 1 ? '' : 's'} touch selection)`
+                  : ''}
               </span>
             </button>
             <div className="context-menu-separator"></div>

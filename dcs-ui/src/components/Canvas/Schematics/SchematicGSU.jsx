@@ -21,6 +21,9 @@ function SchematicGSU({
   lineColor,
   textureHref,
   textureOpacity = 1,
+  strokeColor = '#4caf50',
+  strokeWidthVal = 3,
+  presentationOffline = false,
 }) {
   const cx = width / 2;
   const voltageRatioLabel = transformerVoltageRatioLabel(component);
@@ -107,8 +110,10 @@ function SchematicGSU({
         height={Math.max(1, outlineH - 1)}
         rx={outlineRx}
         fill="none"
-        stroke="rgba(200, 200, 200, 0.32)"
-        strokeWidth={1}
+        stroke={
+          presentationOffline ? strokeColor : 'rgba(200, 200, 200, 0.32)'
+        }
+        strokeWidth={presentationOffline ? strokeWidthVal : 1}
         pointerEvents="none"
       />
     </>

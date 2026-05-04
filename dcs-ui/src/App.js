@@ -42,6 +42,7 @@ import {
   CHART_PANEL_OPACITY_DEFAULT,
 } from './utils/chartPanelLimits';
 import { parseSimulationDeepLink, buildSimulationDeepLinkQuery, lastScenarioSessionStorageKey } from './utils/simDeepLink';
+import { computePlaybackClockOriginSeconds } from './utils/playbackClockOrigin';
 import { downsampleRowsForSparklines, arrayFiniteMinMax } from './utils/simulationSparklineData';
 import { copyTextToClipboard } from './utils/clipboard';
 import {
@@ -58,6 +59,8 @@ import {
   logPerfBootOnce,
   logPerfNote,
 } from './utils/perfDebug';
+import { usePresenceForcedOfflineIds } from './hooks/usePresenceForcedOfflineIds';
+import VariablePresenceRuleDialog from './components/VariablePresenceRuleDialog/VariablePresenceRuleDialog';
 import './styles/App.css';
 
 /** Verbose trace for deep links / session restore / copy-link debugging — filter console by `[DCS:` */
@@ -241,11 +244,16 @@ function App() {
   };
 
   const [connections, setConnections] = useState([]);
+  /** Design-time rules: CSV variable + component set → forced offline / de-energized branch during playback. */
+  const [variableDrivenPresence, setVariableDrivenPresence] = useState([]);
+  /** Multi-select context menu → column picker for variable-driven offline */
+  const [variablePresencePicker, setVariablePresencePicker] = useState(null);
   const [selectedComponent, setSelectedComponent] = useState(null);
   const [selectedConnection, setSelectedConnection] = useState(null);
   
   // Multi-selection state
   const [selectedComponents, setSelectedComponents] = useState([]); // Array of component IDs for multi-select
+  const [selectedConnections, setSelectedConnections] = useState([]); // connection ids — shift+click lines
   
   // Canvas viewport
   const [zoom, setZoom] = useState(1);
@@ -263,6 +271,8 @@ function App() {
 
   /** Last simulation time (seconds) from metadata / loaded CSV — drives playback loop when reached. */
   const playbackMaxTimeRef = useRef(null);
+  /** First CSV time axis sample (seconds) — playback resets here and idle scrub starts aligned with data. */
+  const playbackMinTimeRef = useRef(0);
 
   const simulationIntervalRef = useRef(null); // Interval for advancing simulation time
   
@@ -332,7 +342,7 @@ function App() {
     ensembleMemberSimulationDataRef.current = ensembleMemberSimulationData;
   }, [ensembleMemberSimulationData]);
 
-  /** Playback span end time (seconds) — when reached, simulation loops from t = 0. */
+  /** Playback span end time (seconds) — when reached, loops back to CSV time-origin. */
   useEffect(() => {
     const meta = simulationMetadata;
     const trMax = meta?.timeRange?.max;
@@ -374,6 +384,19 @@ function App() {
     simulationMetadata?.id,
     simulationMetadata?.isEnsemble,
     simulationMetadata?.memberSimulations,
+    simulationData,
+    ensembleMemberSimulationData,
+  ]);
+
+  /** CSV time-axis origin (seconds) — also kept in sync for sliders / tooling that read refs. */
+  useEffect(() => {
+    playbackMinTimeRef.current = computePlaybackClockOriginSeconds(
+      simulationMetadata,
+      simulationData,
+      ensembleMemberSimulationData,
+    );
+  }, [
+    simulationMetadata,
     simulationData,
     ensembleMemberSimulationData,
   ]);
@@ -510,6 +533,15 @@ function App() {
     [simulationData],
   );
 
+  const { presenceForcedOfflineIds, presenceForcedOfflineConnectionIds } = usePresenceForcedOfflineIds({
+    variableDrivenPresence,
+    simulationDataForCanvas,
+    simulationData,
+    ensembleMemberSimulationData,
+    simulationTime,
+    canvasComponents,
+  });
+
   /*
    * Canvas “add chart” actions need metadata (and for non-ensemble lazy mode, rowCount) so pickers work.
    * Ensemble purple tab loads only metadata first; per-member CSV rows load on demand (charts, Play, etc.).
@@ -641,6 +673,7 @@ function App() {
     if (selectedConnection?.id === connectionId) {
       setSelectedConnection(null);
     }
+    setSelectedConnections((prev) => prev.filter((id) => id !== connectionId));
   }, [selectedConnection]);
 
   // ============================================================================
@@ -654,31 +687,51 @@ function App() {
    */
   const handleMultiSelect = useCallback((componentId, shiftKey) => {
     if (!shiftKey) {
-      // No shift key - clear multi-selection, use single selection
       setSelectedComponents([]);
       return;
     }
-    
-    // Shift key pressed - toggle this component in multi-selection
+
+    setSelectedConnections([]);
+
     setSelectedComponents(prev => {
       if (prev.includes(componentId)) {
-        // Already selected - remove it
         return prev.filter(id => id !== componentId);
       } else {
-        // Not selected - add it
         return [...prev, componentId];
       }
     });
-    
-    // Clear single selection when using multi-select
+
     setSelectedComponent(null);
   }, []);
-  
-  /**
-   * Clear all multi-selections
-   */
+
   const handleClearMultiSelection = useCallback(() => {
     setSelectedComponents([]);
+  }, []);
+
+  /**
+   * Shift-selected schematic lines — cleared when changing component selection flows.
+   */
+  const handleClearConnectionMultiSelection = useCallback(() => {
+    setSelectedConnections([]);
+  }, []);
+
+  const handleSelectConnection = useCallback((conn, mouseEventLike = {}) => {
+    if (!conn?.id) {
+      setSelectedConnection(null);
+      setSelectedConnections([]);
+      return;
+    }
+    if (mouseEventLike.shiftKey) {
+      setSelectedComponent(null);
+      setSelectedComponents([]);
+      setSelectedConnection(null);
+      setSelectedConnections((prev) =>
+        prev.includes(conn.id) ? prev.filter((id) => id !== conn.id) : [...prev, conn.id],
+      );
+      return;
+    }
+    setSelectedConnections([]);
+    setSelectedConnection(conn);
   }, []);
   
   /**
@@ -708,8 +761,13 @@ function App() {
   // Start simulation
   const handleStartSimulation = () => {
     const start = () => {
+      const tOrigin = computePlaybackClockOriginSeconds(
+        simulationMetadataRef.current,
+        simulationDataRef.current?.length ? simulationDataRef.current : [],
+        ensembleMemberSimulationDataRef.current,
+      );
       setSimulationRunning(true);
-      setSimulationTime(0); // Reset simulation time to 0
+      setSimulationTime(tOrigin);
 
       resetPlaybackVisualsRef.current();
 
@@ -1010,7 +1068,7 @@ function App() {
     }
   }, [designApiPath, csvStatus?.use_design_dir]);
 
-  // Simulation clock advancement — loops to t = 0 when playback reaches CSV/metadata max time.
+  // Simulation clock advancement — loops to CSV origin when playback reaches max time.
   const startSimulationClock = (speed) => {
     if (speed !== undefined) {
       simulationSpeedRef.current = speed;
@@ -1026,9 +1084,18 @@ function App() {
         const dt = 0.1 * spd;
         const next = prev + dt;
         const tMax = playbackMaxTimeRef.current;
-        if (Number.isFinite(tMax) && tMax > 0 && next >= tMax) {
+        const tOrigin = computePlaybackClockOriginSeconds(
+          simulationMetadataRef.current,
+          simulationDataRef.current?.length ? simulationDataRef.current : [],
+          ensembleMemberSimulationDataRef.current,
+        );
+        if (
+          Number.isFinite(tMax) &&
+          tMax > tOrigin &&
+          next >= tMax
+        ) {
           queueMicrotask(() => resetPlaybackVisualsRef.current());
-          return 0;
+          return tOrigin;
         }
         return next;
       });
@@ -1819,6 +1886,7 @@ function App() {
       startTransition(() => {
         setSimulationData(augmentedRows);
         setSimulationMetadata(simulationMetadata);
+        setSimulationTime(Number.isFinite(tMin) ? tMin : 0);
 
         setSimConfig(prev => {
           const sims = prev?.simulations ? { ...prev.simulations } : {};
@@ -3175,6 +3243,58 @@ function App() {
     return next;
   }, [designApiPath]);
 
+  const handleOpenVariablePresenceDialog = useCallback((componentList) => {
+    if (!componentList?.length) return;
+    setVariablePresencePicker({ components: componentList });
+  }, []);
+
+  const handleOpenVariablePresenceDialogConnections = useCallback((connectionList) => {
+    if (!connectionList?.length) return;
+    setVariablePresencePicker({ connections: connectionList });
+  }, []);
+
+  const handleVariablePresenceRuleConfirm = useCallback(
+    async (payload) => {
+      const id = `vdp-${Date.now()}`;
+      const rule = {
+        id,
+        column: payload.column,
+        componentIds: [...(payload.componentIds || [])],
+        connectionIds: [...(payload.connectionIds || [])],
+        when: payload.when,
+        threshold: payload.threshold,
+      };
+      try {
+        const parsed = parseEnsembleQualifiedColumn(payload.column);
+        if (parsed && designApiPath) {
+          const g = ensembleColumnGroupsRef.current.find((x) => x.simId === parsed.simId);
+          const tc = pickTimeColumn(g?.columns || []);
+          await ensureEnsembleMemberColumnsLoaded(
+            parsed.simId,
+            [parsed.column, ...(tc ? [tc] : [])].filter(Boolean),
+          );
+        } else if (
+          designApiPath &&
+          simulationMetadataRef.current?.id &&
+          !simulationMetadataRef.current?.isEnsemble
+        ) {
+          const rows = simulationDataRef.current;
+          const tc = rows?.length ? pickTimeColumn(Object.keys(rows[0])) : null;
+          await ensureSimulationColumnsLoaded([payload.column, ...(tc ? [tc] : [])].filter(Boolean));
+        }
+      } catch (e) {
+        console.warn('[DCS] variable presence column prefetch', e);
+      }
+      setVariableDrivenPresence((prev) => [...prev, rule]);
+      setVariablePresencePicker(null);
+    },
+    [designApiPath, ensureEnsembleMemberColumnsLoaded, ensureSimulationColumnsLoaded],
+  );
+
+  const handleRemoveVariableDrivenPresenceRule = useCallback((ruleId) => {
+    setVariableDrivenPresence((prev) => prev.filter((r) => r.id !== ruleId));
+  }, []);
+
   const ensureEnsemblePlaybackPrimed = useCallback(async () => {
     const members = simulationMetadataRef.current?.memberSimulations || [];
     await Promise.all(
@@ -4320,6 +4440,18 @@ function App() {
     if (data.connections) {
       setConnections(data.connections);
     }
+
+    if (Array.isArray(data.variableDrivenPresence)) {
+      setVariableDrivenPresence(
+        data.variableDrivenPresence.map((r) => ({
+          ...r,
+          componentIds: Array.isArray(r.componentIds) ? r.componentIds : [],
+          connectionIds: Array.isArray(r.connectionIds) ? r.connectionIds : [],
+        })),
+      );
+    } else {
+      setVariableDrivenPresence([]);
+    }
     
     if (data.systemState) {
       setSystemState(data.systemState);
@@ -4343,6 +4475,8 @@ function App() {
     // Reset selection
     setSelectedComponent(null);
     setSelectedConnection(null);
+    setSelectedConnections([]);
+    setSelectedComponents([]);
 
     // Step 4: after Load Design (not URL bootstrap), re-open the last scenario tab for this folder via localStorage.
     if (!skipSessionRestore && loadedConfig.csv_status?.use_design_dir) {
@@ -4385,6 +4519,7 @@ function App() {
     return {
       canvasComponents,
       connections,
+      variableDrivenPresence,
       systemState: {
         simulationRunning,
         zoom,
@@ -4772,10 +4907,12 @@ function App() {
               selectedComponent={selectedComponent}
               selectedConnection={selectedConnection}
               onSelectComponent={setSelectedComponent}
-              onSelectConnection={setSelectedConnection}
+              onSelectConnection={handleSelectConnection}
               selectedComponents={selectedComponents}
               onMultiSelect={handleMultiSelect}
               onClearMultiSelection={handleClearMultiSelection}
+              onClearConnectionMultiSelection={handleClearConnectionMultiSelection}
+              selectedConnectionIds={selectedConnections}
               isComponentMultiSelected={isComponentMultiSelected}
               onMoveComponent={handleMoveComponent}
               onAddComponent={handleAddComponent}
@@ -4801,6 +4938,11 @@ function App() {
               ensembleMemberSimulationData={ensembleMemberSimulationData}
               simulationTime={simulationTime}
               systemState={systemState}
+              presenceForcedOfflineIds={presenceForcedOfflineIds}
+              presenceForcedOfflineConnectionIds={presenceForcedOfflineConnectionIds}
+              variableDrivenPresence={variableDrivenPresence}
+              onOpenVariablePresenceDialog={handleOpenVariablePresenceDialog}
+              onOpenVariablePresenceDialogConnections={handleOpenVariablePresenceDialogConnections}
             />
           )}
         </div>
@@ -4839,6 +4981,8 @@ function App() {
             simulationColumns={simulationMetadata?.columns || []}
             ensembleColumnGroups={ensembleColumnGroups}
             derivedVariables={simulationMetadata?.derivedVariables || []}
+            variableDrivenPresence={variableDrivenPresence}
+            onRemoveVariableDrivenPresenceRule={handleRemoveVariableDrivenPresenceRule}
             onAddDerivedVariable={handleAddDerivedVariable}
             onRemoveScenarioColumn={handleRemoveScenarioColumn}
             onRemoveEnsembleLiveDerived={handleRemoveEnsembleLiveDerived}
@@ -4851,6 +4995,7 @@ function App() {
             onClose={() => {
               setSelectedComponent(null);
               setSelectedConnection(null);
+              setSelectedConnections([]);
             }}
             disabled={mode === 'simulation'}
           />
@@ -4988,6 +5133,25 @@ function App() {
           onClose={() => setConnectionReadoutContext(null)}
           onSave={handleConnectionReadoutSave}
           onRemove={handleConnectionReadoutRemove}
+        />
+      )}
+
+      {(variablePresencePicker?.components?.length > 0 ||
+        variablePresencePicker?.connections?.length > 0) && (
+        <VariablePresenceRuleDialog
+          open
+          componentIds={(variablePresencePicker.components || []).map((c) => c.id)}
+          componentSummary={(variablePresencePicker.components || []).map((c) => c.name).join(', ')}
+          connectionIds={(variablePresencePicker.connections || []).map((c) => c.id)}
+          connectionSummary={(variablePresencePicker.connections || [])
+            .map((c) => (c.voltage > 0 ? `${c.voltage} kV` : 'line'))
+            .join(', ')}
+          columns={simulationMetadata?.columns || []}
+          isEnsemble={!!simulationMetadata?.isEnsemble}
+          ensembleColumnGroups={ensembleColumnGroups}
+          derivedVariables={simulationMetadata?.derivedVariables || []}
+          onClose={() => setVariablePresencePicker(null)}
+          onConfirm={handleVariablePresenceRuleConfirm}
         />
       )}
 

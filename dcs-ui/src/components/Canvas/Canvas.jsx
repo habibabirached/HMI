@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useMemo } from 'react';
 import ChartContextMenu from '../ChartContextMenu/ChartContextMenu';
 import MultiComponentContextMenu from '../MultiComponentContextMenu/MultiComponentContextMenu';
+import MultiConnectionContextMenu from '../MultiConnectionContextMenu/MultiConnectionContextMenu';
 import MultiComponentChartDialog from '../MultiComponentChartDialog/MultiComponentChartDialog';
 import KeyboardShortcuts from './KeyboardShortcuts';
 import CanvasBlock from './CanvasBlock';
 import { getComponentVisualConfig } from '../../data/componentVisuals';
 import { resolveConnectionRenderParams } from '../../utils/connectionLineStyle';
+import { NO_PRESENCE_FORCED_IDS } from '../../utils/variableDrivenPresence';
 import { markSelectionInteractionStart } from '../../utils/perfDebug';
 import './Canvas.css';
 
@@ -175,6 +177,8 @@ const Canvas = forwardRef(({
   selectedComponents,
   onMultiSelect,
   onClearMultiSelection,
+  onClearConnectionMultiSelection = () => {},
+  selectedConnectionIds = [],
   isComponentMultiSelected,
   onMoveComponent,
   onAddComponent,
@@ -199,7 +203,12 @@ const Canvas = forwardRef(({
   simulationData = [],
   ensembleMemberSimulationData = null,
   simulationTime = 0,
-  systemState
+  systemState,
+  presenceForcedOfflineIds = NO_PRESENCE_FORCED_IDS,
+  presenceForcedOfflineConnectionIds = NO_PRESENCE_FORCED_IDS,
+  variableDrivenPresence = [],
+  onOpenVariablePresenceDialog,
+  onOpenVariablePresenceDialogConnections,
 }, ref) => {
   const canvasRef = useRef(null);
   /** Keep latest pan for native wheel/touch handlers (avoids stale closures). */
@@ -287,7 +296,16 @@ const Canvas = forwardRef(({
         toCenterY,
       );
 
-      const isEnergized = fromComp.status === 'normal' || fromComp.status === 'online';
+      const baseFromOk =
+        fromComp.status === 'normal' ||
+        fromComp.status === 'online' ||
+        fromComp.status === 'idle';
+      const endpointForced =
+        (presenceForcedOfflineIds?.has?.(fromComp.id) ?? false) ||
+        (presenceForcedOfflineIds?.has?.(toComp.id) ?? false);
+      const connRuleForced =
+        presenceForcedOfflineConnectionIds?.has?.(conn.id) ?? false;
+      const isEnergized = baseFromOk && !endpointForced && !connRuleForced;
       const resolved = resolveConnectionRenderParams(
         conn,
         fromComp.type,
@@ -305,10 +323,11 @@ const Canvas = forwardRef(({
         segments,
         gradientLine,
         resolved,
-        gradientId
+        gradientId,
+        isEnergized
       };
     }).filter(Boolean);
-  }, [connections, components]);
+  }, [connections, components, presenceForcedOfflineIds, presenceForcedOfflineConnectionIds]);
 
   const [draggingComponent, setDraggingComponent] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -400,6 +419,7 @@ const Canvas = forwardRef(({
     // IN SIMULATION MODE: Only allow selection, nothing else
     if (mode === 'simulation') {
       console.log('🖱️ Clicked in simulation mode:', component.name);
+      onClearConnectionMultiSelection();
       onSelectComponent(component);  // Allow selecting
       return;  // But block dragging and connecting
     }
@@ -441,6 +461,7 @@ const Canvas = forwardRef(({
 
     // Regular click = Start dragging and select (clears multi-selection)
     onMultiSelect(component.id, false); // Clear multi-selection
+    onClearConnectionMultiSelection();
     setDraggingComponent(component.id);
     const rect = canvasRef.current.getBoundingClientRect();
     setDragOffset({
@@ -500,6 +521,30 @@ const Canvas = forwardRef(({
         position: { x: e.clientX, y: e.clientY }
       });
     }
+  };
+
+  const handleConnectionContextMenu = (e, conn) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!conn?.id || !connections?.length) return;
+    const mergedIds =
+      selectedConnectionIds.length > 0
+        ? [...selectedConnectionIds]
+        : selectedConnection?.id
+          ? [selectedConnection.id]
+          : [];
+    if (!mergedIds.includes(conn.id)) return;
+
+    const list = mergedIds
+      .map((id) => connections.find((c) => c.id === id))
+      .filter(Boolean);
+    if (!list.length) return;
+
+    setContextMenu({
+      type: 'multi-connection',
+      connections: list,
+      position: { x: e.clientX, y: e.clientY },
+    });
   };
 
   /**
@@ -569,6 +614,7 @@ const Canvas = forwardRef(({
       onSelectComponent(null);
       onSelectConnection(null);
       onClearMultiSelection(); // Clear multi-selection
+      onClearConnectionMultiSelection();
     }
   };
 
@@ -873,6 +919,7 @@ const Canvas = forwardRef(({
       // ESC - Clear selection and close context menu
       if (e.key === 'Escape') {
         onClearMultiSelection();
+        onClearConnectionMultiSelection();
         setContextMenu(null);
         console.log('⌨️  Escape - Cleared selection');
       }
@@ -944,6 +991,7 @@ const Canvas = forwardRef(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     onClearMultiSelection,
+    onClearConnectionMultiSelection,
     selectedComponents,
     components,
     mode,
@@ -957,8 +1005,8 @@ const Canvas = forwardRef(({
   
   // Click outside handler for multi-component context menu
   useEffect(() => {
-    if (!contextMenu || contextMenu.type !== 'multi-component') return;
-    
+    if (!contextMenu || (contextMenu.type !== 'multi-component' && contextMenu.type !== 'multi-connection')) return;
+
     const handleClickOutside = (e) => {
       // If clicking outside the context menu, close it
       const menuElement = document.querySelector('.multi-component-context-menu');
@@ -1035,9 +1083,16 @@ const Canvas = forwardRef(({
               segments,
               gradientLine,
               resolved,
-              gradientId
+              gradientId,
+              isEnergized,
             } = row;
-            const isSelected = selectedConnection?.id === conn.id;
+            const isConnHighlighted =
+              selectedConnection?.id === conn.id || selectedConnectionIds.includes(conn.id);
+            const isMultiWireSel =
+              selectedConnectionIds.length > 1 && selectedConnectionIds.includes(conn.id);
+            const selectionStrokeCol = isMultiWireSel
+              ? 'rgba(110, 185, 255, 0.9)'
+              : 'rgba(0, 220, 210, 0.9)';
             const strokeW = resolved.strokeWidth;
             const flowClass =
               resolved.animation === 'forward'
@@ -1074,17 +1129,18 @@ const Canvas = forwardRef(({
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSelectConnection(conn);
+                  onSelectConnection(conn, { shiftKey: e.shiftKey });
                 }}
+                onContextMenu={(e) => handleConnectionContextMenu(e, conn)}
               >
-                {isSelected && (
+                {isConnHighlighted && (
                   <rect
                     x={frameX}
                     y={frameY}
                     width={frameW}
                     height={frameH}
                     fill="none"
-                    stroke="rgba(0, 220, 210, 0.9)"
+                    stroke={selectionStrokeCol}
                     strokeWidth={frameStrokeU}
                     className="connection-line--selection-frame"
                     pointerEvents="none"
@@ -1103,7 +1159,7 @@ const Canvas = forwardRef(({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeDasharray={resolved.animation !== 'none' ? '12 8' : undefined}
-                    className={`connection-line ${flowClass}${isSelected ? ' connection-line--selected' : ''}`}
+                    className={`connection-line ${flowClass}${isConnHighlighted ? ' connection-line--selected' : ''}`}
                     pointerEvents="stroke"
                   />
                 ))}
@@ -1119,7 +1175,7 @@ const Canvas = forwardRef(({
                 </text>
 
                 {/* Directional flow arrows — only visible during simulation */}
-                {simulationRunning && resolved.flowArrows !== 'none' && (() => {
+                {simulationRunning && row.isEnergized && resolved.flowArrows !== 'none' && (() => {
                   // Build SVG path string from segments
                   const segs = resolved.flowArrows === 'reverse'
                     ? [...segments].reverse().map(([x1, y1, x2, y2]) => [x2, y2, x1, y1])
@@ -1206,7 +1262,7 @@ const Canvas = forwardRef(({
           })()}
 
           {/* Render components */}
-          {components.map((component) => (
+            {components.map((component) => (
             <CanvasBlock
               key={component.id}
               component={component}
@@ -1215,6 +1271,7 @@ const Canvas = forwardRef(({
               isDragging={draggingComponent === component.id}
               mode={mode}
               simulationRunning={simulationRunning}
+              presenceForcedOffline={presenceForcedOfflineIds?.has?.(component.id) ?? false}
               simulationData={simulationData}
               ensembleMemberSimulationData={ensembleMemberSimulationData}
               simulationTime={simulationTime}
@@ -1238,7 +1295,7 @@ const Canvas = forwardRef(({
         <div>Connections: {connections.length}</div>
         {mode === 'design' && viewMode === 'designer' && (
           <div className="canvas-hint">
-            💡 Drag from library | Shift+Click multi-select | ⌘/Ctrl+Click connect | Right-click charts | Alt+Drag pan
+            💡 Drag from library | Shift+Click multi-select blocks or lines | ⌘/Ctrl+Click connect | Right-click charts | Alt+Drag pan
           </div>
         )}
       </div>
@@ -1267,6 +1324,27 @@ const Canvas = forwardRef(({
               title="Create multi-component chart"
             >
               📊 Chart...
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedConnectionIds.length > 1 && (
+        <div className="multi-select-counter">
+          <div className="multi-select-badge">
+            <span className="multi-select-check">✓</span>
+            <span className="multi-select-count">
+              {selectedConnectionIds.length} lines selected
+            </span>
+          </div>
+          <div className="multi-select-actions">
+            <button
+              type="button"
+              className="multi-select-btn clear-btn"
+              onClick={onClearConnectionMultiSelection}
+              title="Clear line selection (Escape)"
+            >
+              Clear
             </button>
           </div>
         </div>
@@ -1301,8 +1379,17 @@ const Canvas = forwardRef(({
         <MultiComponentContextMenu
           position={contextMenu.position}
           components={contextMenu.components}
+          variableDrivenPresence={variableDrivenPresence}
           onClose={() => setContextMenu(null)}
           onSelectChartType={handleMultiComponentChartTypeSelected}
+          onConfigureVariablePresence={
+            simulationColumns.length > 0 && onOpenVariablePresenceDialog
+              ? () => {
+                  onOpenVariablePresenceDialog(contextMenu.components);
+                  setContextMenu(null);
+                }
+              : undefined
+          }
           onSetInitialSimStatus={
             mode === 'design'
               ? (status) => {
@@ -1314,7 +1401,24 @@ const Canvas = forwardRef(({
           }
         />
       )}
-      
+
+      {contextMenu && contextMenu.type === 'multi-connection' && (
+        <MultiConnectionContextMenu
+          position={contextMenu.position}
+          connections={contextMenu.connections}
+          variableDrivenPresence={variableDrivenPresence}
+          onClose={() => setContextMenu(null)}
+          onConfigureVariablePresence={
+            simulationColumns.length > 0 && onOpenVariablePresenceDialogConnections
+              ? () => {
+                  onOpenVariablePresenceDialogConnections(contextMenu.connections);
+                  setContextMenu(null);
+                }
+              : undefined
+          }
+        />
+      )}
+
       {/* Multi-Component Chart Configuration Dialog */}
       {showMultiChartDialog && (
         <MultiComponentChartDialog

@@ -93,7 +93,7 @@ export function groupColumnsByEnsembleMember(items) {
 
 export function pickTimeColumn(columns) {
   if (!columns?.length) return null;
-  const candidates = ['Time (s)', 'time_sec', 'Time', 'time'];
+  const candidates = ['Time (s)', 'time_sec', 'Time', 'time', 't'];
   for (const c of candidates) {
     if (columns.includes(c)) return c;
   }

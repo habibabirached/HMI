@@ -34,6 +34,7 @@ export default function CanvasComponentBody({
   height,
   strokeColor,
   strokeWidthVal,
+  presentationOffline = false,
 }) {
   const p = passthrough(
     component,
@@ -117,6 +118,8 @@ export default function CanvasComponentBody({
           height={height}
           strokeColor={strokeColor}
           zigzagColor={visualConfig.color}
+          strokeWidthVal={strokeWidthVal}
+          presentationOffline={presentationOffline}
           primaryLabel={canvasPrimaryText}
           secondaryLabel={canvasSecondaryText}
         />
@@ -130,6 +133,9 @@ export default function CanvasComponentBody({
           height={height}
           primaryLabel={canvasPrimaryText}
           mvaLabel={canvasSecondaryText}
+          strokeColor={strokeColor}
+          strokeWidthVal={strokeWidthVal}
+          presentationOffline={presentationOffline}
           lineColor={visualConfig.color}
           textureHref={visualConfig.backgroundTexture}
           textureOpacity={textureOpacity}
