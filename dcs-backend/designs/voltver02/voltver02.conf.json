@@ -8365,9 +8365,64 @@
     "simulationRunning": false,
     "zoom": 1.1999999999999993,
     "pan": {
-      "x": -173.02584735213986,
-      "y": -229.97201478969828
+      "x": -155.02584735213986,
+      "y": -260.9720147896983
     },
     "mode": "design"
-  }
+  },
+  "variableDrivenPresence": [
+    {
+      "id": "vdp-1777935735684",
+      "column": "_LM2500_1 \u2014 P_g1",
+      "componentIds": [
+        "comp-turbine-1",
+        "comp-gsu-gen-1",
+        "comp-ct-gen-800-1",
+        "comp-gen-cb-1"
+      ],
+      "connectionIds": [],
+      "when": "lte",
+      "threshold": 0.08
+    },
+    {
+      "id": "vdp-1777935797807",
+      "column": "_LM2500_1 \u2014 P_g1",
+      "componentIds": [],
+      "connectionIds": [
+        "conn-154"
+      ],
+      "when": "lte",
+      "threshold": 0.08
+    },
+    {
+      "id": "vdp-1777935808678",
+      "column": "_LM2500_1 \u2014 P_g1",
+      "componentIds": [],
+      "connectionIds": [
+        "conn-155"
+      ],
+      "when": "lte",
+      "threshold": 0.08
+    },
+    {
+      "id": "vdp-1777935827190",
+      "column": "_LM2500_1 \u2014 P_g1",
+      "componentIds": [],
+      "connectionIds": [
+        "conn-156"
+      ],
+      "when": "lte",
+      "threshold": 0.08
+    },
+    {
+      "id": "vdp-1777935840343",
+      "column": "_LM2500_1 \u2014 P_g1",
+      "componentIds": [],
+      "connectionIds": [
+        "conn-157"
+      ],
+      "when": "lte",
+      "threshold": 0.08
+    }
+  ]
 }

@@ -480,6 +480,7 @@ function SaveLoadDialog({
                 <ul>
                   <li>{snapshot?.canvasComponents?.length || 0} component(s)</li>
                   <li>{snapshot?.connections?.length || 0} connection(s)</li>
+                  <li>{snapshot?.variableDrivenPresence?.length ?? 0} variable-driven rule(s)</li>
                   <li>Current zoom and pan settings</li>
                   <li>Simulation state</li>
                   {snapshot?.chartPanelState?.openCharts?.length > 0 && (

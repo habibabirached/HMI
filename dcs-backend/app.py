@@ -268,12 +268,14 @@ def save_config_to_design_dir(
         conf_path = resolve_conf_json_path_for_write(dir_path, leaf)
         conf_abs = os.path.abspath(conf_path)
         print(f"[DEBUG] save_config_to_design_dir: conf_path={conf_path} -> abs={conf_abs}")
+        _vdp = data.get("variableDrivenPresence")
         conf_data = {
             "name": config_name,
             "description": description or "",
             "canvasComponents": data.get("canvasComponents", []),
             "connections": data.get("connections", []),
-            "systemState": data.get("systemState", {"simulationRunning": False, "zoom": 1, "pan": {"x": 0, "y": 0}})
+            "systemState": data.get("systemState", {"simulationRunning": False, "zoom": 1, "pan": {"x": 0, "y": 0}}),
+            "variableDrivenPresence": _vdp if isinstance(_vdp, list) else [],
         }
         with open(conf_path, 'w') as f:
             json.dump(conf_data, f, indent=2)
@@ -289,6 +291,7 @@ def save_config_to_design_dir(
 
 def canvas_data_from_conf_file(conf: dict) -> dict:
     """Build the canvas `data` object from a design .conf.json dict (same keys as DB storage)."""
+    _vdp = conf.get("variableDrivenPresence")
     return {
         "canvasComponents": conf.get("canvasComponents", []),
         "connections": conf.get("connections", []),
@@ -296,6 +299,7 @@ def canvas_data_from_conf_file(conf: dict) -> dict:
             "systemState",
             {"simulationRunning": False, "zoom": 1, "pan": {"x": 0, "y": 0}},
         ),
+        "variableDrivenPresence": _vdp if isinstance(_vdp, list) else [],
     }
 
 

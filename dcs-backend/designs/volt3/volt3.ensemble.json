@@ -22,69 +22,7 @@
         "_Main"
       ],
       "chart_panel": {
-        "charts_to_display": [
-          {
-            "type": "single",
-            "component_id": "comp-bus-left",
-            "chart_type": "2d",
-            "x_column": "t",
-            "y_column": "V_g7",
-            "title": "34.5kV Bus Voltage (left)",
-            "ensemble_sim_id": "_LM2500_7",
-            "x_label": "Time, s",
-            "y_label": "Voltage, pu",
-            "axis_range": {
-              "y_min": 0.9,
-              "y_max": 1.1,
-              "y_locked": true
-            }
-          },
-          {
-            "type": "single",
-            "component_id": "comp-bus-left",
-            "chart_type": "2d",
-            "x_column": "t",
-            "y_column": "Vrms_BESS_1",
-            "title": "34.5kV Bus Voltage (right)",
-            "ensemble_sim_id": "_BESS_1",
-            "x_label": "Time, s",
-            "y_label": "Voltage, pu",
-            "axis_range": {
-              "y_min": 0.9,
-              "y_max": 1.1,
-              "y_locked": true
-            }
-          },
-          {
-            "type": "single",
-            "component_id": "comp-bus-left",
-            "chart_type": "pie",
-            "x_column": "_BESS_1 — t",
-            "y_columns": [
-              "formula — All_LM_Power",
-              "formula — All_BESS_Power"
-            ],
-            "title": "LM2500 vs BESS",
-            "ensemble_cross_member": true,
-            "legend_labels": {
-              "formula — All_LM_Power": "Total LM2500 Power",
-              "formula — All_BESS_Power": "Total BESS Power"
-            }
-          },
-          {
-            "type": "single",
-            "component_id": "comp-bus-left",
-            "chart_type": "pie",
-            "x_column": "_BESS_1 — t",
-            "y_columns": [
-              "_LM2500_1 — P_g1",
-              "formula — All_LM_Power"
-            ],
-            "title": "LM2500 #1 vs All LM2500 ",
-            "ensemble_cross_member": true,
-            "x_label": "_BESS_1 — t"
-          }
-        ],
+        "charts_to_display": [],
         "chart_stacks": [],
         "chart_sample_default": 4,
         "chart_panel_height": 350,

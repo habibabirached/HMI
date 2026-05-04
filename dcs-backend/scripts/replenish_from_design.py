@@ -39,10 +39,12 @@ DESIGNS_ROOT = os.path.join(_backend_dir, "designs")
 
 def build_config_data_from_conf(conf: dict) -> dict:
     """Build the 'data' dict for Configuration from a design .conf.json."""
+    _vdp = conf.get("variableDrivenPresence")
     return {
         "canvasComponents": conf.get("canvasComponents", []),
         "connections": conf.get("connections", []),
         "systemState": conf.get("systemState", {"simulationRunning": False, "zoom": 1, "pan": {"x": 0, "y": 0}}),
+        "variableDrivenPresence": _vdp if isinstance(_vdp, list) else [],
     }
 
 
