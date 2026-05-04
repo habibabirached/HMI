@@ -1,5 +1,5 @@
 {
-  "name": "Volt3",
+  "name": "voltver02",
   "description": "",
   "canvasComponents": [
     {
@@ -8362,7 +8362,7 @@
     }
   ],
   "systemState": {
-    "simulationRunning": true,
+    "simulationRunning": false,
     "zoom": 1.6999999999999997,
     "pan": {
       "x": 508.97415264786014,
